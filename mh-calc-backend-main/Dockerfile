@@ -1,6 +1,6 @@
 # IziGo backend (Laravel) — образ для Azure Container Apps. Фаза 0: baseline-деплой.
 # Прод-уровень (php-fpm+nginx/Octane) — доработать в Фазе 1; сейчас artisan serve для smoke.
-FROM php:8.4-cli AS base
+FROM php:8.3-cli AS base
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
         libpq-dev libzip-dev libonig-dev unzip git \
