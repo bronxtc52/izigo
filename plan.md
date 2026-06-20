@@ -60,8 +60,16 @@ tester (прогон unit-suite + проверка, что витрина жив
 Следующий цикл Фазы 1: нормализованная генеалогия (Postgres ltree/closure) + реальные члены
 сети + перевод витрины на ядро + API/кабинет.
 
-## БЛОКЕР (облако) — нужен ты
-- `git push` в GitHub и `az acr build`/деплой заблокированы HARD-предохранителем харнесса
-  (выгрузка исходника во внешний сервис). Сообщение в чате его НЕ снимает.
-- Разблок: добавить Bash permission rule в settings (на `git push`/`gh`/`az`) ИЛИ выполнить
-  `DEPLOY.md` вручную. Локально 5 коммитов готовы к пушу.
+## ОБЛАКО: ЗАДЕПЛОЕНО ✅ (Azure Container Apps, rg-izigo-beta-neu)
+- GitHub: bronxtc52/izigo (push прошёл после создания репо пользователем).
+- CI (GitHub Actions, OIDC→ACR) собирает образы из репо; первый деплой — apps созданы вручную
+  с готовыми образами, дальше CI `update` обновляет их по push.
+- Backend: https://ca-izigo-backend.livelycoast-2b4dcf83.northeurope.azurecontainerapps.io
+- Frontend: https://ca-izigo-frontend.livelycoast-2b4dcf83.northeurope.azurecontainerapps.io
+- Postgres Flexible B1ms (izigo-pg-beta) + БД izigo; секреты (DB pass, APP_KEY) — Key Vault
+  через managed identity id-izigo. Проверено: пакеты Bronze/Silver/Gold, форма IziGo — 200.
+
+### Остаточная полировка (не критично)
+- Sentry: создать проект izigo + DSN в KV izigo--beta--SENTRY-DSN (нужен свой токен) → задеплоить env.
+- server-watchdog: добавить rg-izigo-beta-neu в AZURE_RESOURCE_GROUPS (на mh-central).
+- Azure Monitor алёрты ACA (CPU/RAM/доступность).
