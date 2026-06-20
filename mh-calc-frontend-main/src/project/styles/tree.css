@@ -1,0 +1,97 @@
+path.rd3t-link {
+    stroke: var(--greyColor_3);
+    stroke-width: 1px;
+}
+
+.rd3t-tree-container {
+    flex-grow: 1;
+    width: 100%;
+    height: auto !important;
+}
+
+.rd3t-node .node-item,
+.rd3t-leaf-node .node-item {
+    display: flex;
+    border-radius: 16px;
+    padding: 14px;
+    margin: 0 auto;
+}
+
+.rd3t-node .node-item.node-item-volumes,
+.rd3t-leaf-node .node-item.node-item-volumes {
+    /* margin: 0 20px; */
+    min-height: 164px;
+}
+
+.rd3t-node .no-node,
+.rd3t-leaf-node .no-node {
+    padding: 14px;
+    margin: 0 auto;
+    /* margin-top: 30px; */
+    background: #f0f1f5;
+    border-radius: 16px;
+    font-weight: normal;
+    font-size: 18px;
+    line-height: 21px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    color: #6f717c;
+}
+
+.rd3t-node .tree-more span {
+    width: 2px;
+    height: 16px;
+    background: #c7ccda;
+}
+
+.rd3t-leaf-node .tree-volume,
+.treeItem .tree-volume {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: fit-content;
+    min-width: 100%;
+    font-weight: 500;
+    font-size: 14px;
+    color: #fff;
+    border-radius: 8px;
+    margin: -10px auto 0 auto;
+    overflow: hidden;
+}
+
+.rd3t-leaf-node .tree-volume.tree-volume-browser,
+.treeItem .tree-volume.tree-volume-browser {
+    margin: -12px auto;
+    transform: translateY(0);
+}
+
+.rd3t-leaf-node .tree-volume>div,
+.treeItem .tree-volume>div {
+    padding: 4px 12px;
+    display: flex;
+    white-space: nowrap;
+}
+
+.rd3t-leaf-node.node__leaf .treeItem .node-item,
+.node__branch .treeItem .node-item {
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
+    transition: 0.1s all linear;
+}
+
+.rd3t-leaf-node.node__leaf .treeItem .node-item:not(.deleted-item):hover,
+.node__branch .treeItem .node-item:not(.deleted-item):hover {
+    box-shadow: 0 0 1px 1px rgba(0, 0, 0, 0.1);
+}
+
+.rd3t-leaf-node.node__leaf .treeItem .node-item.deleted-item,
+.node__branch .treeItem .node-item.deleted-item,
+.rd3t-leaf-node.node__leaf .treeItem .node-item.no-node,
+.node__branch .treeItem .node-item.no-node {
+    cursor: grab;
+}
+
+.node__root .treeItem .node-item {
+    border: 2px solid #435fc5;
+}

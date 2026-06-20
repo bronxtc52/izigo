@@ -1,0 +1,4 @@
+{
+    "(and :count more error)" :  "Мөн :count алдаа байна.",
+    "(and :count more errors)" :  "Мөн :count алдаанууд байна."
+}

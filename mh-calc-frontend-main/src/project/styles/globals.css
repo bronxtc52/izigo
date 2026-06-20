@@ -1,0 +1,93 @@
+:root {
+  --whiteColor: #ffffff;
+  --darkColor: rgb(16, 24, 32);
+  --foreground: #171717;
+  --greyColor_1: rgb(114, 117, 129);
+  --greyColor_2: rgb(143, 146, 161);
+  --greyColor_3: rgb(203, 205, 216);
+
+
+  /* blue */
+  --blueDarkColor: rgb(8, 62, 133);
+  --blueExtraDarkColor: rgb(32, 54, 101);
+  /* Calculator LAYOUT */
+  --backgroundColorWrapper_calculator: rgb(247, 247, 249);
+  --redErrorColor: rgb(211, 53, 33);
+}
+
+html,
+body {
+  max-width: 100vw;
+  overflow-x: hidden;
+}
+
+html {
+  font-size: 16px;
+}
+
+body {
+  color: var(--foreground);
+  background: var(--whiteColor);
+  font-family: var(--font-muller);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  box-sizing: border-box;
+  padding: 0;
+  margin: 0;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+ul {
+  list-style-type: none;
+}
+
+@media (prefers-color-scheme: dark) {
+  html {
+    color-scheme: dark;
+  }
+}
+
+.custom-scroll {
+  scrollbar-width: auto;
+  scrollbar-color: auto;
+  padding-right: 4px;
+}
+
+.custom-scroll::-webkit-scrollbar {
+  width: 4px;
+}
+
+.custom-scroll::-webkit-scrollbar-thumb {
+  background: #083E85;
+  border-radius: 10px;
+}
+
+.custom-scroll::-webkit-scrollbar-track {
+  background: #ebebeb;
+  border-radius: 10px;
+}
+
+@media (max-width: 1760px) {
+  html {
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 1560px) {
+  html {
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 1170px) {
+  html {
+    font-size: 16px;
+  }
+}

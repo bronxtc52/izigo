@@ -1,0 +1,20 @@
+.copyWrap {
+    position: absolute;
+    right: 0;
+    top: 0;
+    width: 3rem;
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    fill: var(--greyColor_1);
+    cursor: pointer;
+
+    &:hover {
+        fill: var(--blueDarkColor);
+    }
+}
+.copySvg {
+    width: 1.2rem;
+    height: 1.2rem;
+}

@@ -1,0 +1,324 @@
+.wrapper {
+    position: relative;
+    width: 100%;
+    box-sizing: border-box;
+    padding: 1.5rem;
+
+    @media (max-width: 1170px) {
+        padding: 0;
+        position: fixed;
+        left: 0;
+        top: 0;
+        z-index: 9;
+    }
+}
+.headerWrapper {
+    position: relative;
+    width: 100%;
+    border-radius: 20px;
+    background-color: var(--whiteColor);
+    transition: height 0.3s;
+
+    @media (max-width: 1170px) {
+        border-radius: 0 0 1.5rem 1.5rem;
+        height: 104px;
+        z-index: 4;
+    }
+}
+.showDataHeader_height_auto {
+    transition: height 0.3s;
+    height: auto;
+}
+.headerRow {
+    display: flex;
+    justify-content: space-between;
+}
+.headerRowItem_right,
+.headerRowItem_left {
+    display: flex;
+}
+.headerRowItem_left {
+    width: 100%;
+    .item {
+        flex-grow: 1;
+        border-right: 4px solid var(--backgroundColorWrapper_calculator);
+
+        &:last-child {
+            border-right: 4px solid transparent;
+
+            @media (max-width: 1170px) {
+                border-right: 0px solid transparent;
+            }
+        }
+
+        @media (max-width: 1170px) {
+            border-right: 0px solid transparent;
+        }
+    }
+}
+.headerRowItem_right {
+    .item {
+        border-left: 4px solid var(--backgroundColorWrapper_calculator);
+
+        @media (max-width: 1170px) {
+            border-right: 0px solid transparent;
+        }
+    }
+}
+.item {
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    box-sizing: border-box;
+    padding: 1.5rem;
+
+    @media (max-width: 1560px) {
+        padding: 1.25rem;
+    }
+    @media (max-width: 1170px) {
+        padding: 1rem 1rem 1.5rem 1rem;
+    }
+    @media (max-width: 560px) {
+        padding: 0.75rem 0.75rem 1.25rem 0.75rem;
+    }
+}
+.itemContent {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    width: 100%;
+}
+.itemContentTop {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+
+    @media (max-width: 1170px) {
+        position: relative;
+    }
+}
+.menuIconWrapper {
+    display: none;
+
+    @media (max-width: 1170px) {
+        display: flex;
+        align-items: center;
+        width: fit-content;
+        fill: var(--darkColor);
+        transition: all 0.3s;
+    }
+
+    &:hover {
+        fill: var(--blueDarkColor);
+    }
+    .menuIconSvg {
+        width: 1.5rem;
+        height: 1.5rem;
+    }
+}
+.itemContentTop_title {
+    font-weight: 400;
+    font-size: 0.875rem;
+    line-height: 1.2;
+    color: var(--greyColor_1);
+
+    @media (max-width: 1170px) {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+        text-align: center;
+    }
+}
+.itemContentTop_value {
+    font-size: 1rem;
+    font-weight: 700;
+    color: rgb(88, 122, 32);
+    padding-left: 1rem;
+    white-space: nowrap;
+
+    @media (max-width: 560px) {
+        font-size: 0.875rem;
+    }
+}
+.itemContentBottom {
+    width: 100%;
+}
+.itemContentBottom_value {
+    font-size: 1.5rem;
+    line-height: 1.2;
+    font-weight: 700;
+    color: var(--darkColor);
+    white-space: nowrap;
+
+    @media (max-width: 1170px) {
+        width: 100%;
+        text-align: center;
+        display: block;
+    }
+}
+.itemContentBottom_value_l {
+    font-size: 2.5rem;
+    color: var(--blueDarkColor);
+    line-height: 1;
+}
+
+// instructions wrapper
+.instructionsWrapper {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+}
+
+// lang Currency  wrapper
+.langCurrencyWrapper {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+// headerMobileBtns
+.headerMobileBtn_position {
+    position: absolute;
+    left: 50%;
+    bottom: 0;
+    transform: translate(-50%, 50%);
+    width: 100%;
+    z-index: 5;
+}
+.headerMobileBtn {
+    display: flex;
+    justify-content: center;
+}
+.headerMobileBtn_item {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: 1px solid rgba(114, 117, 129, 0.2);
+    background-color: var(--whiteColor);
+    margin: 0 12px;
+    fill: var(--darkColor);
+    transition: all 0.3s;
+
+    .headerMobileBtnItem_svg {
+        width: 1.25rem;
+        height: 1.25rem;
+        fill: inherit;
+        transition: all 0.3s;
+    }
+    .headerMobileBtnItem_svg_rotate {
+        transform: rotate(180deg);
+    }
+
+    &:hover {
+        fill: var(--blueDarkColor);
+    }
+}
+
+.headerMobileData_wrapper {
+    background-color: var(--whiteColor);
+    border-radius: 0 0 1.5rem 1.5rem;
+
+    @media (max-width: 1560px) {
+        padding: 0 1.25rem 1.25rem 1.25rem;
+    }
+    @media (max-width: 1170px) {
+        padding: 0 1rem 1.5rem 1rem;
+    }
+    @media (max-width: 560px) {
+        padding: 0 0.75rem 1.25rem 0.75rem;
+    }
+}
+.headerMobileData_row {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    padding: 10px 0;
+    border-bottom: 1px solid rgba(114, 117, 129, 0.1);
+
+    &:last-child {
+        border-bottom: 1px solid transparent;
+    }
+}
+.headerMobileData_row_l {
+    width: 50%;
+    min-width: 50%;
+}
+.headerMobileData_row_r {
+    width: 50%;
+    min-width: 50%;
+}
+.headerMobileData_value,
+.headerMobileData_title {
+    font-size: 0.875rem;
+    color: var(--greyColor_1);
+    line-height: 1rem;
+    font-weight: 400;
+
+    @media (max-width: 768px) {
+        font-size: 0.75rem;
+    }
+}
+.headerMobileData_value {
+    font-weight: 700;
+    font-size: 1.125rem;
+    color: var(--darkColor);
+
+    @media (max-width: 768px) {
+        font-size: 1rem;
+    }
+}
+
+// HEADER OVERLAY
+
+.headerOverlayBackdrop {
+    position: fixed;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(16, 24, 32, 0.6);
+    z-index: 3;
+}
+// animation headerOverlay
+.headerOverlayEnter {
+    opacity: 0;
+}
+
+.headerOverlayEnterActive {
+    opacity: 1;
+    transition: all 100ms;
+}
+
+.headerOverlayExit {
+    opacity: 1;
+}
+.headerOverlayExitActive {
+    opacity: 0;
+    transition: all 100ms;
+}
+// animation menu
+.menuEnter {
+    transform: translateX(-100%);
+}
+
+.menuEnterActive {
+    transform: translateX(0%);
+    transition: all 300ms;
+}
+
+.menuExit {
+    transform: translateX(0%);
+}
+.menuExitActive {
+    transform: translateX(-100%);
+    transition: all 300ms;
+}

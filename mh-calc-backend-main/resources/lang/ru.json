@@ -1,0 +1,4 @@
+{
+    "(and :count more error)" :  "И еще одна ошибка.",
+    "(and :count more errors)" :  "И еще несколько ошибок."
+}

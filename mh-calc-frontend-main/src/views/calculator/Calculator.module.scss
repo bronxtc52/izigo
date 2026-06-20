@@ -1,0 +1,63 @@
+@import "../../project/styles/uikit.scss";
+
+.calculatorWrapper {
+    display: flex;
+    flex-direction: column;
+    @include containerCalculator;
+    flex-grow: 1;
+}
+.content {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    flex-grow: 0.95;
+    width: 100%;
+
+    @media (max-width: 1170px) {
+        padding-top: 120px; // Высота header + отступ 16px
+    }
+}
+.structureButtons {
+    position: absolute;
+    left: 1.5rem;
+    top: 0;
+    z-index: 99;
+
+    @media (max-width: 1170px) {
+        display: none;
+    }
+}
+.structureButton {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    fill: var(--darkColor);
+    width: 3.75rem;
+    height: 3.75rem;
+    border-radius: 50%;
+    border: 1px solid rgba(114, 117, 129, 0.2);
+    background-color: var(--whiteColor);
+    transition: all 0.3s;
+    cursor: pointer;
+    margin-bottom: 0.5rem;
+
+    &:hover {
+        fill: var(--blueDarkColor);
+    }
+
+    &:last-child {
+        margin-bottom: 0;
+    }
+}
+.structureButton__tooltip {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.structureButton_svg {
+    width: 1.5rem;
+    height: 1.5rem;
+    fill: inherit;
+}

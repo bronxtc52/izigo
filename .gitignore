@@ -1,0 +1,25 @@
+# OS
+.DS_Store
+
+# Архивы исходных распаковок
+*.zip
+
+# Ресёрч-кэш Firecrawl
+.firecrawl/
+
+# Зависимости (подстраховка к вложенным .gitignore подпроектов)
+**/vendor/
+**/node_modules/
+**/.next/
+
+# Секреты и локальные конфиги
+**/.env
+**/.env.local
+**/.env.*.local
+
+# Laravel runtime
+**/storage/*.key
+**/database/*.sqlite
+
+# Логи
+*.log

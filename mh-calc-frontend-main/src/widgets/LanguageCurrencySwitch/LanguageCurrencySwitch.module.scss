@@ -1,0 +1,27 @@
+.wrapperBtn {
+    display: flex;
+    align-items: center;
+    position: relative;
+    cursor: pointer;
+}
+.localizationIconSvg {
+    fill: var(--darkColor);
+    width: 1.75rem;
+    height: 1.75rem;
+    transition: all 0.4s;
+     
+    &:hover {
+        fill: var(--blueDarkColor);
+    }
+}
+.modalWrapper {
+    width: 100%;
+}
+.modalBtnWrap {
+    display: flex;
+    justify-content: center;
+}
+
+.modalLangCurrencyWrap {
+    max-width: 500px !important;
+}

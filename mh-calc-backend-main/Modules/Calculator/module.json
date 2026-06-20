@@ -1,0 +1,11 @@
+{
+    "name": "Calculator",
+    "alias": "calculator",
+    "description": "",
+    "keywords": [],
+    "priority": 0,
+    "providers": [
+        "Modules\\Calculator\\Providers\\CalculatorServiceProvider"
+    ],
+    "files": []
+}

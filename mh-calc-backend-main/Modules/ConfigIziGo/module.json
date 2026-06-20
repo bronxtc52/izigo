@@ -1,0 +1,11 @@
+{
+    "name": "ConfigIziGo",
+    "alias": "configizigo",
+    "description": "",
+    "keywords": [],
+    "priority": 0,
+    "providers": [
+        "Modules\\ConfigIziGo\\Providers\\ConfigIziGoServiceProvider"
+    ],
+    "files": []
+}

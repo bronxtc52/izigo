@@ -1,0 +1,118 @@
+.wrapperModal {
+    position: fixed;
+    right: 0;
+    top: 0;
+    width: 480px;
+    height: 100%;
+    background-color: var(--whiteColor);
+    box-shadow: 0px 10px 15px -3px rgba(233, 233, 236, 1);
+    display: flex;
+    flex-direction: column;
+    z-index: 10;
+
+    @media (max-width: 560px) {
+        width: 100%;
+    }
+}
+.paddingContent {
+    padding: 1.5rem;
+
+    @media (max-width: 768px) {
+        padding: 1rem;
+    }
+}
+.headerWrapper {
+    width: 100%;
+    border-bottom: 4px solid var(--backgroundColorWrapper_calculator);
+}
+.headerRow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+.headerTitle {
+    width: 100%;
+}
+.headerTitle_text {
+    font-size: 1.25rem;
+    line-height: 1.5rem;
+    color: var(--darkColor);
+    font-weight: 700;
+
+    @media (max-width: 768px) {
+        font-size: 1rem;
+        line-height: 1.25rem;
+    }
+}
+.headerClose {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    fill: var(--greyColor_3);
+    transition: all 0.3s;
+    cursor: pointer;
+
+    &:hover {
+        fill: var(--blueDarkColor);
+    }
+}
+.headerCloseIcon {
+    width: 1.5rem;
+    height: 1.5rem;
+    fill: inherit;
+}
+.cotent {
+    width: 100%;
+    flex-grow: 1;
+    overflow: hidden;
+}
+.logItemWrapper {
+    width: 100%;
+    border-bottom: 4px solid var(--backgroundColorWrapper_calculator);
+
+    &:last-child {
+        border-bottom: 1px solid transparent;
+    }
+}
+
+// ==== text ====
+.logItem_row {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid rgba(114, 117, 129, 0.1);
+
+    &:last-child {
+        border-bottom: 1px solid transparent;
+    }
+}
+.text_default {
+    font-size: 1rem;
+    color: rgba(52, 54, 66);
+    line-height: 1.5rem;
+
+    @media (max-width: 768px) {
+        font-size: 0.875rem;
+        line-height: 1.25rem;
+    }
+}
+
+// animation menu
+.infoEnter {
+    transform: translateX(100%);
+}
+
+.infoEnterActive {
+    transform: translateX(0%);
+    transition: all 300ms;
+}
+
+.infoExit {
+    transform: translateX(0%);
+}
+.infoExitActive {
+    transform: translateX(100%);
+    transition: all 300ms;
+}

@@ -1,0 +1,30 @@
+{
+    "name": "nwidart/calculator",
+    "description": "",
+    "authors": [
+        {
+            "name": "Nicolas Widart",
+            "email": "n.widart@gmail.com"
+        }
+    ],
+    "extra": {
+        "laravel": {
+            "providers": [],
+            "aliases": {
+            }
+        }
+    },
+    "autoload": {
+        "psr-4": {
+            "Modules\\Calculator\\": "",
+            "Modules\\Calculator\\App\\": "app/",
+            "Modules\\Calculator\\Database\\Factories\\": "database/factories/",
+            "Modules\\Calculator\\Database\\Seeders\\": "database/seeders/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Modules\\Calculator\\Tests\\": "tests/"
+        }
+    }
+}

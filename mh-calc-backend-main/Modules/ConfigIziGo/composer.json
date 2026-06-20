@@ -1,0 +1,30 @@
+{
+    "name": "nwidart/configizigo",
+    "description": "",
+    "authors": [
+        {
+            "name": "Nicolas Widart",
+            "email": "n.widart@gmail.com"
+        }
+    ],
+    "extra": {
+        "laravel": {
+            "providers": [],
+            "aliases": {
+            }
+        }
+    },
+    "autoload": {
+        "psr-4": {
+            "Modules\\ConfigIziGo\\": "",
+            "Modules\\ConfigIziGo\\App\\": "app/",
+            "Modules\\ConfigIziGo\\Database\\Factories\\": "database/factories/",
+            "Modules\\ConfigIziGo\\Database\\Seeders\\": "database/seeders/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Modules\\ConfigIziGo\\Tests\\": "tests/"
+        }
+    }
+}

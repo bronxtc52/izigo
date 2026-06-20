@@ -1,0 +1,73 @@
+.wrapper {
+    width: 100%;
+    border-radius: 32px;
+    background-color: var(--whiteColor);
+    overflow: hidden;
+    margin-bottom: 8px;
+
+    &:last-child {
+        margin-bottom: 0;
+    }
+}
+.top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.25rem 1.5rem;
+    cursor: pointer;
+}
+.topTitle {
+    padding-right: 10px;
+}
+.topTitle_text {
+    font-size: 0.875rem;
+    font-weight: 700;
+    color: var(--darkColor);
+    line-height: 1.2;
+}
+.topArrow {
+    display: flex;
+    align-items: center;
+}
+.topArrowSvg {
+    width: 1.5rem;
+    height: 1.5rem;
+    fill: var(--darkColor);
+    transition: all 0.3s;
+}
+.topArrowSvg_active {
+    fill: var(--blueDarkColor);
+    transform: rotate(180deg);
+}
+.topArrowSvg_link {
+    transform: rotate(-90deg);
+}
+.answerWrapper {
+    width: 100%;
+    border-top: 4px solid var(--backgroundColorWrapper_calculator);
+    padding: 1.25rem 1.5rem;
+}
+
+// answer animation
+.answerEnter {
+    height: 0;
+    opacity: 0;
+    overflow: hidden;
+}
+
+.answerEnterActive {
+    height: auto;
+    opacity: 1;
+    transition: all 300ms ease-in-out;
+}
+
+.answerExit {
+    height: auto;
+    opacity: 1;
+    overflow: hidden;
+}
+.answerExitActive {
+    height: 0;
+    opacity: 0;
+    transition: all 300ms ease-in-out;
+}
