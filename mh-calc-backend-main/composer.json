@@ -13,6 +13,7 @@
         "laravel/sanctum": "^3.3",
         "laravel/tinker": "^2.8",
         "nwidart/laravel-modules": "^10.0",
+        "sentry/sentry-laravel": "^4.26",
         "spatie/laravel-data": "4.10.1"
     },
     "require-dev": {
