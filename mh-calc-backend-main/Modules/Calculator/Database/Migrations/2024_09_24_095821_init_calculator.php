@@ -72,8 +72,8 @@ return new class extends Migration {
             $table->id();
             $table->foreignId('calculator_package_id')->constrained()->onDelete('cascade');
             $table->string('locale', 5)->index();
-            $table->float('pv', 20, 2)->default(0);
-            $table->float('bv', 20, 2)->default(0);
+            $table->decimal('pv', 20, 2)->default(0);
+            $table->decimal('bv', 20, 2)->default(0);
 
             $table->unique(['calculator_package_id', 'locale']);
         });

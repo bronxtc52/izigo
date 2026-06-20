@@ -13,7 +13,7 @@ return new class extends Migration {
     public function up(): void
     {
         Schema::table('calculator_ranks', function (Blueprint $table) {
-            $table->float('binary_small_branch_volume')->default(0)->comment('Объем малой ветки бинара');
+            $table->decimal('binary_small_branch_volume', 20, 2)->default(0)->comment('Объем малой ветки бинара');
             $table->integer('personal_count')->default(0)->comment('personal_count лично приглашенных');
             $table->integer('personal_in_rank_count')->default(0)->comment('personal_in_rank_count лично приглашенных в ранге personal_in_rank_id');
             $table->integer('personal_in_rank_id')->default(0)->comment('personal_in_rank_count лично приглашенных в ранге personal_in_rank_id');

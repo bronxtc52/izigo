@@ -15,7 +15,7 @@ return new class extends Migration {
             $table->id();
             $table->foreignId('calculator_rank_id')->constrained()->onDelete('cascade');
             $table->string('locale', 5)->index();
-            $table->float('rank_bonus_amount', 20, 2)->default(0);
+            $table->decimal('rank_bonus_amount', 20, 2)->default(0);
             $table->unique(['calculator_rank_id', 'locale']);
         });
 
