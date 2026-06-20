@@ -72,4 +72,4 @@ tester (прогон unit-suite + проверка, что витрина жив
 ### Остаточная полировка (не критично)
 - Sentry: создать проект izigo + DSN в KV izigo--beta--SENTRY-DSN (нужен свой токен) → задеплоить env.
 - server-watchdog: добавить rg-izigo-beta-neu в AZURE_RESOURCE_GROUPS (на mh-central).
-- Azure Monitor алёрты ACA (CPU/RAM/доступность).
+- [x] Azure Monitor алёрты ACA: restart/CPU/RAM (backend) + restart (frontend) -> ag-mh-central-notify.

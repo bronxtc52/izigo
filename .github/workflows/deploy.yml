@@ -7,6 +7,9 @@ name: Deploy IziGo to Azure Container Apps
 on:
   push:
     branches: [main, chore/phase-0-foundation]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
   workflow_dispatch:
 
 permissions:
