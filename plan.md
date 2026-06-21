@@ -1,3 +1,152 @@
+# План: Фаза 3 — Финансовое ядро (ledger + e-wallet + выводы)
+
+**ТЗ:** `docs/specs/2026-06-21-phase3-financial-core.md`. (Гейт 2 — план, без кода.)
+**Модель:** реалтайм-зачисление при активации; MVP = ledger + wallet + выводы (ручная выплата).
+Предыдущие планы (Telegram-only, Фаза 1ц2+2) — ниже как архив.
+
+## A. Целевая архитектура
+
+### Двойная запись (счета)
+Деньги — целые центы (`Domain/ValueObject/Money`), `decimal(20,2)` в БД. Каждая операция = группа
+проводок, где `Σ debit = Σ credit`. Счета (`account_type`):
+- `company_commission_expense` — расход компании на бонусы (member_id = NULL).
+- `member_available` — доступный баланс партнёра (обязательство компании перед ним).
+- `member_held` — средства в холде под заявку на вывод.
+- `company_payouts_paid` — выплачено наружу (member_id = NULL).
+- `member_clawback_debt` — долг партнёра при отрицательной коррекции (clawback), гасится
+  будущими начислениями.
+
+Проводки операций:
+- **Начисление (дельта +X у узла):** Dr `company_commission_expense` X / Cr `member_available` X.
+- **Коррекция (дельта −Y):** Dr `member_available` Y / Cr `company_commission_expense` Y.
+  Если `available < Y` — уводим available только до 0, остаток Z в долг:
+  Dr `company_commission_expense` Z / Cr `member_clawback_debt` Z (clawback).
+- **Заявка на вывод (холд):** Dr `member_available` X / Cr `member_held` X.
+- **Отклонение/отмена (возврат холда):** Dr `member_held` X / Cr `member_available` X.
+- **Выплачено (paid):** Dr `member_held` X / Cr `company_payouts_paid` X.
+- **Гашение долга будущим начислением:** часть новой дельты сначала закрывает `member_clawback_debt`
+  (Dr `member_clawback_debt` / Cr `company_commission_expense`), остаток — в `member_available`.
+
+### Хранение
+- `ledger_entries` (append-only, иммутабельный): `id`, `tx_id` (группа проводок), `member_id` (nullable),
+  `account_type`, `direction` (debit|credit), `amount_cents` (bigint), `source_type`
+  (accrual|withdrawal|adjustment), `source_id`, `idempotency_key` (unique nullable), `meta` json,
+  `created_at`. Индексы: (member_id, account_type), (source_type, source_id), unique(idempotency_key).
+- `member_wallets` (денормализованный кэш баланса, source of truth = ledger): `member_id` unique,
+  `available_cents`, `held_cents`, `clawback_debt_cents`, `currency`, `updated_at`. Обновляется в той же
+  транзакции, что и проводки. Инвариант: значения = свёртка ledger по типам счетов (проверяется тестом).
+- `withdrawal_requests`: `id`, `member_id`, `amount_cents`, `payout_details` (text), `status`
+  (requested|approved|paid|rejected|cancelled), `requested_at`, `decided_by` (member_id),
+  `decided_at`, `paid_at`, `reject_reason` (nullable), `idempotency_key`.
+
+## B. Интеграция с активацией (ключевая механика дельты)
+
+`ActivationService::recompute()` сейчас: `delete()` snapshot → полный пересчёт сети → перезапись.
+Дополняем (в той же `DB::transaction`):
+1. **До** удаления снимаем `prev[member_id] = member_earnings.total` по всем узлам.
+2. Пересчитываем ядром, получаем `new[member_id]`.
+3. Для каждого узла `Δ = new − prev`; если `Δ ≠ 0` — пишем ledger-проводки начисления/коррекции
+   (см. §A) с `idempotency_key = "accrual:ae{activationEventId}:m{memberId}"`.
+4. Обновляем `member_wallets` на дельту (с учётом clawback-правил).
+- Идемпотентность всей активации уже гарантирована (`activation_events.idempotency_key` +
+  early-return при повторе) — recompute и проводки выполняются ровно один раз на событие.
+- `member_wallets` берём `lockForUpdate` (как `Member` сейчас) — защита гонок.
+
+**Clawback-дефолт (подтверждён):** доступный баланс НЕ уходит в минус; излишек коррекции висит
+в `member_clawback_debt` и гасится будущими начислениями. Вывод доступен только из `available ≥ 0`.
+
+## C. API
+
+**Кабинет** (`telegram.auth`, свой `member` из initData):
+- `GET  /api/cabinet/wallet` — { available, held, clawback_debt, currency }.
+- `GET  /api/cabinet/wallet/transactions?cursor=` — история проводок партнёра (пагинация).
+- `POST /api/cabinet/withdrawals` — { amount, payout_details } → создать заявку (холд).
+- `GET  /api/cabinet/withdrawals` — мои заявки + статусы.
+
+**Админка** (`telegram.auth` + `calculator.role:owner,finance`):
+- `GET  /api/admin/withdrawals?status=` — очередь.
+- `POST /api/admin/withdrawals/{id}/approve` — зафиксировать (остаётся в холде до paid).
+- `POST /api/admin/withdrawals/{id}/reject` — { reason } → возврат холда.
+- `POST /api/admin/withdrawals/{id}/mark-paid` — выплачено вручную.
+
+Валидация выводов: `amount ≤ available`, `amount > 0`, статус-переходы строго по циклу,
+idempotency на approve/reject/paid.
+
+## D. Frontend (Next App Router, mobile-first Mini App)
+
+- Кабинет: экран **Кошелёк** (баланс available/held/debt + история операций), **форма вывода**,
+  **список заявок** со статусами. Переиспользуем стиль редизайна Mini App.
+- Админ-раздел: **очередь выводов** (фильтр по статусу) + действия approve/reject/mark-paid,
+  карточка заявки (партнёр, сумма, реквизиты, баланс). Видимость по роли.
+- LLM-текста наружу нет → санитайзер не требуется (правило соблюдено по умолчанию).
+
+## E. Пошаговый план (файлы; модуль `Modules/Calculator`)
+
+**Шаг 1 — Фундамент ledger (БД + домен):** ✅ ГОТОВО (тест зелёный, 51 assertion)
+- [x] Миграции: `2026_06_21_0101..03_*` ledger_entries / member_wallets / withdrawal_requests.
+- [x] Модели: `Models/LedgerEntry`, `Models/MemberWallet`, `Models/WithdrawalRequest`.
+- [x] `Services/LedgerService` — `post()` с проверкой `Σdebit=Σcredit`; accrual±/clawback,
+  hold, releaseHold, markPaid; обновление `member_wallets` (lockForUpdate) в той же транзакции.
+- [x] `Tests/Feature/LedgerServiceTest` — баланс сходится, clawback, гашение долга, холд/возврат/
+  выплата, идемпотентность, инвариант «кэш = свёртка ledger».
+
+**Шаг 2 — Привязка к активации:** ✅ ГОТОВО (тест зелёный, регресс активации не сломан)
+- [x] `ActivationService::recompute()` снимает prev-доход до delete, считает Δ=new−prev по узлам,
+  пишет проводки через `LedgerService::accrual` (+ `decimalToCents`). Inject `LedgerService`.
+- [x] `Tests/Feature/AccrualLedgerTest` — referral/binary дельта в кошелёк сходится с earnings;
+  повтор не задваивает. Clawback/реверс уже покрыты на уровне `LedgerServiceTest` (Шаг 1).
+
+**Шаг 3 — Кошелёк (read) + кабинет:** ✅ ГОТОВО (backend тест зелёный; UI написан)
+- [x] `Services/WalletService` (баланс из кэша + лента движений available, курсорная пагинация).
+- [x] `CabinetController::wallet/walletTransactions` + роуты `/cabinet/wallet[/transactions]`.
+- [x] Frontend: вкладка «Кошелёк» в `MiniAppShell` (баланс available/held/долг + история).
+- [x] `Tests/Feature/WalletCabinetTest` — баланс=ledger, изоляция между партнёрами, 401 вне Telegram.
+
+**Шаг 4 — Заявки на вывод (партнёр):** ✅ ГОТОВО (тест зелёный)
+- [x] `WithdrawalService::create()` — парсинг суммы в центы, валидация ≤ available, холд, в транзакции.
+- [x] `CabinetController::withdrawals/createWithdrawal` + роуты; Frontend: форма вывода + список заявок.
+- [x] `Tests/Feature/WithdrawalCabinetTest` — холд, превышение→404, ноль→404, список, 401.
+
+**Шаг 5 — Approval-флоу (финансист):** ✅ ГОТОВО (тест зелёный)
+- [x] `WithdrawalService::approve/reject/markPaid/cancel()` — статус-машина (lockForUpdate),
+  возврат холда при reject/cancel, 422 при недопустимом переходе.
+- [x] `AdminController` + роуты под `calculator.role:owner,finance`.
+- [x] Frontend: `AdminWithdrawals` (очередь + действия) в `MiniAppAdmin` (секция «Выводы»).
+- [x] `Tests/Feature/WithdrawalAdminTest` — переходы, возврат холда, 422, RBAC 403.
+
+**Шаг 6 — Гейт 4 (ревью + тесты):** ✅ ГОТОВО
+- [x] `reviewer` (read-only) — P0-блокеров нет; инварианты подтверждены. Применены P1+P2:
+  баланс партнёра в очереди выводов (ТЗ US-4) + строковый `centsToDecimal` без float (3 сервиса).
+- [x] Полный PgSQL-прогон: 82 passed (309 assertions); Фаза 3 — 25 тестов зелёные. Падают только
+  legacy `StructureTest` (предсессионный долг `calculator_user_tokens.email`, НЕ наш регресс).
+- [x] Frontend `npm run build` — exit 0.
+- [ ] Ручной клик-тест в Telegram Mini App — за пользователем.
+
+**Отложено (осознанно, P2 из ревью — на следующую итерацию):**
+- `mmWalletTx` не пробрасывает cursor → история кошелька в UI ограничена 50 последними движениями
+  (бэкенд-пагинация готова). Для MVP достаточно.
+- `withdrawal_requests.idempotency_key` объявлен, но не используется в `create()` — защита от
+  дубль-заявки только через lock на баланс (деньги не задваиваются, но возможны две заявки).
+- Холд НЕ подлежит clawback (by design): «протухшую» заявку финансист видит по балансу партнёра
+  в очереди и решает вручную (ручная выплата). Авто-cancel при clawback — будущая итерация.
+
+## F. Разбивка MVP → далее
+
+- **MVP (эта итерация):** Шаги 1–6 выше.
+- **Далее (вне итерации):** commission_run/период-клозинг, мультивалюта+конверсия, платёжные
+  шлюзы (Фаза 4), KYC/2FA (Фаза 5), отчёты по выплатам/комиссиям для админки.
+
+## G. Риски / на что смотреть
+
+- **Производительность recompute:** при больших сетях полный пересчёт + дельта на узел дороже.
+  MVP оставляет текущую модель полного recompute; оптимизация (точечный пересчёт поддерева) — позже.
+- **Согласованность кэша и ledger:** только в одной транзакции; тест-инвариант обязателен.
+- **Clawback UX:** партнёр может увидеть «долг» — на UI показать понятно (доступно к выводу = available).
+- **Гранулярность проводок:** MVP — агрегированная дельта на узел за активацию (не по типам бонусов);
+  разбивку по типам (referral/binary/...) держать в `meta`/снимке, не раздувая ledger.
+
+---
+
 # План: Telegram-only авторизация (схлопывание идентичности в Member)
 
 **ТЗ:** `docs/specs/2026-06-21-telegram-only-auth.md`. (Гейт 2 — план, без кода.)
