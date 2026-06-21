@@ -5,9 +5,10 @@ namespace Modules\Calculator\Services;
 use Modules\Calculator\Models\CalculatorUserToken;
 
 /**
- * Хранит текущий токен пользователя калькулятора (за фасадом CalculatorAuth).
- * Используется middleware валидации токена и контроллерами/реквестами.
- * Выдача токенов — в LocalAuthService (локальный вход email+пароль).
+ * ЛЕГАСИ: хранит текущий токен пользователя калькулятора-витрины (за фасадом
+ * CalculatorAuth). Используется токен-флоу витрины (Set/CheckUserTokenMiddleware,
+ * /calculator/structure/*). Авторизация ПЛАТФОРМЫ идёт только через Telegram
+ * (ResolveTelegramMember), этот сервис к ней не относится.
  */
 class CalculatorAuthService
 {

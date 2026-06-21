@@ -4,7 +4,6 @@ namespace Modules\Calculator\Services;
 
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
-use Modules\Calculator\Models\CalculatorUser;
 use Modules\Calculator\Models\Member;
 use Modules\Calculator\Models\PlanSetting;
 use Modules\Calculator\Models\Role;
@@ -23,9 +22,9 @@ class AdminService
     }
 
     /** Список участников с фильтрами; лидер (не owner) видит только своё поддерево. */
-    public function listMembers(CalculatorUser $viewer, array $filters): array
+    public function listMembers(Member $viewer, array $filters): array
     {
-        $query = Member::query()->with('user:id,email')->orderBy('id');
+        $query = Member::query()->orderBy('id');
 
         if (!empty($filters['status'])) {
             $query->where('status', $filters['status']);
@@ -37,7 +36,7 @@ class AdminService
             $term = '%' . $filters['search'] . '%';
             $query->where(function ($q) use ($term) {
                 $q->where('name', 'ilike', $term)
-                    ->orWhereHas('user', fn ($u) => $u->where('email', 'ilike', $term));
+                    ->orWhere('telegram_username', 'ilike', $term);
             });
         }
 
@@ -54,9 +53,9 @@ class AdminService
         ];
     }
 
-    public function getMember(CalculatorUser $viewer, int $id): array
+    public function getMember(Member $viewer, int $id): array
     {
-        $member = Member::query()->with('user:id,email')->findOrFail($id);
+        $member = Member::query()->findOrFail($id);
         $this->assertVisible($viewer, $member);
 
         $ranks = $this->rankAliasMap();
@@ -66,43 +65,36 @@ class AdminService
                 'parent_id' => $member->parent_id,
                 'position' => $member->position,
                 'ref_code' => $member->ref_code,
-                'email' => $member->user?->email,
-                'roles' => $member->user ? $member->user->roles()->pluck('name')->all() : [],
+                'telegram_username' => $member->telegram_username,
+                'roles' => $member->roles()->pluck('name')->all(),
             ],
             'branch' => $this->cabinet->teamTree($member),
         ];
     }
 
-    /** Назначить роль пользователю участника. Только owner (гейт на маршруте). */
+    /** Назначить роль участнику. Только owner (гейт на маршруте). */
     public function assignRole(int $memberId, string $roleName, ?int $leaderScopeMemberId = null): array
     {
         $member = Member::query()->findOrFail($memberId);
-        if ($member->calculator_user_id === null) {
-            throw new InvalidArgumentException('У участника нет аккаунта пользователя');
-        }
         $role = Role::query()->where('name', $roleName)->firstOrFail();
 
         // Охват имеет смысл только у лидера; для прочих ролей всегда null.
         $scope = $roleName === 'leader' ? $leaderScopeMemberId : null;
 
-        $user = CalculatorUser::query()->findOrFail($member->calculator_user_id);
-        $user->roles()->syncWithoutDetaching([
+        $member->roles()->syncWithoutDetaching([
             $role->id => ['leader_scope_member_id' => $scope],
         ]);
 
-        return ['roles' => $user->roles()->pluck('name')->all()];
+        return ['roles' => $member->roles()->pluck('name')->all()];
     }
 
     public function revokeRole(int $memberId, string $roleName): array
     {
         $member = Member::query()->findOrFail($memberId);
         $role = Role::query()->where('name', $roleName)->firstOrFail();
-        if ($member->calculator_user_id !== null) {
-            CalculatorUser::query()->find($member->calculator_user_id)?->roles()->detach($role->id);
-        }
-        $user = $member->calculator_user_id ? CalculatorUser::find($member->calculator_user_id) : null;
+        $member->roles()->detach($role->id);
 
-        return ['roles' => $user ? $user->roles()->pluck('name')->all() : []];
+        return ['roles' => $member->roles()->pluck('name')->all()];
     }
 
     /** Текущие настройки плана + сводка процентов/порогов (read-only часть). */
@@ -157,7 +149,7 @@ class AdminService
     }
 
     /** Ограничить выборку поддеревом лидера (если viewer — лидер и не owner). */
-    private function applyLeaderScope($query, CalculatorUser $viewer): void
+    private function applyLeaderScope($query, Member $viewer): void
     {
         if ($viewer->isOwner()) {
             return;
@@ -174,7 +166,7 @@ class AdminService
         $query->whereIn('id', $this->descendantIds($scope));
     }
 
-    private function assertVisible(CalculatorUser $viewer, Member $member): void
+    private function assertVisible(Member $viewer, Member $member): void
     {
         if ($viewer->isOwner()) {
             return;

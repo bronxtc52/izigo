@@ -44,6 +44,7 @@ class MiniAppAuth
                 $name,
                 $user['username'] ?? null,
                 $data['start_param'] ?? null,
+                $user['language_code'] ?? null,
             );
         } catch (UniqueConstraintViolationException $e) {
             // Гонка: параллельный запрос с тем же initData уже создал участника

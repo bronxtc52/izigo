@@ -18,13 +18,13 @@ class Role extends Model
 
     protected $fillable = ['name', 'label'];
 
-    public function users(): BelongsToMany
+    public function members(): BelongsToMany
     {
         return $this->belongsToMany(
-            CalculatorUser::class,
-            'role_user',
+            Member::class,
+            'member_roles',
             'role_id',
-            'calculator_user_id'
+            'member_id'
         )->withPivot('leader_scope_member_id');
     }
 }

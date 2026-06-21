@@ -18,62 +18,37 @@ class MemberService
     }
 
     /**
-     * Создать участника для пользователя и разместить в дереве.
-     * Спонсор/родитель задаются реф-кодами (ref_code).
-     */
-    public function register(
-        int $userId,
-        ?string $name,
-        ?string $sponsorRef = null,
-        ?string $parentRef = null,
-        ?string $position = null,
-    ): Member {
-        // Создание и размещение — атомарно: при сбое размещения не остаётся
-        // «фантомного» участника без места в дереве (второй корень).
-        return DB::transaction(function () use ($userId, $name, $sponsorRef, $parentRef, $position) {
-            $sponsor = $this->resolveByRef($sponsorRef);
-            $parent = $this->resolveByRef($parentRef);
-
-            // Несохранённый участник — PlacementService вставит его сразу с родителем,
-            // чтобы не было транзиентного parent_id=NULL (он нарушил бы индекс корня).
-            $member = new Member([
-                'calculator_user_id' => $userId,
-                'name' => $name,
-                'ref_code' => $this->uniqueRefCode(),
-                'status' => 'registered',
-            ]);
-
-            return $this->placement->place(
-                $member,
-                $sponsor,
-                $parent?->id,
-                $position,
-            );
-        });
-    }
-
-    /**
-     * Регистрация участника через Telegram (без email-аккаунта): идентичность —
-     * telegram_id. Спонсор — из start_param реф-ссылки. Атомарно create+place.
+     * Регистрация участника через Telegram — единственный способ. Идентичность —
+     * telegram_id. Спонсор — из start_param реф-ссылки. Атомарно create+place
+     * (при сбое размещения не остаётся «фантомного» участника без места в дереве).
      */
     public function registerTelegram(
         int $telegramId,
         ?string $name,
         ?string $username,
         ?string $sponsorRef = null,
+        ?string $language = null,
+        ?string $parentRef = null,
+        ?string $position = null,
     ): Member {
-        return DB::transaction(function () use ($telegramId, $name, $username, $sponsorRef) {
+        return DB::transaction(function () use ($telegramId, $name, $username, $sponsorRef, $language, $parentRef, $position) {
             $sponsor = $this->resolveByRef($sponsorRef);
+            // parent/position — для ручного режима размещения (manual); в авто-режиме
+            // (Telegram self-registration) остаются null и PlacementService спилловерит сам.
+            $parent = $this->resolveByRef($parentRef);
 
+            // Несохранённый участник — PlacementService вставит его сразу с родителем,
+            // чтобы не было транзиентного parent_id=NULL (он нарушил бы индекс корня).
             $member = new Member([
                 'name' => $name ?: ('tg:' . $telegramId),
                 'ref_code' => $this->uniqueRefCode(),
                 'telegram_id' => $telegramId,
                 'telegram_username' => $username,
+                'language' => $language,
                 'status' => 'registered',
             ]);
 
-            return $this->placement->place($member, $sponsor);
+            return $this->placement->place($member, $sponsor, $parent?->id, $position);
         });
     }
 

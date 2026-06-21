@@ -27,20 +27,21 @@ return new class extends Migration {
             DB::table('roles')->insert(['name' => $name, 'label' => $label]);
         }
 
-        Schema::create('role_user', function (Blueprint $table) {
+        // RBAC привязан к участнику (Telegram-идентичность), не к email-аккаунту.
+        Schema::create('member_roles', function (Blueprint $table) {
             $table->id();
             $table->foreignId('role_id')->constrained('roles')->cascadeOnDelete();
-            $table->foreignId('calculator_user_id')->constrained('calculator_users')->cascadeOnDelete();
+            $table->foreignId('member_id')->constrained('members')->cascadeOnDelete();
             $table->foreignId('leader_scope_member_id')->nullable()
                 ->constrained('members')->nullOnDelete();
 
-            $table->unique(['role_id', 'calculator_user_id']);
+            $table->unique(['role_id', 'member_id']);
         });
     }
 
     public function down(): void
     {
-        Schema::dropIfExists('role_user');
+        Schema::dropIfExists('member_roles');
         Schema::dropIfExists('roles');
     }
 };

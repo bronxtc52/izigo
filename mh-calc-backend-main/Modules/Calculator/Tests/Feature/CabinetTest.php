@@ -3,63 +3,50 @@
 namespace Modules\Calculator\Tests\Feature;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Hash;
-use Modules\Calculator\Models\CalculatorUser;
-use Modules\Calculator\Models\CalculatorUserToken;
+use Modules\Calculator\Tests\Feature\Concerns\SignsTelegramInitData;
 use Tests\TestCase;
 
 /**
- * Кабинет партнёра: профиль/реф-ссылка, активация пакета (мок) и доход на живых
- * данных, дерево команды, прогресс рангов, доступ.
+ * Кабинет партнёра (Telegram Mini App): профиль/реф-ссылка, активация пакета (мок)
+ * и доход на живых данных, дерево команды, прогресс рангов, доступ по initData.
  */
 class CabinetTest extends TestCase
 {
     use RefreshDatabase;
+    use SignsTelegramInitData;
 
     private const BRONZE = 1;
-    private array $headers = ['X-Requested-With' => 'XMLHttpRequest'];
 
-    private function register(string $email, ?string $sponsorRef = null): string
+    protected function setUp(): void
     {
-        return $this->postJson('/api/v1/auth/register', [
-            'email' => $email,
-            'password' => 'secret123',
-            'password_confirmation' => 'secret123',
-            'first_name' => 'U',
-            'last_name' => $email,
-            'sponsor_ref' => $sponsorRef,
-        ], $this->headers)->assertOk()->json('token');
-    }
-
-    private function auth(string $token): array
-    {
-        return array_merge($this->headers, ['CalculatorAuthToken' => $token]);
+        parent::setUp();
+        $this->bootTelegram();
     }
 
     public function testMeReturnsMemberAndRefLink(): void
     {
-        $token = $this->register('root@t.dev');
+        [$initData] = $this->registerTg(10, name: 'Root');
 
-        $res = $this->getJson('/api/v1/cabinet/me', $this->auth($token))->assertOk();
+        $res = $this->getJson('/api/v1/cabinet/me', $this->tgHeaders($initData))->assertOk();
         $res->assertJsonPath('status', 'success');
         $this->assertNotEmpty($res->json('data.member.ref_code'));
         $this->assertStringContainsString('ref=', $res->json('data.ref_link'));
         $this->assertSame('registered', $res->json('data.member.status'));
+        $this->assertSame([], $res->json('data.member.roles'));
     }
 
     public function testActivationReflectsIncomeOnDashboard(): void
     {
-        $rootToken = $this->register('r@t.dev');
-        $rootRef = $this->getJson('/api/v1/cabinet/me', $this->auth($rootToken))->json('data.member.ref_code');
-        $aToken = $this->register('a@t.dev', $rootRef);
+        [$rootData, $rootRef] = $this->registerTg(20, name: 'Root');
+        [$aData] = $this->registerTg(21, $rootRef, 'A');
 
         // Спонсор активен сам + активируется личник → реферал $9 спонсору.
-        $this->postJson('/api/v1/cabinet/activate-package', ['package_id' => self::BRONZE], $this->auth($rootToken))
+        $this->postJson('/api/v1/cabinet/activate-package', ['package_id' => self::BRONZE], $this->tgHeaders($rootData))
             ->assertOk()->assertJsonPath('data.member.status', 'active');
-        $this->postJson('/api/v1/cabinet/activate-package', ['package_id' => self::BRONZE], $this->auth($aToken))
+        $this->postJson('/api/v1/cabinet/activate-package', ['package_id' => self::BRONZE], $this->tgHeaders($aData))
             ->assertOk();
 
-        $dash = $this->getJson('/api/v1/cabinet/dashboard', $this->auth($rootToken))->assertOk();
+        $dash = $this->getJson('/api/v1/cabinet/dashboard', $this->tgHeaders($rootData))->assertOk();
         $this->assertEqualsWithDelta(9.0, (float) $dash->json('data.total'), 0.001);
         $this->assertEqualsWithDelta(9.0, (float) ($dash->json('data.by_type.referral') ?? 0), 0.001);
         $this->assertNotEmpty($dash->json('data.lines'));
@@ -68,28 +55,26 @@ class CabinetTest extends TestCase
 
     public function testTeamTreeContainsDownline(): void
     {
-        $rootToken = $this->register('tr@t.dev');
-        $rootRef = $this->getJson('/api/v1/cabinet/me', $this->auth($rootToken))->json('data.member.ref_code');
-        $this->register('td@t.dev', $rootRef);
+        [$rootData, $rootRef] = $this->registerTg(30, name: 'Root');
+        $this->registerTg(31, $rootRef, 'Downline');
 
-        $tree = $this->getJson('/api/v1/cabinet/team-tree', $this->auth($rootToken))->assertOk();
+        $tree = $this->getJson('/api/v1/cabinet/team-tree', $this->tgHeaders($rootData))->assertOk();
         $this->assertNotEmpty($tree->json('data.children'));
-        $this->assertStringContainsString('td@t.dev', $tree->json('data.children.0.name'));
+        $this->assertStringContainsString('Downline', $tree->json('data.children.0.name'));
     }
 
     public function testDashboardIsIsolatedBetweenPartners(): void
     {
-        $rootToken = $this->register('iso-r@t.dev');
-        $rootRef = $this->getJson('/api/v1/cabinet/me', $this->auth($rootToken))->json('data.member.ref_code');
-        $aToken = $this->register('iso-a@t.dev', $rootRef);
-        $bToken = $this->register('iso-b@t.dev', $rootRef);
+        [$rootData, $rootRef] = $this->registerTg(40, name: 'Root');
+        [$aData] = $this->registerTg(41, $rootRef, 'A');
+        [$bData] = $this->registerTg(42, $rootRef, 'B');
 
-        $this->postJson('/api/v1/cabinet/activate-package', ['package_id' => self::BRONZE], $this->auth($rootToken));
-        $this->postJson('/api/v1/cabinet/activate-package', ['package_id' => self::BRONZE], $this->auth($aToken));
+        $this->postJson('/api/v1/cabinet/activate-package', ['package_id' => self::BRONZE], $this->tgHeaders($rootData));
+        $this->postJson('/api/v1/cabinet/activate-package', ['package_id' => self::BRONZE], $this->tgHeaders($aData));
 
         // Root заработал реферал; B (не спонсор A) не должен видеть чужой доход.
-        $rootDash = $this->getJson('/api/v1/cabinet/dashboard', $this->auth($rootToken))->json('data');
-        $bDash = $this->getJson('/api/v1/cabinet/dashboard', $this->auth($bToken))->json('data');
+        $rootDash = $this->getJson('/api/v1/cabinet/dashboard', $this->tgHeaders($rootData))->json('data');
+        $bDash = $this->getJson('/api/v1/cabinet/dashboard', $this->tgHeaders($bData))->json('data');
 
         $this->assertEqualsWithDelta(9.0, (float) $rootDash['total'], 0.001);
         $this->assertEqualsWithDelta(0.0, (float) $bDash['total'], 0.001);
@@ -98,35 +83,23 @@ class CabinetTest extends TestCase
 
     public function testRankProgressReturnsCurrentAndNext(): void
     {
-        $token = $this->register('rp@t.dev');
+        [$initData] = $this->registerTg(50, name: 'Root');
 
-        $res = $this->getJson('/api/v1/cabinet/rank-progress', $this->auth($token))->assertOk();
+        $res = $this->getJson('/api/v1/cabinet/rank-progress', $this->tgHeaders($initData))->assertOk();
         $this->assertArrayHasKey('next', $res->json('data'));
         $this->assertArrayHasKey('progress', $res->json('data'));
     }
 
-    public function testCabinetReturns404WhenNoMember(): void
-    {
-        // Пользователь без участника (legacy/прямой токен) → 404.
-        $user = CalculatorUser::create(['email' => 'nomember@t.dev', 'password' => Hash::make('secret123')]);
-        $token = CalculatorUserToken::create([
-            'calculator_user_id' => $user->id,
-            'token' => hash('sha256', 'manual-token'),
-            'expires_at' => now()->addDay(),
-        ]);
-
-        $this->getJson('/api/v1/cabinet/me', $this->auth($token->token))->assertStatus(404);
-    }
-
     public function testActivateValidatesPackage(): void
     {
-        $token = $this->register('val@t.dev');
-        $this->postJson('/api/v1/cabinet/activate-package', ['package_id' => 999], $this->auth($token))
+        [$initData] = $this->registerTg(60, name: 'Root');
+        $this->postJson('/api/v1/cabinet/activate-package', ['package_id' => 999], $this->tgHeaders($initData))
             ->assertStatus(422);
     }
 
-    public function testCabinetRequiresToken(): void
+    public function testCabinetRequiresTelegramInitData(): void
     {
-        $this->getJson('/api/v1/cabinet/me', $this->headers)->assertStatus(403);
+        // Без initData (заход вне Telegram) — 401, «Откройте через Telegram».
+        $this->getJson('/api/v1/cabinet/me', ['X-Requested-With' => 'XMLHttpRequest'])->assertStatus(401);
     }
 }

@@ -1,4 +1,89 @@
-# План: Фаза 1 ц2 + Фаза 2 — реальная сеть + кабинет + админка
+# План: Telegram-only авторизация (схлопывание идентичности в Member)
+
+**ТЗ:** `docs/specs/2026-06-21-telegram-only-auth.md`. (Гейт 2 — план, без кода.)
+Предыдущий план (Фаза 1ц2 + Фаза 2) — ниже как архив.
+
+## Целевая архитектура
+
+- **Единственная идентичность платформы — `Member`** (ключ `telegram_id`). Роли — на `Member`
+  (`member_roles`). Email-вход и `members.calculator_user_id` удаляются.
+- **NB (легаси-витрина):** таблицы `calculator_users`/`calculator_user_tokens`/`calculator_structures`
+  и токен-флоу (`SetCalculatorUserMiddleware`/`CheckUserTokenMiddleware`/`/calculator/structure/*`)
+  — это персистентность ПУБЛИЧНОГО калькулятора-витрины (анонимный инструмент, не логин платформы).
+  Их НЕ трогаем (по ТЗ витрина живёт). `CalculatorUser` как идентичность ПЛАТФОРМЫ устранён
+  (нет email-входа, нет роли-линка, нет members.calculator_user_id), но таблица остаётся под витрину.
+- **Доступ — по initData на каждый запрос** (HMAC, как в Mini App). Bearer-токена нет.
+- **Единая поверхность — Telegram Mini App** (работает и в Telegram Desktop). Кабинет и
+  админка живут внутри неё; админ-разделы видны по роли. Браузер вне Telegram → «Откройте
+  через Telegram». Никакого email/password/Login Widget.
+- **Бутстрап owner:** `OWNER_TELEGRAM_IDS` из env/Key Vault; при первом входе участник с таким
+  `telegram_id` получает роль `owner`. Первый владелец — `201374791` (@bronxtc52).
+
+## Целевая схема БД (Postgres, beta-данные сбрасываем → migrate:fresh)
+
+- `members`: + `telegram_id` (bigint, **unique, NOT NULL**), `telegram_username`,
+  `first_name`, `last_name`, `language`, `currency`; **убрать** `calculator_user_id`.
+  Остальное (sponsor_id/parent_id/position/path ltree/ref_code/package_id/rank_id/status/version) — как есть.
+- `member_roles` (member_id, role_id) — вместо `role_user`. Опц. `leader_scope_member_id` на роли
+  лидера переносим на `members` (или в пивот).
+- **Удаляем** миграции `create_calculator_user`, `add_password_to_calculator_users`,
+  `add_telegram_to_members` (складываем в `create_members`), `create_*_tokens`, `role_user`.
+
+## Декомпозиция (вертикально; каждый под-этап → свой Гейт 4)
+
+### A1 — Backend: Member как идентичность (схема + модели)
+1. Переписать миграции под целевую схему: `members` (telegram_id NOT NULL unique + профильные поля,
+   без calculator_user_id), `member_roles`. Удалить миграции calculator_users/password/add_telegram/tokens/role_user.
+2. Модель `Member`: fillable новых полей; `roles()`, `hasAnyRole()`, `isOwner()`, `leaderScopeMemberId()`.
+   `Role`: `members()`. Удалить модели `CalculatorUser`, `CalculatorUserToken`.
+3. Конфиг `telegram.owner_ids` (env `OWNER_TELEGRAM_IDS`, источник — KV; не в git).
+
+### A2 — Backend: auth по Telegram + единая регистрация
+4. Middleware `ResolveTelegramMember` (alias `telegram.auth`): читает `X-Telegram-Init-Data`,
+   валидирует HMAC (`TelegramInitData`), резолвит/создаёт `Member`, при первом входе из
+   `owner_ids` назначает роль `owner`, кладёт текущего `Member` в request. Заменяет
+   `SetCalculatorUserMiddleware`.
+5. `MemberService`: единый `registerTelegram` (спонсор из `start_param`, гонка unique→reuse) +
+   назначение owner-роли. Удалить email-`register`.
+6. Удалить `LocalAuthController`/`LocalAuthService`/маршруты `/auth/register|login`.
+   `CalculatorAuthService`/фасад → аксессор текущего `Member` (`CurrentMember`).
+7. Маршруты: `/cabinet/*` и `/admin/*` под `telegram.auth`; админ + `RoleMiddleware` (по ролям
+   Member). Удалить дублирующие `/miniapp/*` + `MiniAppController` (логика — в middleware и `CabinetController`).
+
+### A3 — Backend: сервисы кабинета/админки на Member
+8. `CabinetService::currentMember()` — из request (а не из токена).
+9. `AdminService`: список/поиск, leader-scope и assign/revoke роли — по `Member`/`member_roles`.
+10. `RoleMiddleware` — по текущему `Member`. Resources/`StructureResource` — без `CalculatorUser`.
+
+### A4 — Frontend: единая Mini-App-поверхность
+11. Удалить `views/auth/LocalAuth.js`; убрать web-гейт по `userToken` (`GlobalContext`).
+12. API-обёртки → заголовок `X-Telegram-Init-Data` вместо `CalculatorAuthToken` (cabinet/admin/api).
+13. Mini App shell содержит кабинет + админ-таб (по роли); standalone-браузерные `/cabinet`,`/admin`
+    → редирект/экран «Откройте через Telegram» (как `/miniapp` при пустом initData).
+14. Витрину-калькулятор оставить публичной — отвязать от email-токена (проверить
+    `CalculatorWrapper/Information/AddNode/utils`).
+
+### A5 — Тесты, чистка данных, деплой
+15. Тесты: `LocalAuthTest`→`TelegramAuthTest` (первый вход создаёт Member; owner-бутстрап;
+    нет `/auth/*`). Обновить Cabinet/Admin/Placement/Activation/Structure-тесты на initData + Member.
+16. Прод (beta): `migrate:fresh --force` (данные сброшены), `OWNER_TELEGRAM_IDS` в KV (201374791).
+17. Гейт 4: reviewer → правки → tester → ручной клик-тест в Telegram.
+
+## Чек-лист
+- [x] A1 схема+модели  [x] A2 auth+регистрация  [x] A3 сервисы  [x] A4 frontend  [x] A5 тесты
+- [x] Гейт 4: reviewer (P0 нет) → правки (удалены орфанные DTO/lang email-слоя) → tester (backend 36/36 зелёные; фронт `npm run build` зелёный).
+- Осознанные хвосты: легаси «сохранить структуру» выключено (см. ТЗ §6a); мёртвый web-cabinet/admin
+  фронт недостижим (редирект на /miniapp) — удалить отдельным cleanup; `currency` на members не добавлен (не нужен).
+- [ ] ДЕПЛОЙ: migrate:fresh на beta + OWNER_TELEGRAM_IDS в KV (201374791) — см. ниже.
+
+## Гейт 4 (на каждый под-этап)
+reviewer (корректность, RBAC-гейты по Member, отсутствие альтернативных входов, чистота ядра) →
+правки → tester (миграции/тесты/сценарии) → ручной клик-тест в Telegram.
+
+---
+---
+
+# [АРХИВ] План: Фаза 1 ц2 + Фаза 2 — реальная сеть + кабинет + админка
 
 **ТЗ:** `docs/specs/2026-06-20-cabinet-admin-phase1c2.md`. (Гейт 2 — план, без кода.)
 Архив предыдущего цикла — в конце файла.

@@ -1,7 +1,8 @@
 'use client';
 import React from 'react';
-import CabinetLayout from '@/views/cabinet/CabinetLayout';
+import RedirectToMiniApp from '@/views/miniapp/RedirectToMiniApp';
 
-export default function Layout({ children }) {
-    return <CabinetLayout>{children}</CabinetLayout>;
+// Браузерный /cabinet вне Telegram → редирект на /miniapp. Кабинет живёт в Mini App.
+export default function Layout() {
+    return <RedirectToMiniApp />;
 }

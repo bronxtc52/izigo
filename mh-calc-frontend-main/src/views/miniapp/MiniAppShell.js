@@ -3,8 +3,9 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { ConfigProvider, Card, Statistic, Button, Tag, List, Spin, Result, Progress, message } from 'antd';
 import { useTelegram, antdThemeFromTelegram } from './telegram';
 import { mmMe, mmDashboard, mmRank, mmTree, mmActivate, PACKAGES } from './api';
+import MiniAppAdmin from './MiniAppAdmin';
 
-const TABS = [
+const BASE_TABS = [
     { key: 'income', label: 'Доход' },
     { key: 'team', label: 'Команда' },
     { key: 'rank', label: 'Ранг' },
@@ -96,6 +97,10 @@ const MiniAppShell = () => {
 
     const byType = dash?.by_type ?? {};
 
+    // Админ-вкладка видна только если у участника есть роли (owner/finance/leader/support).
+    const isAdmin = (me?.roles ?? []).length > 0;
+    const tabs = isAdmin ? [...BASE_TABS, { key: 'admin', label: 'Админ' }] : BASE_TABS;
+
     return (
         <ConfigProvider theme={themeConfig}>
             <div style={{ minHeight: '100vh', paddingBottom: 64 }}>
@@ -170,6 +175,10 @@ const MiniAppShell = () => {
                             <p>Реф-код: <b>{me?.ref_code}</b></p>
                         </Card>
                     )}
+
+                    {tab === 'admin' && isAdmin && (
+                        <MiniAppAdmin initData={initData} onUnauthorized={() => setAuthError(true)} />
+                    )}
                 </div>
 
                 {/* Нижний таб-бар */}
@@ -178,7 +187,7 @@ const MiniAppShell = () => {
                     display: 'flex', borderTop: '1px solid rgba(128,128,128,0.2)',
                     background: theme?.bg_color || '#fff',
                 }}>
-                    {TABS.map((t) => (
+                    {tabs.map((t) => (
                         <button key={t.key} onClick={() => setTab(t.key)}
                             style={{
                                 flex: 1, border: 'none', background: 'transparent', cursor: 'pointer',

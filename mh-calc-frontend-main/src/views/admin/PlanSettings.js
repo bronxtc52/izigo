@@ -1,25 +1,23 @@
 'use client';
 import React, { useEffect, useState } from 'react';
 import { Card, Radio, Button, Table, Spin, Result, message, Space, Typography } from 'antd';
-import { useGlobalContext } from '@/common/GlobalContext';
-import { fetchPlanSettings, updatePlanSettings, isForbidden, isUnauthorized } from './api';
+import * as tokenApi from './api';
 
-const PlanSettings = () => {
-    const { userToken, setUserToken, setShowAuth } = useGlobalContext();
+/**
+ * Настройки маркетинг-плана (режим размещения, пороги рангов). Источник авторизации —
+ * через пропсы (creds + api), см. MembersList. По умолчанию token-API ./api.
+ */
+const PlanSettings = ({ creds, api = tokenApi, onUnauthorized = () => {} }) => {
+    const { fetchPlanSettings, updatePlanSettings, isForbidden, isUnauthorized } = api;
+
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [forbidden, setForbidden] = useState(false);
     const [mode, setMode] = useState('auto');
     const [saving, setSaving] = useState(false);
 
-    const onUnauthorized = () => {
-        if (typeof window !== 'undefined') localStorage.removeItem('userToken');
-        setUserToken(false);
-        setShowAuth(true);
-    };
-
     const load = async () => {
-        const res = await fetchPlanSettings(userToken);
+        const res = await fetchPlanSettings(creds);
         if (isUnauthorized(res)) { onUnauthorized(); return; }
         if (isForbidden(res)) { setForbidden(true); setLoading(false); return; }
         setData(res?.data ?? null);
@@ -28,14 +26,14 @@ const PlanSettings = () => {
     };
 
     useEffect(() => {
-        if (userToken) load();
+        if (creds) load();
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [userToken]);
+    }, [creds]);
 
     const save = async () => {
         setSaving(true);
         try {
-            const res = await updatePlanSettings(userToken, { placement_mode: mode });
+            const res = await updatePlanSettings(creds, { placement_mode: mode });
             setData(res);
             message.success('Сохранено');
         } catch (e) {
@@ -45,7 +43,7 @@ const PlanSettings = () => {
         }
     };
 
-    if (forbidden) return <Result status="403" title="Нет доступа" />;
+    if (forbidden) return <Result status="403" title="Недостаточно прав" />;
     if (loading) return <Spin style={{ display: 'block', margin: '40px auto' }} />;
 
     const rankColumns = [

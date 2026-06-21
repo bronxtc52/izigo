@@ -1,0 +1,85 @@
+<?php
+
+namespace Modules\Calculator\Tests\Feature\Concerns;
+
+use Modules\Calculator\Models\Member;
+use Modules\Calculator\Models\Role;
+
+/**
+ * Хелперы для тестов авторизации платформы через Telegram initData (единственный
+ * способ входа). Подписывает initData валидным bot-токеном и собирает заголовки.
+ */
+trait SignsTelegramInitData
+{
+    protected string $botToken = '123456:TEST_BOT_TOKEN';
+
+    /** Настроить тестовый bot-токен (вызывать в setUp после parent::setUp()). */
+    protected function bootTelegram(): void
+    {
+        config(['calculator.telegram_bot_token' => $this->botToken]);
+    }
+
+    /** Подписать произвольный набор параметров по схеме Telegram WebApp. */
+    protected function signInitData(array $params): string
+    {
+        ksort($params);
+        $pairs = [];
+        foreach ($params as $k => $v) {
+            $pairs[] = "$k=$v";
+        }
+        $secret = hash_hmac('sha256', $this->botToken, 'WebAppData', true);
+        $params['hash'] = hash_hmac('sha256', implode("\n", $pairs), $secret);
+
+        return http_build_query($params);
+    }
+
+    /** Валидный initData для участника tgId (name = first_name для опознавания в тестах). */
+    protected function initData(int $tgId, ?string $startParam = null, ?string $name = null): string
+    {
+        $params = [
+            'user' => json_encode([
+                'id' => $tgId,
+                'first_name' => $name ?? "U{$tgId}",
+                'username' => "u{$tgId}",
+            ]),
+            'auth_date' => time(),
+            'query_id' => 'AAA',
+        ];
+        if ($startParam !== null) {
+            $params['start_param'] = $startParam;
+        }
+
+        return $this->signInitData($params);
+    }
+
+    protected function tgHeaders(string $initData): array
+    {
+        return ['X-Requested-With' => 'XMLHttpRequest', 'X-Telegram-Init-Data' => $initData];
+    }
+
+    /**
+     * «Регистрация» = первый вызов /cabinet/me с данным initData (middleware создаёт
+     * участника). Возвращает [initData, ref_code].
+     */
+    protected function registerTg(int $tgId, ?string $sponsorRef = null, ?string $name = null): array
+    {
+        $initData = $this->initData($tgId, $sponsorRef, $name);
+        $ref = $this->getJson('/api/v1/cabinet/me', $this->tgHeaders($initData))
+            ->assertOk()->json('data.member.ref_code');
+
+        return [$initData, $ref];
+    }
+
+    protected function memberByTg(int $tgId): Member
+    {
+        return Member::where('telegram_id', $tgId)->firstOrFail();
+    }
+
+    /** Выдать роль участнику напрямую (минуя owner-бутстрап). */
+    protected function grantRole(int $tgId, string $role, ?int $scopeMemberId = null): void
+    {
+        $member = $this->memberByTg($tgId);
+        $roleId = Role::where('name', $role)->value('id');
+        $member->roles()->syncWithoutDetaching([$roleId => ['leader_scope_member_id' => $scopeMemberId]]);
+    }
+}

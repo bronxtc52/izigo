@@ -4,21 +4,22 @@ namespace Modules\Calculator\Http\Middleware;
 
 use Closure;
 use Illuminate\Http\Request;
-use Modules\Calculator\Facades\CalculatorAuth;
+use Modules\Calculator\Models\Member;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * RBAC-гейт: пропускает, если у текущего пользователя есть любая из ролей.
- * owner проходит всегда. Применять ПОСЛЕ calculator.validate.token.
+ * RBAC-гейт: пропускает, если у текущего участника есть любая из ролей.
+ * owner проходит всегда. Применять ПОСЛЕ telegram.auth (участник в request('member')).
  * Использование: ->middleware('calculator.role:owner,support')
  */
 class RoleMiddleware
 {
     public function handle(Request $request, Closure $next, string ...$roles): mixed
     {
-        $user = CalculatorAuth::token()?->user;
+        /** @var ?Member $member */
+        $member = $request->attributes->get('member');
 
-        if ($user && ($user->isOwner() || ($roles !== [] && $user->hasAnyRole($roles)))) {
+        if ($member && ($member->isOwner() || ($roles !== [] && $member->hasAnyRole($roles)))) {
             return $next($request);
         }
 

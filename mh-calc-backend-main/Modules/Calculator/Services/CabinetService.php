@@ -4,13 +4,11 @@ namespace Modules\Calculator\Services;
 
 use Modules\Calculator\Domain\Model\MemberNode;
 use Modules\Calculator\Domain\Plan\Plan;
-use Modules\Calculator\Facades\CalculatorAuth;
 use Modules\Calculator\Models\Member;
 use Modules\Calculator\Models\MemberBonusLine;
 use Modules\Calculator\Models\MemberEarning;
 use Modules\Calculator\Repositories\EloquentNetworkRepository;
 use Modules\Calculator\Repositories\EloquentPlanRepository;
-use RuntimeException;
 
 /**
  * Данные кабинета партнёра: профиль/реф-ссылка, доход (разбивка + логика),
@@ -27,20 +25,6 @@ class CabinetService
     ) {
     }
 
-    public function currentMember(): Member
-    {
-        $token = CalculatorAuth::token();
-        $member = $token
-            ? Member::query()->where('calculator_user_id', $token->calculator_user_id)->first()
-            : null;
-
-        if ($member === null) {
-            throw new RuntimeException('Участник не найден для текущего пользователя');
-        }
-
-        return $member;
-    }
-
     public function profile(Member $member): array
     {
         $plan = $this->planRepository->load();
@@ -54,6 +38,8 @@ class CabinetService
                 'status' => $member->status,
                 'package_id' => $member->package_id,
                 'rank' => $rank ? ['id' => $rank->id, 'alias' => $rank->alias] : null,
+                // Роли — чтобы Mini App показал админ-раздел владельцу/админам.
+                'roles' => $member->roles()->pluck('name')->all(),
             ],
             'ref_link' => $this->refLink($member->ref_code),
         ];

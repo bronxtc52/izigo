@@ -4,20 +4,12 @@ use Illuminate\Support\Facades\Route;
 use Modules\Calculator\Http\Controllers\AdminController;
 use Modules\Calculator\Http\Controllers\CabinetController;
 use Modules\Calculator\Http\Controllers\CalculatorController;
-use Modules\Calculator\Http\Controllers\LocalAuthController;
-use Modules\Calculator\Http\Controllers\MiniAppController;
 use Modules\Calculator\Http\Controllers\PackageController;
 use Modules\Calculator\Http\Controllers\RankController;
 use Modules\Calculator\Http\Middleware\StructureEditTokenMiddleware;
 
-// Локальная авторизация (email+пароль) — единственный способ входа
-Route::group([
-    'prefix' => 'auth',
-    'as' => 'calculator.auth.',
-], function () {
-    Route::post('/register', [LocalAuthController::class, 'register'])->name('register');
-    Route::post('/login', [LocalAuthController::class, 'login'])->name('login');
-});
+// Авторизация платформы — ТОЛЬКО через Telegram (middleware telegram.auth,
+// заголовок X-Telegram-Init-Data). Email/пароля/Login Widget нет.
 
 Route::group([
     'prefix' => 'calculator',
@@ -79,11 +71,11 @@ Route::group([
 
 });
 
-// Кабинет партнёра — требует валидный токен; участник резолвится из токена.
+// Кабинет партнёра — авторизация по Telegram initData; участник в request('member').
 Route::group([
     'prefix' => 'cabinet',
     'as' => 'cabinet.',
-    'middleware' => ['calculator.validate.token'],
+    'middleware' => ['telegram.auth'],
 ], function () {
     Route::get('/me', [CabinetController::class, 'me'])->name('me');
     Route::get('/dashboard', [CabinetController::class, 'dashboard'])->name('dashboard');
@@ -92,24 +84,11 @@ Route::group([
     Route::post('/activate-package', [CabinetController::class, 'activate'])->name('activate-package');
 });
 
-// Telegram Mini App — авторизация по initData (заголовок X-Telegram-Init-Data),
-// без CalculatorAuthToken. Участник резолвится/создаётся по telegram_id.
-Route::group([
-    'prefix' => 'miniapp',
-    'as' => 'miniapp.',
-], function () {
-    Route::get('/me', [MiniAppController::class, 'me'])->name('me');
-    Route::get('/dashboard', [MiniAppController::class, 'dashboard'])->name('dashboard');
-    Route::get('/rank-progress', [MiniAppController::class, 'rankProgress'])->name('rank-progress');
-    Route::get('/team-tree', [MiniAppController::class, 'teamTree'])->name('team-tree');
-    Route::post('/activate-package', [MiniAppController::class, 'activate'])->name('activate-package');
-});
-
-// Админ-портал — токен + RBAC-гейты. owner проходит всегда (в RoleMiddleware).
+// Админ-портал — Telegram initData + RBAC-гейты. owner проходит всегда (в RoleMiddleware).
 Route::group([
     'prefix' => 'admin',
     'as' => 'admin.',
-    'middleware' => ['calculator.validate.token'],
+    'middleware' => ['telegram.auth'],
 ], function () {
     Route::get('/members', [AdminController::class, 'members'])
         ->middleware('calculator.role:owner,finance,support,leader')->name('members');

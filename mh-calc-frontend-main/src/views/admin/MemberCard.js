@@ -2,28 +2,26 @@
 import React, { useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { Card, Descriptions, Tag, Select, Button, Space, Spin, Result, message } from 'antd';
-import { useGlobalContext } from '@/common/GlobalContext';
-import { fetchMember, assignRole, revokeRole, isForbidden, isUnauthorized, ROLES } from './api';
+import * as tokenApi from './api';
 
 const Tree = dynamic(() => import('react-d3-tree'), { ssr: false });
 
-const MemberCard = ({ id }) => {
-    const { userToken, setUserToken, setShowAuth } = useGlobalContext();
+/**
+ * Карточка участника + назначение/снятие ролей. Источник авторизации — через пропсы
+ * (creds + api), см. MembersList. По умолчанию работает на token-API ./api.
+ */
+const MemberCard = ({ id, creds, api = tokenApi, onUnauthorized = () => {} }) => {
+    const { fetchMember, assignRole, revokeRole, isForbidden, isUnauthorized, ROLES } = api;
+
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [forbidden, setForbidden] = useState(false);
     const [role, setRole] = useState('support');
     const [saving, setSaving] = useState(false);
 
-    const onUnauthorized = () => {
-        if (typeof window !== 'undefined') localStorage.removeItem('userToken');
-        setUserToken(false);
-        setShowAuth(true);
-    };
-
     const load = async () => {
         setLoading(true);
-        const res = await fetchMember(userToken, id);
+        const res = await fetchMember(creds, id);
         if (isUnauthorized(res)) { onUnauthorized(); return; }
         if (isForbidden(res)) { setForbidden(true); setLoading(false); return; }
         setData(res?.data ?? null);
@@ -31,14 +29,14 @@ const MemberCard = ({ id }) => {
     };
 
     useEffect(() => {
-        if (userToken) load();
+        if (creds) load();
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [userToken, id]);
+    }, [creds, id]);
 
     const onAssign = async () => {
         setSaving(true);
         try {
-            await assignRole(userToken, id, role);
+            await assignRole(creds, id, role);
             message.success('Роль назначена');
             await load();
         } catch (e) {
@@ -50,7 +48,7 @@ const MemberCard = ({ id }) => {
 
     const onRevoke = async (r) => {
         try {
-            await revokeRole(userToken, id, r);
+            await revokeRole(creds, id, r);
             message.success('Роль снята');
             await load();
         } catch (e) {
@@ -58,7 +56,7 @@ const MemberCard = ({ id }) => {
         }
     };
 
-    if (forbidden) return <Result status="403" title="Нет доступа" />;
+    if (forbidden) return <Result status="403" title="Недостаточно прав" />;
     if (loading) return <Spin style={{ display: 'block', margin: '40px auto' }} />;
     if (!data) return <Result status="404" title="Участник не найден" />;
 
@@ -70,7 +68,6 @@ const MemberCard = ({ id }) => {
             <Card title={`Участник #${m.id}`}>
                 <Descriptions column={2}>
                     <Descriptions.Item label="Имя">{m.name ?? '—'}</Descriptions.Item>
-                    <Descriptions.Item label="Email">{m.email ?? '—'}</Descriptions.Item>
                     <Descriptions.Item label="Статус"><Tag color={m.status === 'active' ? 'green' : 'default'}>{m.status}</Tag></Descriptions.Item>
                     <Descriptions.Item label="Ранг">{m.rank ?? '—'}</Descriptions.Item>
                     <Descriptions.Item label="Пакет">{m.package_id ?? '—'}</Descriptions.Item>

@@ -3,12 +3,14 @@
 namespace Modules\Calculator\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 /**
+ * ЛЕГАСИ: аккаунт публичного калькулятора-витрины (анонимный инструмент сохранения
+ * структур, идентичность по out_id/токену). НЕ участвует в авторизации платформы —
+ * та работает только через Telegram (Member). Оставлен ради персистентности витрины.
+ *
  * @property int $id
  * @property string $email
- * @property ?string $password
  * @property string $avatar
  * @property ?string $last_name
  * @property ?string $first_name
@@ -19,32 +21,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
  */
 class CalculatorUser extends Model
 {
-    public function roles(): BelongsToMany
-    {
-        return $this->belongsToMany(Role::class, 'role_user', 'calculator_user_id', 'role_id')
-            ->withPivot('leader_scope_member_id');
-    }
-
-    public function hasAnyRole(array $names): bool
-    {
-        return $this->roles()->whereIn('name', $names)->exists();
-    }
-
-    public function isOwner(): bool
-    {
-        return $this->hasAnyRole(['owner']);
-    }
-
-    /** Член-«охват» лидера (его поддерево). null, если не лидер/без охвата. */
-    public function leaderScopeMemberId(): ?int
-    {
-        $leader = $this->roles()->where('name', 'leader')->first();
-        return $leader?->pivot?->leader_scope_member_id;
-    }
-
     protected $fillable = [
         'email',
-        'password',
         'avatar',
         'last_name',
         'first_name',
@@ -52,10 +30,6 @@ class CalculatorUser extends Model
         'full_name',
         'language',
         'currency',
-    ];
-
-    protected $hidden = [
-        'password',
     ];
 
     /**
