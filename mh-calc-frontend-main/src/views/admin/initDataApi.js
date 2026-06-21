@@ -39,6 +39,22 @@ export const revokeRole = (initData, memberId, role) =>
 export const updatePlanSettings = (initData, data) =>
     mutate(initData, '/api/v1/admin/plan-settings', 'PUT', data);
 
+// Заявки на вывод (Фаза 3): очередь + статус-машина (только owner/finance).
+export const fetchWithdrawals = (initData, status = '') =>
+    req(`/api/v1/admin/withdrawals${status ? `?status=${status}` : ''}`, initData);
+
+export const approveWithdrawal = (initData, id) =>
+    mutate(initData, `/api/v1/admin/withdrawals/${id}/approve`, 'POST', {});
+
+export const rejectWithdrawal = (initData, id, reason) =>
+    mutate(initData, `/api/v1/admin/withdrawals/${id}/reject`, 'POST', { reason });
+
+export const markPaidWithdrawal = (initData, id) =>
+    mutate(initData, `/api/v1/admin/withdrawals/${id}/mark-paid`, 'POST', {});
+
+export const cancelWithdrawal = (initData, id) =>
+    mutate(initData, `/api/v1/admin/withdrawals/${id}/cancel`, 'POST', {});
+
 export const ROLES = [
     { value: 'owner', label: 'Владелец' },
     { value: 'finance', label: 'Финансы' },

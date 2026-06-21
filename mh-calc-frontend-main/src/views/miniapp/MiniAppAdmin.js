@@ -4,6 +4,7 @@ import { Segmented, Button, Space } from 'antd';
 import MembersList from '@/views/admin/MembersList';
 import MemberCard from '@/views/admin/MemberCard';
 import PlanSettings from '@/views/admin/PlanSettings';
+import AdminWithdrawals from '@/views/admin/AdminWithdrawals';
 import * as initDataApi from '@/views/admin/initDataApi';
 
 /**
@@ -29,18 +30,23 @@ const MiniAppAdmin = ({ initData, onUnauthorized }) => {
                         onChange={(v) => setSection(v)}
                         options={[
                             { label: 'Участники', value: 'members' },
+                            { label: 'Выводы', value: 'withdrawals' },
                             { label: 'Маркетинг-план', value: 'plan' },
                         ]}
                         style={{ marginBottom: 12 }}
                     />
-                    {section === 'members' ? (
+                    {section === 'members' && (
                         <MembersList
                             creds={initData}
                             api={initDataApi}
                             onUnauthorized={onUnauthorized}
                             onOpenMember={(id) => setMemberId(id)}
                         />
-                    ) : (
+                    )}
+                    {section === 'withdrawals' && (
+                        <AdminWithdrawals creds={initData} onUnauthorized={onUnauthorized} />
+                    )}
+                    {section === 'plan' && (
                         <PlanSettings creds={initData} api={initDataApi} onUnauthorized={onUnauthorized} />
                     )}
                 </>

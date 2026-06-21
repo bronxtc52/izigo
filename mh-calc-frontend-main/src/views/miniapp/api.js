@@ -28,6 +28,13 @@ export const mmTree = (i) => req('/api/v1/cabinet/team-tree', i);
 export const mmActivate = (i, packageId) =>
     req('/api/v1/cabinet/activate-package', i, 'POST', { package_id: packageId });
 
+// Кошелёк (Фаза 3): баланс, лента движений, заявки на вывод.
+export const mmWallet = (i) => req('/api/v1/cabinet/wallet', i);
+export const mmWalletTx = (i) => req('/api/v1/cabinet/wallet/transactions', i);
+export const mmWithdrawals = (i) => req('/api/v1/cabinet/withdrawals', i);
+export const mmWithdrawCreate = (i, amount, payoutDetails) =>
+    req('/api/v1/cabinet/withdrawals', i, 'POST', { amount, payout_details: payoutDetails });
+
 export const PACKAGES = [
     { id: 1, name: 'Bronze', pv: 90, price: 100 },
     { id: 2, name: 'Silver', pv: 180, price: 200 },

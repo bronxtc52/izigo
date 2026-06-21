@@ -1,17 +1,26 @@
 'use client';
 import React, { useEffect, useMemo, useState } from 'react';
-import { ConfigProvider, Card, Statistic, Button, Tag, List, Spin, Result, Progress, message } from 'antd';
+import { ConfigProvider, Card, Statistic, Button, Tag, List, Spin, Result, Progress, Input, InputNumber, message } from 'antd';
 import { useTelegram, antdThemeFromTelegram, miniAppPalette } from './telegram';
-import { mmMe, mmDashboard, mmRank, mmTree, mmActivate, PACKAGES } from './api';
+import { mmMe, mmDashboard, mmRank, mmTree, mmActivate, mmWallet, mmWalletTx, mmWithdrawals, mmWithdrawCreate, PACKAGES } from './api';
 import MiniAppAdmin from './MiniAppAdmin';
 
 const BASE_TABS = [
     { key: 'income', label: 'Доход' },
+    { key: 'wallet', label: 'Кошелёк' },
     { key: 'team', label: 'Команда' },
     { key: 'rank', label: 'Ранг' },
     { key: 'profile', label: 'Профиль' },
 ];
 const TYPE_LABEL = { binary: 'Бинар', referral: 'Реферал', leader: 'Лидер', rank: 'Ранг' };
+const TX_SOURCE_LABEL = { accrual: 'Начисление', withdrawal: 'Вывод' };
+const WD_STATUS = {
+    requested: { label: 'на рассмотрении', color: 'blue' },
+    approved: { label: 'одобрена', color: 'cyan' },
+    paid: { label: 'выплачена', color: 'green' },
+    rejected: { label: 'отклонена', color: 'red' },
+    cancelled: { label: 'отменена', color: 'default' },
+};
 
 /** Рекурсивный компактный список дерева команды (вместо d3 на узком экране). */
 const TreeList = ({ node, depth = 0 }) => {
@@ -36,6 +45,12 @@ const MiniAppShell = () => {
     const [dash, setDash] = useState(null);
     const [rank, setRank] = useState(null);
     const [tree, setTree] = useState(null);
+    const [wallet, setWallet] = useState(null);
+    const [walletTx, setWalletTx] = useState([]);
+    const [withdrawals, setWithdrawals] = useState([]);
+    const [wdAmount, setWdAmount] = useState(null);
+    const [wdDetails, setWdDetails] = useState('');
+    const [wdSubmitting, setWdSubmitting] = useState(false);
     const [loading, setLoading] = useState(true);
     const [authError, setAuthError] = useState(false);
     const [serverError, setServerError] = useState(false);
@@ -50,16 +65,20 @@ const MiniAppShell = () => {
         setAuthError(false);
         setServerError(false);
         setLoading(true);
-        const [m, d, r, t] = await Promise.all([
+        const [m, d, r, t, w, wtx, wd] = await Promise.all([
             mmMe(initData), mmDashboard(initData), mmRank(initData), mmTree(initData),
+            mmWallet(initData), mmWalletTx(initData), mmWithdrawals(initData),
         ]);
-        const errors = [m, d, r, t].map((x) => x?.error).filter((e) => e !== undefined);
+        const errors = [m, d, r, t, w, wtx, wd].map((x) => x?.error).filter((e) => e !== undefined);
         if (errors.includes(401)) { setAuthError(true); setLoading(false); return; }
         if (errors.length) { setServerError(true); setLoading(false); return; }
         setMe(m?.data?.member ?? null);
         setDash(d?.data ?? null);
         setRank(r?.data ?? null);
         setTree(t?.data ?? null);
+        setWallet(w?.data ?? null);
+        setWalletTx(wtx?.data?.items ?? []);
+        setWithdrawals(wd?.data ?? []);
         setLoading(false);
     };
 
@@ -79,6 +98,21 @@ const MiniAppShell = () => {
         if (res?.error) { message.error('Не удалось активировать'); return; }
         message.success('Пакет активирован');
         wa?.HapticFeedback?.notificationOccurred?.('success');
+        load();
+    };
+
+    const onWithdraw = async () => {
+        const amount = Number(wdAmount);
+        if (!amount || amount <= 0) { message.error('Укажите сумму вывода'); return; }
+        if (!wdDetails.trim()) { message.error('Укажите реквизиты'); return; }
+        setWdSubmitting(true);
+        const res = await mmWithdrawCreate(initData, amount.toFixed(2), wdDetails.trim());
+        setWdSubmitting(false);
+        if (res?.error) { message.error('Не удалось создать заявку (проверьте сумму)'); return; }
+        message.success('Заявка на вывод создана');
+        wa?.HapticFeedback?.notificationOccurred?.('success');
+        setWdAmount(null);
+        setWdDetails('');
         load();
     };
 
@@ -138,6 +172,73 @@ const MiniAppShell = () => {
                                         <List.Item>
                                             <span><Tag>{TYPE_LABEL[l.type] ?? l.type}</Tag></span>
                                             <span>${l.amount}</span>
+                                        </List.Item>
+                                    )}
+                                />
+                            </Card>
+                        </>
+                    )}
+
+                    {tab === 'wallet' && (
+                        <>
+                            <Card size="small" style={{ marginBottom: 12 }}>
+                                <Statistic title="Доступно к выводу" value={wallet?.available ?? '0.00'} prefix="$" />
+                                <div style={{ marginTop: 8, display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                                    <Tag color="blue">В холде: ${wallet?.held ?? '0.00'}</Tag>
+                                    {Number(wallet?.clawback_debt ?? 0) > 0 && (
+                                        <Tag color="red">К компенсации: ${wallet.clawback_debt}</Tag>
+                                    )}
+                                </div>
+                            </Card>
+                            <Card size="small" title="Вывод средств" style={{ marginBottom: 12 }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                    <InputNumber
+                                        style={{ width: '100%' }} min={0.01} step={0.01} precision={2}
+                                        prefix="$" placeholder="Сумма" value={wdAmount} onChange={setWdAmount}
+                                    />
+                                    <Input.TextArea
+                                        rows={2} maxLength={1000} placeholder="Реквизиты (банк/крипто-кошелёк)"
+                                        value={wdDetails} onChange={(e) => setWdDetails(e.target.value)}
+                                    />
+                                    <Button type="primary" block loading={wdSubmitting}
+                                        disabled={wdSubmitting || Number(wallet?.available ?? 0) <= 0}
+                                        onClick={onWithdraw}>
+                                        Запросить вывод
+                                    </Button>
+                                </div>
+                            </Card>
+                            <Card size="small" title="Мои заявки" style={{ marginBottom: 12 }}>
+                                <List
+                                    dataSource={withdrawals}
+                                    locale={{ emptyText: 'Заявок нет' }}
+                                    renderItem={(w) => (
+                                        <List.Item>
+                                            <span>
+                                                ${w.amount}{' '}
+                                                <Tag color={(WD_STATUS[w.status] ?? {}).color}>
+                                                    {(WD_STATUS[w.status] ?? {}).label ?? w.status}
+                                                </Tag>
+                                            </span>
+                                            <span style={{ color: pal.muted, fontSize: 12 }}>
+                                                {w.requested_at ? new Date(w.requested_at).toLocaleDateString() : ''}
+                                            </span>
+                                        </List.Item>
+                                    )}
+                                />
+                            </Card>
+                            <Card size="small" title="История операций">
+                                <List
+                                    dataSource={walletTx}
+                                    locale={{ emptyText: 'Пока пусто' }}
+                                    renderItem={(t) => (
+                                        <List.Item>
+                                            <span>
+                                                <Tag>{TX_SOURCE_LABEL[t.source_type] ?? t.source_type}</Tag>
+                                                {t.created_at ? new Date(t.created_at).toLocaleDateString() : ''}
+                                            </span>
+                                            <span style={{ color: String(t.amount).startsWith('-') ? pal.muted : pal.accent, fontWeight: 600 }}>
+                                                ${t.amount}
+                                            </span>
                                         </List.Item>
                                     )}
                                 />
