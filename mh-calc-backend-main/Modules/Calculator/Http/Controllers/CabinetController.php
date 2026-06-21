@@ -6,6 +6,8 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Modules\Calculator\Models\Member;
 use Modules\Calculator\Services\CabinetService;
+use Modules\Calculator\Services\WalletService;
+use Modules\Calculator\Services\WithdrawalService;
 use RuntimeException;
 
 /**
@@ -16,8 +18,11 @@ use RuntimeException;
  */
 class CabinetController
 {
-    public function __construct(private readonly CabinetService $service)
-    {
+    public function __construct(
+        private readonly CabinetService $service,
+        private readonly WalletService $wallet,
+        private readonly WithdrawalService $withdrawals,
+    ) {
     }
 
     public function me(Request $request): JsonResponse
@@ -51,6 +56,40 @@ class CabinetController
             $this->member($request),
             (int) $validated['package_id'],
             $validated['idempotency_key'] ?? null,
+        ));
+    }
+
+    public function wallet(Request $request): JsonResponse
+    {
+        return $this->guarded(fn () => $this->wallet->balance($this->member($request)));
+    }
+
+    public function walletTransactions(Request $request): JsonResponse
+    {
+        $cursor = $request->query('cursor');
+
+        return $this->guarded(fn () => $this->wallet->transactions(
+            $this->member($request),
+            $cursor !== null ? (int) $cursor : null,
+        ));
+    }
+
+    public function withdrawals(Request $request): JsonResponse
+    {
+        return $this->guarded(fn () => $this->withdrawals->listForMember($this->member($request)));
+    }
+
+    public function createWithdrawal(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'amount' => 'required|string|max:32',
+            'payout_details' => 'required|string|max:1000',
+        ]);
+
+        return $this->guarded(fn () => $this->withdrawals->create(
+            $this->member($request),
+            (string) $validated['amount'],
+            (string) $validated['payout_details'],
         ));
     }
 

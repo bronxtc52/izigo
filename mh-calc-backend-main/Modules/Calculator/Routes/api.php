@@ -82,6 +82,12 @@ Route::group([
     Route::get('/rank-progress', [CabinetController::class, 'rankProgress'])->name('rank-progress');
     Route::get('/team-tree', [CabinetController::class, 'teamTree'])->name('team-tree');
     Route::post('/activate-package', [CabinetController::class, 'activate'])->name('activate-package');
+    // Кошелёк (Фаза 3): баланс из кэша + лента движений доступного баланса.
+    Route::get('/wallet', [CabinetController::class, 'wallet'])->name('wallet');
+    Route::get('/wallet/transactions', [CabinetController::class, 'walletTransactions'])->name('wallet-transactions');
+    // Заявки на вывод партнёра (Фаза 3): создание с холдом + список своих.
+    Route::get('/withdrawals', [CabinetController::class, 'withdrawals'])->name('withdrawals');
+    Route::post('/withdrawals', [CabinetController::class, 'createWithdrawal'])->name('withdrawals-create');
 });
 
 // Админ-портал — Telegram initData + RBAC-гейты. owner проходит всегда (в RoleMiddleware).
@@ -102,6 +108,18 @@ Route::group([
         ->middleware('calculator.role:owner,finance,support')->name('plan-settings');
     Route::put('/plan-settings', [AdminController::class, 'updatePlanSettings'])
         ->middleware('calculator.role:owner')->name('update-plan-settings');
+
+    // Заявки на вывод (Фаза 3): очередь + статус-машина. Только финансист/владелец.
+    Route::get('/withdrawals', [AdminController::class, 'withdrawals'])
+        ->middleware('calculator.role:owner,finance')->name('withdrawals');
+    Route::post('/withdrawals/{id}/approve', [AdminController::class, 'approveWithdrawal'])
+        ->middleware('calculator.role:owner,finance')->where('id', '[0-9]+')->name('withdrawals-approve');
+    Route::post('/withdrawals/{id}/reject', [AdminController::class, 'rejectWithdrawal'])
+        ->middleware('calculator.role:owner,finance')->where('id', '[0-9]+')->name('withdrawals-reject');
+    Route::post('/withdrawals/{id}/mark-paid', [AdminController::class, 'markPaidWithdrawal'])
+        ->middleware('calculator.role:owner,finance')->where('id', '[0-9]+')->name('withdrawals-mark-paid');
+    Route::post('/withdrawals/{id}/cancel', [AdminController::class, 'cancelWithdrawal'])
+        ->middleware('calculator.role:owner,finance')->where('id', '[0-9]+')->name('withdrawals-cancel');
 });
 
 

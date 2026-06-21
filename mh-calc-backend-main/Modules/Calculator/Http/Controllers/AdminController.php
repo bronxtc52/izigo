@@ -8,6 +8,7 @@ use Illuminate\Http\Request;
 use InvalidArgumentException;
 use Modules\Calculator\Models\Member;
 use Modules\Calculator\Services\AdminService;
+use Modules\Calculator\Services\WithdrawalService;
 
 /**
  * Админ-портал: участники, роли, настройка плана. Доступ ограничен RBAC-гейтами
@@ -17,8 +18,10 @@ use Modules\Calculator\Services\AdminService;
  */
 class AdminController
 {
-    public function __construct(private readonly AdminService $service)
-    {
+    public function __construct(
+        private readonly AdminService $service,
+        private readonly WithdrawalService $withdrawals,
+    ) {
     }
 
     public function members(Request $request): JsonResponse
@@ -71,6 +74,35 @@ class AdminController
         ]);
 
         return $this->guarded(fn () => $this->service->updatePlanSettings($data));
+    }
+
+    // --- Заявки на вывод (финансист): очередь + статус-машина ---
+
+    public function withdrawals(Request $request): JsonResponse
+    {
+        return $this->guarded(fn () => $this->withdrawals->listForAdmin($request->query('status')));
+    }
+
+    public function approveWithdrawal(Request $request, int $id): JsonResponse
+    {
+        return $this->guarded(fn () => $this->withdrawals->approve($id, $this->viewer($request)));
+    }
+
+    public function rejectWithdrawal(Request $request, int $id): JsonResponse
+    {
+        $data = $request->validate(['reason' => 'required|string|max:1000']);
+
+        return $this->guarded(fn () => $this->withdrawals->reject($id, $this->viewer($request), $data['reason']));
+    }
+
+    public function markPaidWithdrawal(Request $request, int $id): JsonResponse
+    {
+        return $this->guarded(fn () => $this->withdrawals->markPaid($id));
+    }
+
+    public function cancelWithdrawal(Request $request, int $id): JsonResponse
+    {
+        return $this->guarded(fn () => $this->withdrawals->cancel($id, $this->viewer($request)));
     }
 
     /** Текущий участник-наблюдатель, резолвленный telegram.auth. */
