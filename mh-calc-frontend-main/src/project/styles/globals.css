@@ -91,3 +91,11 @@ ul {
     font-size: 16px;
   }
 }
+
+/* TonConnect overlay (выбор кошелька / QR) должен быть ПОВЕРХ antd Modal окна покупки
+   (z-index ~1000). Иначе кошелёк открывается «за окном» и недоступен для нажатия.
+   Хост TonConnect UI — кастомный элемент <tc-root> в конце body. */
+tc-root {
+  position: relative;
+  z-index: 10000 !important;
+}

@@ -45,6 +45,7 @@ jobs:
             --build-arg NEXT_PUBLIC_TON_NETWORK=mainnet \
             --build-arg NEXT_PUBLIC_TON_RPC=https://toncenter.com/api/v2/jsonRPC \
             --build-arg NEXT_PUBLIC_USDT_JETTON_MASTER=EQCxE6mUtQJKFnGfaROTKOt1lZbDiiX1kCixRv7Nw2Id_sDs \
+            --build-arg NEXT_PUBLIC_TWA_RETURN_URL=https://t.me/Izigopro_mlm_bot/app \
             ./mh-calc-frontend-main
 
       - name: Update backend Container App
