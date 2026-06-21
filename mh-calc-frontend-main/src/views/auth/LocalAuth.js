@@ -1,6 +1,7 @@
 'use client';
 import React, { useState } from 'react';
 import { Tabs, Form, Input, Button } from 'antd';
+import { useRouter } from 'next/navigation';
 import { API_SERVER_URL, sender } from '@/common/utils/utils';
 import { showNotification } from '@/common/notification';
 import IziGoLogo from './IziGoLogo';
@@ -12,6 +13,12 @@ import css from './LocalAuth.module.scss';
  */
 const LocalAuth = ({ onSuccess, lang = false, currency = false }) => {
     const [loading, setLoading] = useState(false);
+    const router = useRouter();
+
+    // Реф-ссылка приглашения: /?ref=CODE → спонсор для размещения в сети.
+    const sponsorRef = typeof window !== 'undefined'
+        ? new URLSearchParams(window.location.search).get('ref')
+        : null;
 
     const handle = (url, payload) => {
         setLoading(true);
@@ -24,6 +31,7 @@ const LocalAuth = ({ onSuccess, lang = false, currency = false }) => {
                 const token = response?.data?.token;
                 if (token) {
                     onSuccess(token);
+                    router.push('/cabinet'); // партнёр попадает в кабинет
                 } else {
                     showNotification({ message: 'Не удалось получить токен', type: 'error' });
                 }
@@ -49,6 +57,7 @@ const LocalAuth = ({ onSuccess, lang = false, currency = false }) => {
         password_confirmation: values.password_confirmation,
         first_name: values.first_name || null,
         last_name: values.last_name || null,
+        sponsor_ref: sponsorRef || null,
     });
 
     const items = [
@@ -117,8 +126,10 @@ const LocalAuth = ({ onSuccess, lang = false, currency = false }) => {
         <div className={css.wrapper}>
             <div className={css.card}>
                 <div className={css.logo}><IziGoLogo height={52} /></div>
-                <p className={css.subtitle}>Калькулятор маркетинг-плана</p>
-                <Tabs defaultActiveKey="login" items={items} centered />
+                <p className={css.subtitle}>
+                    {sponsorRef ? 'Регистрация по приглашению' : 'Калькулятор маркетинг-плана'}
+                </p>
+                <Tabs defaultActiveKey={sponsorRef ? 'register' : 'login'} items={items} centered />
             </div>
         </div>
     );
