@@ -20,13 +20,10 @@
   Ревизии backend-0000013 / frontend-0000010 Healthy/RunningAtMaxScale, бот жив. Smoke: роуты Фазы 3
   → 401, фронт /miniapp → 200. **Фаза 3 + редизайн В ПРОДЕ.**
 
-**⚠️ Operational (требует пользователя):** OIDC federated credential настроен только для ветки
-`chore/phase-0-foundation`. Деплой с `main` падает (AADSTS700213). Создание credential для main
-заблокировано auto-классификатором (auth-change) — сделать вручную:
-`az ad app federated-credential create --id 27457743-c362-4950-98cd-8c1a124d9783 --parameters
-'{"name":"izigo-main","issuer":"https://token.actions.githubusercontent.com",
-"subject":"repo:bronxtc52/izigo:ref:refs/heads/main","audiences":["api://AzureADTokenExchange"]}'`
-Пока деплой-ветка остаётся `chore/phase-0-foundation` (обе ветки на одном коммите).
+**✅ Operational (закрыто 2026-06-21):** OIDC federated credential для `main` заведён (`izigo-main`,
+subject `repo:bronxtc52/izigo:ref:refs/heads/main`). На app `27457743…` теперь два credential
+(`izigo-main` + `izigo-branch` для `chore/phase-0-foundation`) — деплой `deploy.yml` работает с обеих
+веток, `AADSTS700213` устранён. Финальное подтверждение — на следующем зелёном деплое с `main`.
 
 ---
 
