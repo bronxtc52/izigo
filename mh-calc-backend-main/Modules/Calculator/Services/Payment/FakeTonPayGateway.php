@@ -41,6 +41,8 @@ class FakeTonPayGateway implements PaymentGateway
             return 'pending'; // транзакция ещё не пришла
         }
 
-        return self::$onchain[$externalRef] === $amountCents ? 'paid' : 'failed';
+        // Семантика боевого драйвера: переплату принимаем (>=), недоплату НЕ финализируем как
+        // failed — ждём верный/до-перевод (терминальный failed съел бы реальные средства).
+        return self::$onchain[$externalRef] >= $amountCents ? 'paid' : 'pending';
     }
 }

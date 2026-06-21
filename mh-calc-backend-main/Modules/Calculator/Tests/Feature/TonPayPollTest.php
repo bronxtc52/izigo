@@ -79,16 +79,17 @@ class TonPayPollTest extends TestCase
         $this->assertSame(Payment::STATUS_PENDING, Payment::find($ctx['payment_id'])->status);
     }
 
-    public function testWrongAmountMarksFailedNotPaid(): void
+    public function testUnderpaymentStaysPendingNotPaid(): void
     {
         $p = $this->makeProduct();
         [$data] = $this->registerTg(1020, name: 'Buyer');
         $ctx = $this->payOrder($data, $p->id);
 
-        FakeTonPayGateway::fakePay($ctx['memo'], 100); // подмена суммы
+        FakeTonPayGateway::fakePay($ctx['memo'], 100); // недоплата
         $this->artisan('commerce:tonpay-poll')->assertExitCode(0);
 
-        $this->assertSame(Payment::STATUS_FAILED, Payment::find($ctx['payment_id'])->status);
+        // НЕ failed: ждём верный/до-перевод, заказ остаётся неоплаченным (средства не теряем).
+        $this->assertSame(Payment::STATUS_PENDING, Payment::find($ctx['payment_id'])->status);
         $this->assertSame(Order::STATUS_PENDING_PAYMENT, Order::find($ctx['order_id'])->status);
     }
 

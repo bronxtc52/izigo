@@ -26,6 +26,10 @@ return [
     // ключ к TON API для опроса сети (izigo--<env>--TON-API-KEY). Приватный ключ приёма НЕ нужен.
     'ton_merchant_address' => env('TON_MERCHANT_ADDRESS', ''),
     'ton_api_key' => env('TON_API_KEY', ''),
+    // База toncenter v3 для приёма (структурированные jetton-переводы). Отдельно от payout-базы.
+    'ton_api_v3_base_url' => env('TON_API_V3_BASE_URL', 'https://toncenter.com/api/v3'),
+    // Мастер-контракт USDT-джеттона (TON), decimals=6. ПУБЛИЧНЫЙ параметр (не секрет).
+    'ton_usdt_jetton_master' => env('TON_USDT_JETTON_MASTER', ''),
     // Wallet Pay — fallback-драйвер (не активен по умолчанию).
     'walletpay_base_url' => env('WALLETPAY_BASE_URL', 'https://pay.wallet.tg'),
     'walletpay_api_key' => env('WALLETPAY_API_KEY', ''),

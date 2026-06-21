@@ -110,8 +110,9 @@ class CalculatorServiceProvider extends ServiceProvider
                 ),
                 default => new TonPayGateway(
                     (string) $cfg->get('calculator.ton_merchant_address', ''),
-                    (string) $cfg->get('calculator.ton_api_base_url', ''),
+                    (string) $cfg->get('calculator.ton_api_v3_base_url', ''),
                     (string) $cfg->get('calculator.ton_api_key', ''),
+                    (string) $cfg->get('calculator.ton_usdt_jetton_master', ''),
                 ),
             };
         });
