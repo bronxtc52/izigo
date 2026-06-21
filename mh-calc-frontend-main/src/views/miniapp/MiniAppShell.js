@@ -30,7 +30,7 @@ const TreeList = ({ node, depth = 0 }) => {
 };
 
 const MiniAppShell = () => {
-    const { initData, theme, wa } = useTelegram();
+    const { initData, theme, wa, ready } = useTelegram();
     const [tab, setTab] = useState('income');
     const [me, setMe] = useState(null);
     const [dash, setDash] = useState(null);
@@ -44,6 +44,11 @@ const MiniAppShell = () => {
     const themeConfig = useMemo(() => antdThemeFromTelegram(theme), [theme]);
 
     const load = async () => {
+        // Сброс прошлых состояний — иначе экран «Откройте через Telegram» залипает
+        // после того, как initData всё-таки пришёл и загрузка прошла успешно.
+        setAuthError(false);
+        setServerError(false);
+        setLoading(true);
         const [m, d, r, t] = await Promise.all([
             mmMe(initData), mmDashboard(initData), mmRank(initData), mmTree(initData),
         ]);
@@ -58,11 +63,13 @@ const MiniAppShell = () => {
     };
 
     useEffect(() => {
-        // initData готов (внутри Telegram) → грузим. Пустой initData = открыто вне Telegram.
+        // Ждём, пока SDK Telegram либо подключится, либо исчерпает поллинг (ready).
+        // Только после этого решаем: есть initData → грузим; нет → открыто вне Telegram.
+        if (!ready) return;
         if (initData) load();
         else { setLoading(false); setAuthError(true); }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [initData]);
+    }, [ready, initData]);
 
     const onActivate = async (pkgId) => {
         setActivating(true);
