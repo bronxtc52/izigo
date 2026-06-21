@@ -26,6 +26,7 @@ class ActivationService
         private readonly EloquentNetworkRepository $networkRepository,
         private readonly EloquentPlanRepository $planRepository,
         private readonly TelegramNotifier $notifier,
+        private readonly LedgerService $ledger,
     ) {
     }
 
@@ -112,12 +113,18 @@ class ActivationService
         }
     }
 
-    /** Полный пересчёт сети и перезапись снимка начислений/рангов. */
+    /** Полный пересчёт сети и перезапись снимка начислений/рангов + дельта-проводки в ledger. */
     private function recompute(int $eventId): void
     {
         $plan = $this->planRepository->load();
         $network = $this->networkRepository->load();
         $result = (new CompensationEngine($plan))->calculate($network);
+
+        // Снимок ПРЕДЫДУЩЕГО дохода по узлам (в центах) — до перезаписи снимка.
+        // Дельта (new − prev) уйдёт в ledger как корректирующие проводки (см. ниже).
+        $prevCents = MemberEarning::query()->pluck('total', 'member_id')
+            ->map(fn ($total) => $this->decimalToCents((string) $total))
+            ->all();
 
         MemberBonusLine::query()->delete();
         MemberEarning::query()->delete();
@@ -153,6 +160,20 @@ class ActivationService
             ]);
         }
 
+        // Дельта-проводки в ledger: для каждого затронутого узла Δ = новый_доход − прежний.
+        // Узлы из prev и new объединяем (доход узла мог обнулиться). Проводка идемпотентна
+        // по ключу события: повтор активации сюда не доходит (recompute не вызывается).
+        $newCents = [];
+        foreach ($byMember as $memberId => $agg) {
+            $newCents[$memberId] = $agg['total'];
+        }
+        foreach (array_unique([...array_keys($prevCents), ...array_keys($newCents)]) as $memberId) {
+            $delta = ($newCents[$memberId] ?? 0) - ($prevCents[$memberId] ?? 0);
+            if ($delta !== 0) {
+                $this->ledger->accrual((int) $memberId, $delta, $eventId, "accrual:ae{$eventId}:m{$memberId}");
+            }
+        }
+
         // Снимок рангов: ядро проставило финальные ранги узлам при пересчёте.
         foreach ($network->orderedById() as $node) {
             Member::query()->where('id', $node->id)->update([
@@ -161,9 +182,18 @@ class ActivationService
         }
     }
 
-    /** Центы → строка decimal "D.CC" без float-потерь. */
+    /** Центы → строка decimal "D.CC" без float (доход ≥ 0). */
     private function centsToDecimal(int $cents): string
     {
-        return number_format($cents / 100, 2, '.', '');
+        return intdiv($cents, 100) . '.' . str_pad((string) ($cents % 100), 2, '0', STR_PAD_LEFT);
+    }
+
+    /** Строка decimal "D.CC" → целые центы без float-потерь (доход всегда ≥ 0). */
+    private function decimalToCents(string $value): int
+    {
+        [$int, $frac] = array_pad(explode('.', $value, 2), 2, '0');
+        $frac = substr(str_pad($frac, 2, '0'), 0, 2);
+
+        return (int) $int * 100 + (int) $frac;
     }
 }
