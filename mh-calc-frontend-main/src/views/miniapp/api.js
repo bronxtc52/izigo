@@ -35,6 +35,15 @@ export const mmWithdrawals = (i) => req('/api/v1/cabinet/withdrawals', i);
 export const mmWithdrawCreate = (i, amount, payoutDetails) =>
     req('/api/v1/cabinet/withdrawals', i, 'POST', { amount, payout_details: payoutDetails });
 
+// Commerce (Фаза 4): каталог, заказы, оплата TON Pay, статус платежа.
+export const mmCatalog = (i) => req('/api/v1/cabinet/catalog', i);
+export const mmOrders = (i) => req('/api/v1/cabinet/orders', i);
+export const mmOrder = (i, id) => req(`/api/v1/cabinet/orders/${id}`, i);
+export const mmCreateOrder = (i, productId, qty = 1) =>
+    req('/api/v1/cabinet/orders', i, 'POST', { product_id: productId, qty });
+export const mmPayOrder = (i, id) => req(`/api/v1/cabinet/orders/${id}/pay`, i, 'POST');
+export const mmCheckPayment = (i, id) => req(`/api/v1/cabinet/payments/${id}/check`, i, 'POST');
+
 export const PACKAGES = [
     { id: 1, name: 'Bronze', pv: 90, price: 100 },
     { id: 2, name: 'Silver', pv: 180, price: 200 },

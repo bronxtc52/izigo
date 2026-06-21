@@ -10,6 +10,10 @@
   },
   "dependencies": {
     "@ant-design/icons": "5.5.1",
+    "@ton/core": "0.59.1",
+    "@ton/crypto": "3.3.0",
+    "@ton/ton": "15.1.0",
+    "@tonconnect/ui-react": "2.0.9",
     "antd": "^5.21.6",
     "axios": "^1.7.7",
     "classnames": "^2.5.1",

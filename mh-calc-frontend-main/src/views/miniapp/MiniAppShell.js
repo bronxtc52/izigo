@@ -6,12 +6,13 @@ import {
 } from 'antd';
 import {
     WalletOutlined, TeamOutlined, TrophyOutlined, UserOutlined, SafetyOutlined,
-    ExportOutlined, CopyOutlined,
+    ExportOutlined, CopyOutlined, ShoppingOutlined,
 } from '@ant-design/icons';
 import { useTelegram, antdThemeFromTelegram, miniAppPalette } from './telegram';
 import { tint, bonusTint, statusTint, roleTint, bonusDot, numFont } from './tokens';
 import { mmMe, mmDashboard, mmRank, mmTree, mmActivate, mmWallet, mmWalletTx, mmWithdrawals, mmWithdrawCreate, PACKAGES } from './api';
 import MiniAppAdmin from './MiniAppAdmin';
+import MiniAppShop from './MiniAppShop';
 
 const TYPE_LABEL = { binary: 'Бинар', referral: 'Реферал', leader: 'Лидер', rank: 'Ранг' };
 const TX_SOURCE_LABEL = { accrual: 'Начисление', withdrawal: 'Вывод' };
@@ -162,6 +163,7 @@ const MiniAppShell = () => {
 
     const TABS = [
         { key: 'income', label: 'Доход', icon: <WalletOutlined /> },
+        { key: 'shop', label: 'Магазин', icon: <ShoppingOutlined /> },
         { key: 'team', label: 'Команда', icon: <TeamOutlined /> },
         { key: 'rank', label: 'Ранг', icon: <TrophyOutlined /> },
         { key: 'profile', label: 'Профиль', icon: <UserOutlined /> },
@@ -317,6 +319,11 @@ const MiniAppShell = () => {
                                 </Card>
                             )}
                         </>
+                    )}
+
+                    {tab === 'shop' && (
+                        <MiniAppShop initData={initData} pal={pal} isDark={isDark} wa={wa}
+                            onUnauthorized={() => setAuthError(true)} />
                     )}
 
                     {tab === 'team' && (
