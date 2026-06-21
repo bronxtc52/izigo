@@ -4,7 +4,6 @@ import Translation from '@/common/translations/Translation';
 import css from './ChangePackage.module.scss';
 import Button from '@/widgets/button/Button';
 import { showNotification } from "@/common/notification";
-// import { withoutPackageOption } from '../initData';
 
 const ChangePackage = ({ packages, changePackages }) => {
     const [formData, setFormData] = useState({});
