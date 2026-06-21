@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; }
+  .izi-num { font-family: 'Manrope', system-ui, sans-serif; font-feature-settings: 'tnum' 1; }
+</style>
+</helmet>
+
+<div style="width:max-content; min-width:100%; min-height:100vh; box-sizing:border-box; padding:48px; background:#E7E5DF; font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+
+  <!-- ===== INTRO ===== -->
+  <div style="max-width:980px; margin-bottom:40px;">
+    <div style="display:flex; align-items:center; gap:12px; margin-bottom:14px;">
+      <div style="width:38px; height:38px; border-radius:11px; background:linear-gradient(150deg,#2563EB,#1D4ED8); display:flex; align-items:center; justify-content:center; color:#fff; font-family:'Manrope',sans-serif; font-weight:800; font-size:19px;">i</div>
+      <div style="font-family:'Manrope',sans-serif; font-weight:800; font-size:26px; color:#14213A; letter-spacing:-0.02em;">IziGo · Telegram Mini App</div>
+    </div>
+    <div style="font-size:15px; line-height:1.55; color:#54606F; max-width:760px;">
+      Redesign of the partner cabinet + admin section. Built on the Ant Design token model (themed via <span style="color:#14213A; font-weight:600;">ConfigProvider</span>, bound to Telegram <span style="color:#14213A; font-weight:600;">themeParams</span>). Calm fintech surface, guaranteed WCAG-AA text contrast, clear hierarchy and breathing space. All 5 screens shown in both themes below, with the antd token table at the end.
+    </div>
+    <div style="display:flex; gap:10px; margin-top:18px; flex-wrap:wrap;">
+      <span style="font-size:12.5px; font-weight:600; color:#1D4ED8; background:#E8F0FE; border:1px solid #D2E0FB; padding:6px 11px; border-radius:8px;">colorPrimary #2563EB</span>
+      <span style="font-size:12.5px; font-weight:600; color:#0E7C5A; background:#E2F4EF; border:1px solid #CDE9E0; padding:6px 11px; border-radius:8px;">AA contrast both themes</span>
+      <span style="font-size:12.5px; font-weight:600; color:#5B45C9; background:#EDEAFB; border:1px solid #DDD7F6; padding:6px 11px; border-radius:8px;">Native antd components only</span>
+      <span style="font-size:12.5px; font-weight:600; color:#9A6700; background:#FBEFD9; border:1px solid #F0E1C2; padding:6px 11px; border-radius:8px;">borderRadius 14</span>
+    </div>
+  </div>
+
+  <!-- ============ SCREEN 1 · ДОХОД ============ -->
+  <div style="margin-bottom:46px;">
+    <div style="font-family:'Manrope',sans-serif; font-weight:700; font-size:15px; color:#14213A; margin-bottom:5px;">1 · Доход</div>
+    <div style="font-size:13px; color:#6B7785; margin-bottom:18px; max-width:700px; line-height:1.5;">Hero «Всего начислено», разбивка бонусов мини-карточками, выбор пакета (активный помечен) и лента последних начислений.</div>
+    <div style="display:flex; gap:32px; align-items:flex-start;">
+
+      <!-- LIGHT -->
+      <div style="flex:none;">
+        <div style="font-size:11px; font-weight:700; letter-spacing:0.08em; color:#9AA4AF; text-transform:uppercase; margin-bottom:9px;">Light</div>
+        <div style="width:316px; height:712px; background:#EEF1F5; border-radius:30px; border:1px solid #DBE1E9; box-shadow:0 12px 34px rgba(20,33,58,0.13); overflow:hidden; display:flex; flex-direction:column;">
+          <!-- tg header -->
+          <div style="height:46px; flex:none; background:#FFFFFF; border-bottom:1px solid #E7ECF2; display:flex; align-items:center; padding:0 16px;">
+            <div style="width:22px;"></div>
+            <div style="flex:1; text-align:center; font-family:'Manrope',sans-serif; font-weight:700; font-size:15px; color:#14213A;">Доход</div>
+            <div style="width:22px; text-align:right; color:#9AA4AF; font-size:17px;">✕</div>
+          </div>
+          <!-- content -->
+          <div style="flex:1; overflow:hidden; padding:14px; display:flex; flex-direction:column; gap:12px;">
+            <!-- hero -->
+            <div style="background:#FFFFFF; border:1px solid #E7ECF2; border-radius:16px; padding:16px;">
+              <div style="font-size:12px; font-weight:600; color:#6B7785; letter-spacing:0.01em;">Всего начислено</div>
+              <div class="izi-num" style="font-weight:800; font-size:33px; color:#14213A; line-height:1.1; margin-top:6px;">$4 182.50</div>
+              <div style="display:inline-flex; align-items:center; gap:5px; margin-top:8px; background:#E2F4EF; color:#0E7C5A; font-size:12px; font-weight:600; padding:4px 9px; border-radius:7px;">▲ $128.00 за неделю</div>
+              <div style="height:1px; background:#EEF1F5; margin:14px 0 12px;"></div>
+              <div style="display:flex; align-items:center; justify-content:space-between;">
+                <div>
+                  <div style="font-size:11.5px; color:#6B7785;">Доступно к выводу</div>
+                  <div class="izi-num" style="font-weight:700; font-size:16px; color:#14213A; margin-top:2px;">$3 010.00</div>
+                </div>
+                <div style="background:#2563EB; color:#FFFFFF; font-size:13.5px; font-weight:600; padding:9px 18px; border-radius:10px;">Вывести</div>
+              </div>
+            </div>
+            <!-- bonus breakdown -->
+            <div>
+              <div style="font-size:12px; font-weight:700; color:#54606F; margin:2px 2px 8px;">Бонусы по типам</div>
+              <div style="display:grid; grid-template-columns:1fr 1fr; gap:9px;">
+                <div style="background:#FFFFFF; border:1px solid #E7ECF2; border-radius:13px; padding:12px;"><div style="display:flex; align-items:center; gap:7px;"><span style="width:8px; height:8px; border-radius:50%; background:#2563EB;"></span><span style="font-size:12px; color:#6B7785; font-weight:600;">Бинар</span></div><div class="izi-num" style="font-weight:700; font-size:18px; color:#14213A; margin-top:7px;">$1 920.00</div></div>
+                <div style="background:#FFFFFF; border:1px solid #E7ECF2; border-radius:13px; padding:12px;"><div style="display:flex; align-items:center; gap:7px;"><span style="width:8px; height:8px; border-radius:50%; background:#0E9E6E;"></span><span style="font-size:12px; color:#6B7785; font-weight:600;">Реферал</span></div><div class="izi-num" style="font-weight:700; font-size:18px; color:#14213A; margin-top:7px;">$1 260.00</div></div>
+                <div style="background:#FFFFFF; border:1px solid #E7ECF2; border-radius:13px; padding:12px;"><div style="display:flex; align-items:center; gap:7px;"><span style="width:8px; height:8px; border-radius:50%; background:#6D5BD0;"></span><span style="font-size:12px; color:#6B7785; font-weight:600;">Лидер</span></div><div class="izi-num" style="font-weight:700; font-size:18px; color:#14213A; margin-top:7px;">$640.00</div></div>
+                <div style="background:#FFFFFF; border:1px solid #E7ECF2; border-radius:13px; padding:12px;"><div style="display:flex; align-items:center; gap:7px;"><span style="width:8px; height:8px; border-radius:50%; background:#C77700;"></span><span style="font-size:12px; color:#6B7785; font-weight:600;">Ранг</span></div><div class="izi-num" style="font-weight:700; font-size:18px; color:#14213A; margin-top:7px;">$362.50</div></div>
+              </div>
+            </div>
+            <!-- package -->
+            <div style="background:#FFFFFF; border:1px solid #E7ECF2; border-radius:14px; padding:13px;">
+              <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:11px;"><span style="font-family:'Manrope',sans-serif; font-weight:700; font-size:14px; color:#14213A;">Пакет</span><span style="font-size:11px; font-weight:600; color:#0E7C5A; background:#E2F4EF; padding:3px 8px; border-radius:6px;">Silver активен</span></div>
+              <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px;">
+                <div style="border:1px solid #E7ECF2; border-radius:11px; padding:10px 8px; text-align:center;"><div style="font-weight:700; font-size:13px; color:#14213A;">Bronze</div><div style="font-size:11px; color:#6B7785; margin-top:3px;">100 PV</div><div class="izi-num" style="font-size:12.5px; color:#54606F; margin-top:1px;">$100</div></div>
+                <div style="border:1.5px solid #2563EB; background:#F1F6FE; border-radius:11px; padding:10px 8px; text-align:center; position:relative;"><div style="position:absolute; top:-8px; left:50%; transform:translateX(-50%); width:17px; height:17px; border-radius:50%; background:#2563EB; color:#fff; font-size:10px; display:flex; align-items:center; justify-content:center;">✓</div><div style="font-weight:700; font-size:13px; color:#1D4ED8;">Silver</div><div style="font-size:11px; color:#3B6FCB; margin-top:3px;">300 PV</div><div class="izi-num" style="font-size:12.5px; color:#1D4ED8; margin-top:1px;">$300</div></div>
+                <div style="border:1px solid #E7ECF2; border-radius:11px; padding:10px 8px; text-align:center;"><div style="font-weight:700; font-size:13px; color:#14213A;">Gold</div><div style="font-size:11px; color:#6B7785; margin-top:3px;">1000 PV</div><div class="izi-num" style="font-size:12.5px; color:#54606F; margin-top:1px;">$1000</div></div>
+              </div>
+            </div>
+            <!-- recent -->
+            <div style="background:#FFFFFF; border:1px solid #E7ECF2; border-radius:14px; padding:5px 13px;">
+              <div style="font-family:'Manrope',sans-serif; font-weight:700; font-size:14px; color:#14213A; padding:10px 0 6px;">Последние начисления</div>
+              <div style="display:flex; align-items:center; justify-content:space-between; padding:9px 0; border-top:1px solid #F0F3F7;"><div style="display:flex; align-items:center; gap:9px;"><span style="font-size:11px; font-weight:600; color:#1D4ED8; background:#E8F0FE; padding:3px 8px; border-radius:6px;">Бинар</span><span style="font-size:11.5px; color:#8A95A2;">2 ч назад</span></div><span class="izi-num" style="font-weight:700; font-size:14px; color:#0E7C5A;">+$48.00</span></div>
+              <div style="display:flex; align-items:center; justify-content:space-between; padding:9px 0; border-top:1px solid #F0F3F7;"><div style="display:flex; align-items:center; gap:9px;"><span style="font-size:11px; font-weight:600; color:#0E7C5A; background:#E2F4EF; padding:3px 8px; border-radius:6px;">Реферал</span><span style="font-size:11.5px; color:#8A95A2;">5 ч назад</span></div><span class="izi-num" style="font-weight:700; font-size:14px; color:#0E7C5A;">+$30.00</span></div>
+              <div style="display:flex; align-items:center; justify-content:space-between; padding:9px 0; border-top:1px solid #F0F3F7;"><div style="display:flex; align-items:center; gap:9px;"><span style="font-size:11px; font-weight:600; color:#9A6700; background:#FBEFD9; padding:3px 8px; border-radius:6px;">Ранг</span><span style="font-size:11.5px; color:#8A95A2;">вчера</span></div><span class="izi-num" style="font-weight:700; font-size:14px; color:#0E7C5A;">+$12.50</span></div>
+            </div>
+          </div>
+          <!-- tab bar -->
+          <div style="height:62px; flex:none; background:#FFFFFF; border-top:1px solid #E7ECF2; display:flex; align-items:center; padding:0 6px 4px;">
+            <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:3px; color:#2563EB;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="13" rx="2.5"/><path d="M3 10h18"/><circle cx="16.5" cy="14.5" r="1.3" fill="currentColor" stroke="none"/></svg><span style="font-size:10px; font-weight:600;">Доход</span></div>
+            <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:3px; color:#98A2AE;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="9" r="3"/><path d="M3.5 19a5.5 5.5 0 0 1 11 0"/><path d="M16 7a3 3 0 0 1 0 6M21 19a5 5 0 0 0-4-4.9"/></svg><span style="font-size:10px; font-weight:600;">Команда</span></div>
+            <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:3px; color:#98A2AE;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 10a6 6 0 0 0 12 0V4H6z"/><path d="M6 5H4a2 2 0 0 0 2 3M18 5h2a2 2 0 0 1-2 3M9 20h6M12 16v4"/></svg><span style="font-size:10px; font-weight:600;">Ранг</span></div>
+            <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:3px; color:#98A2AE;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.2"/><path d="M5 20a7 7 0 0 1 14 0"/></svg><span style="font-size:10px; font-weight:600;">Профиль</span></div>
+            <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:3px; color:#98A2AE;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z"/></svg><span style="font-size:10px; font-weight:600;">Админ</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- DARK -->
+      <div style="flex:none;">
+        <div style="font-size:11px; font-weight:700; letter-spacing:0.08em; color:#9AA4AF; text-transform:uppercase; margin-bottom:9px;">Dark</div>
+        <div style="width:316px; height:712px; background:#0E1621; border-radius:30px; border:1px solid #243140; box-shadow:0 12px 34px rgba(0,0,0,0.34); overflow:hidden; display:flex; flex-direction:column;">
+          <div style="height:46px; flex:none; background:#18222E; border-bottom:1px solid #243140; display:flex; align-items:center; padding:0 16px;">
+            <div style="width:22px;"></div>
+            <div style="flex:1; text-align:center; font-family:'Manrope',sans-serif; font-weight:700; font-size:15px; color:#EAF0F6;">Доход</div>
+            <div style="width:22px; text-align:right; color:#7E8C9C; font-size:17px;">✕</div>
+          </div>
+          <div style="flex:1; overflow:hidden; padding:14px; display:flex; flex-direction:column; gap:12px;">
+            <div style="background:#18222E; border:1px solid #243140; border-radius:16px; padding:16px;">
+              <div style="font-size:12px; font-weight:600; color:#93A4B6;">Всего начислено</div>
+              <div class="izi-num" style="font-weight:800; font-size:33px; color:#F3F7FB; line-height:1.1; margin-top:6px;">$4 182.50</div>
+              <div style="display:inline-flex; align-items:center; gap:5px; margin-top:8px; background:#16322A; color:#4FC79A; font-size:12px; font-weight:600; padding:4px 9px; border-radius:7px;">▲ $128.00 за неделю</div>
+              <div style="height:1px; background:#243140; margin:14px 0 12px;"></div>
+              <div style="display:flex; align-items:center; justify-content:space-between;">
+                <div>
+                  <div style="font-size:11.5px; color:#93A4B6;">Доступно к выводу</div>
+                  <div class="izi-num" style="font-weight:700; font-size:16px; color:#EAF0F6; margin-top:2px;">$3 010.00</div>
+                </div>
+                <div style="background:#2563EB; color:#FFFFFF; font-size:13.5px; font-weight:600; padding:9px 18px; border-radius:10px;">Вывести</div>
+              </div>
+            </div>
+            <div>
+              <div style="font-size:12px; font-weight:700; color:#93A4B6; margin:2px 2px 8px;">Бонусы по типам</div>
+              <div style="display:grid; grid-template-columns:1fr 1fr; gap:9px;">
+                <div style="background:#18222E; border:1px solid #243140; border-radius:13px; padding:12px;"><div style="display:flex; align-items:center; gap:7px;"><span style="width:8px; height:8px; border-radius:50%; background:#5AA2F0;"></span><span style="font-size:12px; color:#93A4B6; font-weight:600;">Бинар</span></div><div class="izi-num" style="font-weight:700; font-size:18px; color:#EAF0F6; margin-top:7px;">$1 920.00</div></div>
+                <div style="background:#18222E; border:1px solid #243140; border-radius:13px; padding:12px;"><div style="display:flex; align-items:center; gap:7px;"><span style="width:8px; height:8px; border-radius:50%; background:#3FBE84;"></span><span style="font-size:12px; color:#93A4B6; font-weight:600;">Реферал</span></div><div class="izi-num" style="font-weight:700; font-size:18px; color:#EAF0F6; margin-top:7px;">$1 260.00</div></div>
+                <div style="background:#18222E; border:1px solid #243140; border-radius:13px; padding:12px;"><div style="display:flex; align-items:center; gap:7px;"><span style="width:8px; height:8px; border-radius:50%; background:#A99BF0;"></span><span style="font-size:12px; color:#93A4B6; font-weight:600;">Лидер</span></div><div class="izi-num" style="font-weight:700; font-size:18px; color:#EAF0F6; margin-top:7px;">$640.00</div></div>
+                <div style="background:#18222E; border:1px solid #243140; border-radius:13px; padding:12px;"><div style="display:flex; align-items:center; gap:7px;"><span style="width:8px; height:8px; border-radius:50%; background:#E0B050;"></span><span style="font-size:12px; color:#93A4B6; font-weight:600;">Ранг</span></div><div class="izi-num" style="font-weight:700; font-size:18px; color:#EAF0F6; margin-top:7px;">$362.50</div></div>
+              </div>
+            </div>
+            <div style="background:#18222E; border:1px solid #243140; border-radius:14px; padding:13px;">
+              <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:11px;"><span style="font-family:'Manrope',sans-serif; font-weight:700; font-size:14px; color:#EAF0F6;">Пакет</span><span style="font-size:11px; font-weight:600; color:#4FC79A; background:#16322A; padding:3px 8px; border-radius:6px;">Silver активен</span></div>
+              <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px;">
+                <div style="border:1px solid #243140; border-radius:11px; padding:10px 8px; text-align:center;"><div style="font-weight:700; font-size:13px; color:#EAF0F6;">Bronze</div><div style="font-size:11px; color:#93A4B6; margin-top:3px;">100 PV</div><div class="izi-num" style="font-size:12.5px; color:#B6C2CE; margin-top:1px;">$100</div></div>
+                <div style="border:1.5px solid #5AA2F0; background:#152434; border-radius:11px; padding:10px 8px; text-align:center; position:relative;"><div style="position:absolute; top:-8px; left:50%; transform:translateX(-50%); width:17px; height:17px; border-radius:50%; background:#5AA2F0; color:#0E1621; font-size:10px; display:flex; align-items:center; justify-content:center;">✓</div><div style="font-weight:700; font-size:13px; color:#8FC0F6;">Silver</div><div style="font-size:11px; color:#6FA8E8; margin-top:3px;">300 PV</div><div class="izi-num" style="font-size:12.5px; color:#8FC0F6; margin-top:1px;">$300</div></div>
+                <div style="border:1px solid #243140; border-radius:11px; padding:10px 8px; text-align:center;"><div style="font-weight:700; font-size:13px; color:#EAF0F6;">Gold</div><div style="font-size:11px; color:#93A4B6; margin-top:3px;">1000 PV</div><div class="izi-num" style="font-size:12.5px; color:#B6C2CE; margin-top:1px;">$1000</div></div>
+              </div>
+            </div>
+            <div style="background:#18222E; border:1px solid #243140; border-radius:14px; padding:5px 13px;">
+              <div style="font-family:'Manrope',sans-serif; font-weight:700; font-size:14px; color:#EAF0F6; padding:10px 0 6px;">Последние начисления</div>
+              <div style="display:flex; align-items:center; justify-content:space-between; padding:9px 0; border-top:1px solid #232F3C;"><div style="display:flex; align-items:center; gap:9px;"><span style="font-size:11px; font-weight:600; color:#7FB3F5; background:#1B2C44; padding:3px 8px; border-radius:6px;">Бинар</span><span style="font-size:11.5px; color:#7E8C9C;">2 ч назад</span></div><span class="izi-num" style="font-weight:700; font-size:14px; color:#4FC79A;">+$48.00</span></div>
+              <div style="display:flex; align-items:center; justify-content:space-between; padding:9px 0; border-top:1px solid #232F3C;"><div style="display:flex; align-items:center; gap:9px;"><span style="font-size:11px; font-weight:600; color:#4FC79A; background:#16322A; padding:3px 8px; border-radius:6px;">Реферал</span><span style="font-size:11.5px; color:#7E8C9C;">5 ч назад</span></div><span class="izi-num" style="font-weight:700; font-size:14px; color:#4FC79A;">+$30.00</span></div>
+              <div style="display:flex; align-items:center; justify-content:space-between; padding:9px 0; border-top:1px solid #232F3C;"><div style="display:flex; align-items:center; gap:9px;"><span style="font-size:11px; font-weight:600; color:#E0B050; background:#352B19; padding:3px 8px; border-radius:6px;">Ранг</span><span style="font-size:11.5px; color:#7E8C9C;">вчера</span></div><span class="izi-num" style="font-weight:700; font-size:14px; color:#4FC79A;">+$12.50</span></div>
+            </div>
+          </div>
+          <div style="height:62px; flex:none; background:#18222E; border-top:1px solid #243140; display:flex; align-items:center; padding:0 6px 4px;">
+            <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:3px; color:#5AA2F0;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="13" rx="2.5"/><path d="M3 10h18"/><circle cx="16.5" cy="14.5" r="1.3" fill="currentColor" stroke="none"/></svg><span style="font-size:10px; font-weight:600;">Доход</span></div>
+            <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:3px; color:#6F7E8E;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="9" r="3"/><path d="M3.5 19a5.5 5.5 0 0 1 11 0"/><path d="M16 7a3 3 0 0 1 0 6M21 19a5 5 0 0 0-4-4.9"/></svg><span style="font-size:10px; font-weight:600;">Команда</span></div>
+            <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:3px; color:#6F7E8E;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 10a6 6 0 0 0 12 0V4H6z"/><path d="M6 5H4a2 2 0 0 0 2 3M18 5h2a2 2 0 0 1-2 3M9 20h6M12 16v4"/></svg><span style="font-size:10px; font-weight:600;">Ранг</span></div>
+            <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:3px; color:#6F7E8E;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.2"/><path d="M5 20a7 7 0 0 1 14 0"/></svg><span style="font-size:10px; font-weight:600;">Профиль</span></div>
+            <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:3px; color:#6F7E8E;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z"/></svg><span style="font-size:10px; font-weight:600;">Админ</span></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ============ SCREEN 2 · КОМАНДА ============ -->
+  <div style="margin-bottom:46px;">
+    <div style="font-family:'Manrope',sans-serif; font-weight:700; font-size:15px; color:#14213A; margin-bottom:5px;">2 · Команда</div>
+    <div style="font-size:13px; color:#6B7785; margin-bottom:18px; max-width:700px; line-height:1.5;">Компактное дерево даунлайна с отступом по уровням, имя + статус активен/нов, фильтр и сводка по команде.</div>
+    <div style="display:flex; gap:32px; align-items:flex-start;">
+
+      <!-- LIGHT -->
+      <div style="flex:none;">
+        <div style="font-size:11px; font-weight:700; letter-spacing:0.08em; color:#9AA4AF; text-transform:uppercase; margin-bottom:9px;">Light</div>
+        <div style="width:316px; height:712px; background:#EEF1F5; border-radius:30px; border:1px solid #DBE1E9; box-shadow:0 12px 34px rgba(20,33,58,0.13); overflow:hidden; display:flex; flex-direction:column;">
+          <div style="height:46px; flex:none; background:#FFFFFF; border-bottom:1px solid #E7ECF2; display:flex; align-items:center; padding:0 16px;"><div style="width:22px;"></div><div style="flex:1; text-align:center; font-family:'Manrope',sans-serif; font-weight:700; font-size:15px; color:#14213A;">Команда</div><div style="width:22px; text-align:right; color:#9AA4AF; font-size:17px;">✕</div></div>
+          <div style="flex:1; overflow:hidden; padding:14px; display:flex; flex-direction:column; gap:12px;">
+            <!-- summary -->
+            <div style="background:#FFFFFF; border:1px solid #E7ECF2; border-radius:14px; padding:14px; display:flex;">
+              <div style="flex:1; text-align:center;"><div class="izi-num" style="font-weight:800; font-size:22px; color:#14213A;">24</div><div style="font-size:11px; color:#6B7785; margin-top:2px;">В команде</div></div>
+              <div style="width:1px; background:#EEF1F5;"></div>
+              <div style="flex:1; text-align:center;"><div class="izi-num" style="font-weight:800; font-size:22px; color:#0E7C5A;">18</div><div style="font-size:11px; color:#6B7785; margin-top:2px;">Активных</div></div>
+              <div style="width:1px; background:#EEF1F5;"></div>
+              <div style="flex:1; text-align:center;"><div class="izi-num" style="font-weight:800; font-size:22px; color:#14213A;">6</div><div style="font-size:11px; color:#6B7785; margin-top:2px;">Личных</div></div>
+            </div>
+            <!-- filter -->
+            <div style="display:flex; background:#E9EDF2; border-radius:10px; padding:3px;">
+              <div style="flex:1; text-align:center; font-size:12.5px; font-weight:600; color:#14213A; background:#FFFFFF; border-radius:8px; padding:6px; box-shadow:0 1px 2px rgba(20,33,58,0.08);">Все</div>
+              <div style="flex:1; text-align:center; font-size:12.5px; font-weight:600; color:#7C8794; padding:6px;">Активные</div>
+              <div style="flex:1; text-align:center; font-size:12.5px; font-weight:600; color:#7C8794; padding:6px;">Новые</div>
+            </div>
+            <!-- tree -->
+            <div style="background:#FFFFFF; border:1px solid #E7ECF2; border-radius:14px; padding:6px 14px 12px;">
+              <div style="display:flex; align-items:center; gap:10px; padding:10px 0 8px;"><span style="width:32px; height:32px; border-radius:50%; background:#2563EB; color:#fff; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:700;">Я</span><span style="font-size:13.5px; font-weight:700; color:#14213A;">Вы</span><span style="font-size:10.5px; font-weight:600; color:#6B7785; background:#EEF1F5; padding:2px 7px; border-radius:5px;">Manager</span></div>
+              <div style="margin-left:15px; border-left:1.5px solid #EAEEF3; padding-left:14px;">
+                <!-- branch A -->
+                <div style="display:flex; align-items:center; gap:10px; padding:7px 0;"><span style="width:28px; height:28px; border-radius:50%; background:#E8F0FE; color:#1D4ED8; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700;">АК</span><span style="font-size:13px; font-weight:600; color:#14213A; flex:1;">Анна К.</span><span style="font-size:10.5px; font-weight:600; color:#0E7C5A; background:#E2F4EF; padding:2px 7px; border-radius:5px;">активен</span></div>
+                <div style="margin-left:14px; border-left:1.5px solid #EEF1F5; padding-left:13px;">
+                  <div style="display:flex; align-items:center; gap:10px; padding:6px 0;"><span style="width:26px; height:26px; border-radius:50%; background:#EEF1F5; color:#54606F; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:700;">ИП</span><span style="font-size:12.5px; color:#14213A; flex:1;">Игорь П.</span><span style="font-size:10.5px; font-weight:600; color:#0E7C5A; background:#E2F4EF; padding:2px 7px; border-radius:5px;">активен</span></div>
+                  <div style="display:flex; align-items:center; gap:10px; padding:6px 0;"><span style="width:26px; height:26px; border-radius:50%; background:#EEF1F5; color:#54606F; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:700;">МС</span><span style="font-size:12.5px; color:#14213A; flex:1;">Мария С.</span><span style="font-size:10.5px; font-weight:600; color:#1D4ED8; background:#E8F0FE; padding:2px 7px; border-radius:5px;">нов</span></div>
+                </div>
+                <!-- branch B -->
+                <div style="display:flex; align-items:center; gap:10px; padding:7px 0;"><span style="width:28px; height:28px; border-radius:50%; background:#EDEAFB; color:#5B45C9; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700;">ДЛ</span><span style="font-size:13px; font-weight:600; color:#14213A; flex:1;">Дмитрий Л.</span><span style="font-size:10.5px; font-weight:600; color:#0E7C5A; background:#E2F4EF; padding:2px 7px; border-radius:5px;">активен</span></div>
+                <div style="margin-left:14px; border-left:1.5px solid #EEF1F5; padding-left:13px;">
+                  <div style="display:flex; align-items:center; gap:10px; padding:6px 0;"><span style="width:26px; height:26px; border-radius:50%; background:#EEF1F5; color:#54606F; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:700;">ОВ</span><span style="font-size:12.5px; color:#14213A; flex:1;">Олег В.</span><span style="font-size:10.5px; font-weight:600; color:#0E7C5A; background:#E2F4EF; padding:2px 7px; border-radius:5px;">активен</span></div>
+                </div>
+                <!-- branch C -->
+                <div style="display:flex; align-items:center; gap:10px; padding:7px 0;"><span style="width:28px; height:28px; border-radius:50%; background:#FBEFD9; color:#9A6700; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700;">СР</span><span style="font-size:13px; font-weight:600; color:#14213A; flex:1;">Светлана Р.</span><span style="font-size:10.5px; font-weight:600; color:#1D4ED8; background:#E8F0FE; padding:2px 7px; border-radius:5px;">нов</span></div>
+              </div>
+            </div>
+          </div>
+          <div style="height:62px; flex:none; background:#FFFFFF; border-top:1px solid #E7ECF2; display:flex; align-items:center; padding:0 6px 4px;">
+            <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:3px; color:#98A2AE;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="13" rx="2.5"/><path d="M3 10h18"/><circle cx="16.5" cy="14.5" r="1.3" fill="currentColor" stroke="none"/></svg><span style="font-size:10px; font-weight:600;">Доход</span></div>
+            <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:3px; color:#2563EB;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="9" r="3"/><path d="M3.5 19a5.5 5.5 0 0 1 11 0"/><path d="M16 7a3 3 0 0 1 0 6M21 19a5 5 0 0 0-4-4.9"/></svg><span style="font-size:10px; font-weight:600;">Команда</span></div>
+            <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:3px; color:#98A2AE;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 10a6 6 0 0 0 12 0V4H6z"/><path d="M6 5H4a2 2 0 0 0 2 3M18 5h2a2 2 0 0 1-2 3M9 20h6M12 16v4"/></svg><span style="font-size:10px; font-weight:600;">Ранг</span></div>
+            <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:3px; color:#98A2AE;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.2"/><path d="M5 20a7 7 0 0 1 14 0"/></svg><span style="font-size:10px; font-weight:600;">Профиль</span></div>
+            <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:3px; color:#98A2AE;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z"/></svg><span style="font-size:10px; font-weight:600;">Админ</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- DARK -->
+      <div style="flex:none;">
+        <div style="font-size:11px; font-weight:700; letter-spacing:0.08em; color:#9AA4AF; text-transform:uppercase; margin-bottom:9px;">Dark</div>
+        <div style="width:316px; height:712px; background:#0E1621; border-radius:30px; border:1px solid #243140; box-shadow:0 12px 34px rgba(0,0,0,0.34); overflow:hidden; display:flex; flex-direction:column;">
+          <div style="height:46px; flex:none; background:#18222E; border-bottom:1px solid #243140; display:flex; align-items:center; padding:0 16px;"><div style="width:22px;"></div><div style="flex:1; text-align:center; font-family:'Manrope',sans-serif; font-weight:700; font-size:15px; color:#EAF0F6;">Команда</div><div style="width:22px; text-align:right; color:#7E8C9C; font-size:17px;">✕</div></div>
+          <div style="flex:1; overflow:hidden; padding:14px; display:flex; flex-direction:column; gap:12px;">
+            <div style="background:#18222E; border:1px solid #243140; border-radius:14px; padding:14px; display:flex;">
+              <div style="flex:1; text-align:center;"><div class="izi-num" style="font-weight:800; font-size:22px; color:#EAF0F6;">24</div><div style="font-size:11px; color:#93A4B6; margin-top:2px;">В команде</div></div>
+              <div style="width:1px; background:#243140;"></div>
+              <div style="flex:1; text-align:center;"><div class="izi-num" style="font-weight:800; font-size:22px; color:#4FC79A;">18</div><div style="font-size:11px; color:#93A4B6; margin-top:2px;">Активных</div></div>
+              <div style="width:1px; background:#243140;"></div>
+              <div style="flex:1; text-align:center;"><div class="izi-num" style="font-weight:800; font-size:22px; color:#EAF0F6;">6</div><div style="font-size:11px; color:#93A4B6; margin-top:2px;">Личных</div></div>
+            </div>
+            <div style="display:flex; background:#121C27; border:1px solid #243140; border-radius:10px; padding:3px;">
+              <div style="flex:1; text-align:center; font-size:12.5px; font-weight:600; color:#EAF0F6; background:#26313E; border-radius:8px; padding:6px;">Все</div>
+              <div style="flex:1; text-align:center; font-size:12.5px; font-weight:600; color:#7E8C9C; padding:6px;">Активные</div>
+              <div style="flex:1; text-align:center; font-size:12.5px; font-weight:600; color:#7E8C9C; padding:6px;">Новые</div>
+            </div>
+            <div style="background:#18222E; border:1px solid #243140; border-radius:14px; padding:6px 14px 12px;">
+              <div style="display:flex; align-items:center; gap:10px; padding:10px 0 8px;"><span style="width:32px; height:32px; border-radius:50%; background:#2563EB; color:#fff; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:700;">Я</span><span style="font-size:13.5px; font-weight:700; color:#EAF0F6;">Вы</span><span style="font-size:10.5px; font-weight:600; color:#93A4B6; background:#222D3A; padding:2px 7px; border-radius:5px;">Manager</span></div>
+              <div style="margin-left:15px; border-left:1.5px solid #283544; padding-left:14px;">
+                <div style="display:flex; align-items:center; gap:10px; padding:7px 0;"><span style="width:28px; height:28px; border-radius:50%; background:#1B2C44; color:#7FB3F5; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700;">АК</span><span style="font-size:13px; font-weight:600; color:#EAF0F6; flex:1;">Анна К.</span><span style="font-size:10.5px; font-weight:600; color:#4FC79A; background:#16322A; padding:2px 7px; border-radius:5px;">активен</span></div>
+                <div style="margin-left:14px; border-left:1.5px solid #232F3C; padding-left:13px;">
+                  <div style="display:flex; align-items:center; gap:10px; padding:6px 0;"><span style="width:26px; height:26px; border-radius:50%; background:#222D3A; color:#A9B6C4; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:700;">ИП</span><span style="font-size:12.5px; color:#EAF0F6; flex:1;">Игорь П.</span><span style="font-size:10.5px; font-weight:600; color:#4FC79A; background:#16322A; padding:2px 7px; border-radius:5px;">активен</span></div>
+                  <div style="display:flex; align-items:center; gap:10px; padding:6px 0;"><span style="width:26px; height:26px; border-radius:50%; background:#222D3A; color:#A9B6C4; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:700;">МС</span><span style="font-size:12.5px; color:#EAF0F6; flex:1;">Мария С.</span><span style="font-size:10.5px; font-weight:600; color:#7FB3F5; background:#1B2C44; padding:2px 7px; border-radius:5px;">нов</span></div>
+                </div>
+                <div style="display:flex; align-items:center; gap:10px; padding:7px 0;"><span style="width:28px; height:28px; border-radius:50%; background:#272148; color:#A99BF0; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700;">ДЛ</span><span style="font-size:13px; font-weight:600; color:#EAF0F6; flex:1;">Дмитрий Л.</span><span style="font-size:10.5px; font-weight:600; color:#4FC79A; background:#16322A; padding:2px 7px; border-radius:5px;">активен</span></div>
+                <div style="margin-left:14px; border-left:1.5px solid #232F3C; padding-left:13px;">
+                  <div style="display:flex; align-items:center; gap:10px; padding:6px 0;"><span style="width:26px; height:26px; border-radius:50%; background:#222D3A; color:#A9B6C4; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:700;">ОВ</span><span style="font-size:12.5px; color:#EAF0F6; flex:1;">Олег В.</span><span style="font-size:10.5px; font-weight:600; color:#4FC79A; background:#16322A; padding:2px 7px; border-radius:5px;">активен</span></div>
+                </div>
+                <div style="display:flex; align-items:center; gap:10px; padding:7px 0;"><span style="width:28px; height:28px; border-radius:50%; background:#352B19; color:#E0B050; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700;">СР</span><span style="font-size:13px; font-weight:600; color:#EAF0F6; flex:1;">Светлана Р.</span><span style="font-size:10.5px; font-weight:600; color:#7FB3F5; background:#1B2C44; padding:2px 7px; border-radius:5px;">нов</span></div>
+              </div>
+            </div>
+          </div>
+          <div style="height:62px; flex:none; background:#18222E; border-top:1px solid #243140; display:flex; align-items:center; padding:0 6px 4px;">
+            <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:3px; color:#6F7E8E;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="13" rx="2.5"/><path d="M3 10h18"/><circle cx="16.5" cy="14.5" r="1.3" fill="currentColor" stroke="none"/></svg><span style="font-size:10px; font-weight:600;">Доход</span></div>
+            <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:3px; color:#5AA2F0;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="9" r="3"/><path d="M3.5 19a5.5 5.5 0 0 1 11 0"/><path d="M16 7a3 3 0 0 1 0 6M21 19a5 5 0 0 0-4-4.9"/></svg><span style="font-size:10px; font-weight:600;">Команда</span></div>
+            <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:3px; color:#6F7E8E;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 10a6 6 0 0 0 12 0V4H6z"/><path d="M6 5H4a2 2 0 0 0 2 3M18 5h2a2 2 0 0 1-2 3M9 20h6M12 16v4"/></svg><span style="font-size:10px; font-weight:600;">Ранг</span></div>
+            <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:3px; color:#6F7E8E;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.2"/><path d="M5 20a7 7 0 0 1 14 0"/></svg><span style="font-size:10px; font-weight:600;">Профиль</span></div>
+            <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:3px; color:#6F7E8E;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z"/></svg><span style="font-size:10px; font-weight:600;">Админ</span></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ============ SCREEN 3 · РАНГ ============ -->
+  <div style="margin-bottom:46px;">
+    <div style="font-family:'Manrope',sans-serif; font-weight:700; font-size:15px; color:#14213A; margin-bottom:5px;">3 · Ранг</div>
+    <div style="font-size:13px; color:#6B7785; margin-bottom:18px; max-width:700px; line-height:1.5;">Текущий → следующий ранг, степпер прогрессии и два прогресс-бара: малая ветка PV и приглашённые.</div>
+    <div style="display:flex; gap:32px; align-items:flex-start;">
+
+      <!-- LIGHT -->
+      <div style="flex:none;">
+        <div style="font-size:11px; font-weight:700; letter-spacing:0.08em; color:#9AA4AF; text-transform:uppercase; margin-bottom:9px;">Light</div>
+        <div style="width:316px; height:712px; background:#EEF1F5; border-radius:30px; border:1px solid #DBE1E9; box-shadow:0 12px 34px rgba(20,33,58,0.13); overflow:hidden; display:flex; flex-direction:column;">
+          <div style="height:46px; flex:none; background:#FFFFFF; border-bottom:1px solid #E7ECF2; display:flex; align-items:center; padding:0 16px;"><div style="width:22px;"></div><div style="flex:1; text-align:center; font-family:'Manrope',sans-serif; font-weight:700; font-size:15px; color:#14213A;">Ранг</div><div style="width:22px; text-align:right; color:#9AA4AF; font-size:17px;">✕</div></div>
+          <div style="flex:1; overflow:hidden; padding:14px; display:flex; flex-direction:column; gap:12px;">
+            <!-- rank hero -->
+            <div style="background:#FFFFFF; border:1px solid #E7ECF2; border-radius:16px; padding:16px;">
+              <div style="display:flex; align-items:center; gap:13px;">
+                <div style="width:52px; height:52px; border-radius:15px; background:linear-gradient(150deg,#EDEAFB,#E8F0FE); display:flex; align-items:center; justify-content:center;"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#5B45C9" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 10a6 6 0 0 0 12 0V4H6z"/><path d="M6 5H4a2 2 0 0 0 2 3M18 5h2a2 2 0 0 1-2 3M9 20h6M12 16v4"/></svg></div>
+                <div style="flex:1;">
+                  <div style="font-size:11.5px; color:#6B7785; font-weight:600;">Текущий ранг</div>
+                  <div style="font-family:'Manrope',sans-serif; font-weight:800; font-size:23px; color:#14213A; line-height:1.15;">Manager</div>
+                </div>
+                <div style="text-align:right;"><div style="font-size:10.5px; color:#9AA4AF;">далее</div><div style="font-size:13.5px; font-weight:700; color:#5B45C9;">Director ↗</div></div>
+              </div>
+              <!-- stepper -->
+              <div style="display:flex; align-items:center; gap:4px; margin-top:16px;">
+                <div style="flex:1; height:5px; border-radius:3px; background:#2563EB;"></div>
+                <div style="flex:1; height:5px; border-radius:3px; background:#2563EB;"></div>
+                <div style="flex:1; height:5px; border-radius:3px; background:#C9D9F6;"></div>
+                <div style="flex:1; height:5px; border-radius:3px; background:#EEF1F5;"></div>
+              </div>
+              <div style="display:flex; justify-content:space-between; margin-top:7px;">
+                <span style="font-size:10px; color:#0E7C5A; font-weight:600;">Partner</span>
+                <span style="font-size:10px; color:#2563EB; font-weight:700;">Manager</span>
+                <span style="font-size:10px; color:#7C8794; font-weight:600;">Director</span>
+                <span style="font-size:10px; color:#AAB3BE;">Leader</span>
+              </div>
+            </div>
+            <!-- progress PV -->
+            <div style="background:#FFFFFF; border:1px solid #E7ECF2; border-radius:14px; padding:14px;">
+              <div style="display:flex; align-items:baseline; justify-content:space-between; margin-bottom:9px;"><span style="font-size:13px; font-weight:700; color:#14213A;">Малая ветка PV</span><span class="izi-num" style="font-size:12.5px; color:#6B7785;"><b style="color:#14213A;">6 400</b> / 10 000</span></div>
+              <div style="height:10px; border-radius:6px; background:#EEF1F5; overflow:hidden;"><div style="width:64%; height:100%; border-radius:6px; background:linear-gradient(90deg,#2563EB,#3B82F6);"></div></div>
+              <div style="font-size:11px; color:#6B7785; margin-top:7px;">Осталось <b style="color:#14213A;">3 600 PV</b> до Director</div>
+            </div>
+            <!-- progress invites -->
+            <div style="background:#FFFFFF; border:1px solid #E7ECF2; border-radius:14px; padding:14px;">
+              <div style="display:flex; align-items:baseline; justify-content:space-between; margin-bottom:9px;"><span style="font-size:13px; font-weight:700; color:#14213A;">Приглашённые</span><span class="izi-num" style="font-size:12.5px; color:#6B7785;"><b style="color:#14213A;">8</b> / 12</span></div>
+              <div style="height:10px; border-radius:6px; background:#EEF1F5; overflow:hidden;"><div style="width:67%; height:100%; border-radius:6px; background:linear-gradient(90deg,#0E9E6E,#16B981);"></div></div>
+              <div style="font-size:11px; color:#6B7785; margin-top:7px;">Осталось <b style="color:#14213A;">4 активных</b> партнёра</div>
+            </div>
+            <!-- reward -->
+            <div style="background:#F1F6FE; border:1px solid #D9E6FB; border-radius:14px; padding:13px;">
+              <div style="font-size:12px; font-weight:700; color:#1D4ED8; margin-bottom:8px;">Ранг Director даёт</div>
+              <div style="display:flex; align-items:center; gap:8px; padding:3px 0; font-size:12px; color:#26405F;"><span style="color:#2563EB;">＋</span>Лидерский бонус 3% от ветки</div>
+              <div style="display:flex; align-items:center; gap:8px; padding:3px 0; font-size:12px; color:#26405F;"><span style="color:#2563EB;">＋</span>Разовая награда $500</div>
+            </div>
+          </div>
+          <div style="height:62px; flex:none; background:#FFFFFF; border-top:1px solid #E7ECF2; display:flex; align-items:center; padding:0 6px 4px;">
+            <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:3px; color:#98A2AE;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="13" rx="2.5"/><path d="M3 10h18"/><circle cx="16.5" cy="14.5" r="1.3" fill="currentColor" stroke="none"/></svg><span style="font-size:10px; font-weight:600;">Доход</span></div>
+            <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:3px; color:#98A2AE;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="9" r="3"/><path d="M3.5 19a5.5 5.5 0 0 1 11 0"/><path d="M16 7a3 3 0 0 1 0 6M21 19a5 5 0 0 0-4-4.9"/></svg><span style="font-size:10px; font-weight:600;">Команда</span></div>
+            <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:3px; color:#2563EB;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 10a6 6 0 0 0 12 0V4H6z"/><path d="M6 5H4a2 2 0 0 0 2 3M18 5h2a2 2 0 0 1-2 3M9 20h6M12 16v4"/></svg><span style="font-size:10px; font-weight:600;">Ранг</span></div>
+            <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:3px; color:#98A2AE;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.2"/><path d="M5 20a7 7 0 0 1 14 0"/></svg><span style="font-size:10px; font-weight:600;">Профиль</span></div>
+            <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:3px; color:#98A2AE;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z"/></svg><span style="font-size:10px; font-weight:600;">Админ</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- DARK -->
+      <div style="flex:none;">
+        <div style="font-size:11px; font-weight:700; letter-spacing:0.08em; color:#9AA4AF; text-transform:uppercase; margin-bottom:9px;">Dark</div>
+        <div style="width:316px; height:712px; background:#0E1621; border-radius:30px; border:1px solid #243140; box-shadow:0 12px 34px rgba(0,0,0,0.34); overflow:hidden; display:flex; flex-direction:column;">
+          <div style="height:46px; flex:none; background:#18222E; border-bottom:1px solid #243140; display:flex; align-items:center; padding:0 16px;"><div style="width:22px;"></div><div style="flex:1; text-align:center; font-family:'Manrope',sans-serif; font-weight:700; font-size:15px; color:#EAF0F6;">Ранг</div><div style="width:22px; text-align:right; color:#7E8C9C; font-size:17px;">✕</div></div>
+          <div style="flex:1; overflow:hidden; padding:14px; display:flex; flex-direction:column; gap:12px;">
+            <div style="background:#18222E; border:1px solid #243140; border-radius:16px; padding:16px;">
+              <div style="display:flex; align-items:center; gap:13px;">
+                <div style="width:52px; height:52px; border-radius:15px; background:linear-gradient(150deg,#272148,#1B2C44); display:flex; align-items:center; justify-content:center;"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#A99BF0" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 10a6 6 0 0 0 12 0V4H6z"/><path d="M6 5H4a2 2 0 0 0 2 3M18 5h2a2 2 0 0 1-2 3M9 20h6M12 16v4"/></svg></div>
+                <div style="flex:1;">
+                  <div style="font-size:11.5px; color:#93A4B6; font-weight:600;">Текущий ранг</div>
+                  <div style="font-family:'Manrope',sans-serif; font-weight:800; font-size:23px; color:#EAF0F6; line-height:1.15;">Manager</div>
+                </div>
+                <div style="text-align:right;"><div style="font-size:10.5px; color:#7E8C9C;">далее</div><div style="font-size:13.5px; font-weight:700; color:#A99BF0;">Director ↗</div></div>
+              </div>
+              <div style="display:flex; align-items:center; gap:4px; margin-top:16px;">
+                <div style="flex:1; height:5px; border-radius:3px; background:#5AA2F0;"></div>
+                <div style="flex:1; height:5px; border-radius:3px; background:#5AA2F0;"></div>
+                <div style="flex:1; height:5px; border-radius:3px; background:#2A3F5C;"></div>
+                <div style="flex:1; height:5px; border-radius:3px; background:#243140;"></div>
+              </div>
+              <div style="display:flex; justify-content:space-between; margin-top:7px;">
+                <span style="font-size:10px; color:#4FC79A; font-weight:600;">Partner</span>
+                <span style="font-size:10px; color:#5AA2F0; font-weight:700;">Manager</span>
+                <span style="font-size:10px; color:#93A4B6; font-weight:600;">Director</span>
+                <span style="font-size:10px; color:#5E6B7A;">Leader</span>
+              </div>
+            </div>
+            <div style="background:#18222E; border:1px solid #243140; border-radius:14px; padding:14px;">
+              <div style="display:flex; align-items:baseline; justify-content:space-between; margin-bottom:9px;"><span style="font-size:13px; font-weight:700; color:#EAF0F6;">Малая ветка PV</span><span class="izi-num" style="font-size:12.5px; color:#93A4B6;"><b style="color:#EAF0F6;">6 400</b> / 10 000</span></div>
+              <div style="height:10px; border-radius:6px; background:#121C27; overflow:hidden;"><div style="width:64%; height:100%; border-radius:6px; background:linear-gradient(90deg,#3B82F6,#5AA2F0);"></div></div>
+              <div style="font-size:11px; color:#93A4B6; margin-top:7px;">Осталось <b style="color:#EAF0F6;">3 600 PV</b> до Director</div>
+            </div>
+            <div style="background:#18222E; border:1px solid #243140; border-radius:14px; padding:14px;">
+              <div style="display:flex; align-items:baseline; justify-content:space-between; margin-bottom:9px;"><span style="font-size:13px; font-weight:700; color:#EAF0F6;">Приглашённые</span><span class="izi-num" style="font-size:12.5px; color:#93A4B6;"><b style="color:#EAF0F6;">8</b> / 12</span></div>
+              <div style="height:10px; border-radius:6px; background:#121C27; overflow:hidden;"><div style="width:67%; height:100%; border-radius:6px; background:linear-gradient(90deg,#16B981,#3FBE84);"></div></div>
+              <div style="font-size:11px; color:#93A4B6; margin-top:7px;">Осталось <b style="color:#EAF0F6;">4 активных</b> партнёра</div>
+            </div>
+            <div style="background:#152434; border:1px solid #28456B; border-radius:14px; padding:13px;">
+              <div style="font-size:12px; font-weight:700; color:#8FC0F6; margin-bottom:8px;">Ранг Director даёт</div>
+              <div style="display:flex; align-items:center; gap:8px; padding:3px 0; font-size:12px; color:#C3D4E6;"><span style="color:#5AA2F0;">＋</span>Лидерский бонус 3% от ветки</div>
+              <div style="display:flex; align-items:center; gap:8px; padding:3px 0; font-size:12px; color:#C3D4E6;"><span style="color:#5AA2F0;">＋</span>Разовая награда $500</div>
+            </div>
+          </div>
+          <div style="height:62px; flex:none; background:#18222E; border-top:1px solid #243140; display:flex; align-items:center; padding:0 6px 4px;">
+            <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:3px; color:#6F7E8E;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="13" rx="2.5"/><path d="M3 10h18"/><circle cx="16.5" cy="14.5" r="1.3" fill="currentColor" stroke="none"/></svg><span style="font-size:10px; font-weight:600;">Доход</span></div>
+            <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:3px; color:#6F7E8E;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="9" r="3"/><path d="M3.5 19a5.5 5.5 0 0 1 11 0"/><path d="M16 7a3 3 0 0 1 0 6M21 19a5 5 0 0 0-4-4.9"/></svg><span style="font-size:10px; font-weight:600;">Команда</span></div>
+            <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:3px; color:#5AA2F0;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 10a6 6 0 0 0 12 0V4H6z"/><path d="M6 5H4a2 2 0 0 0 2 3M18 5h2a2 2 0 0 1-2 3M9 20h6M12 16v4"/></svg><span style="font-size:10px; font-weight:600;">Ранг</span></div>
+            <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:3px; color:#6F7E8E;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.2"/><path d="M5 20a7 7 0 0 1 14 0"/></svg><span style="font-size:10px; font-weight:600;">Профиль</span></div>
+            <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:3px; color:#6F7E8E;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z"/></svg><span style="font-size:10px; font-weight:600;">Админ</span></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ============ SCREEN 4 · ПРОФИЛЬ ============ -->
+  <div style="margin-bottom:46px;">
+    <div style="font-family:'Manrope',sans-serif; font-weight:700; font-size:15px; color:#14213A; margin-bottom:5px;">4 · Профиль</div>
+    <div style="font-size:13px; color:#6B7785; margin-bottom:18px; max-width:700px; line-height:1.5;">Имя, статус, ранг, реферальный код с кнопкой «копировать реф-ссылку» и базовые настройки.</div>
+    <div style="display:flex; gap:32px; align-items:flex-start;">
+
+      <!-- LIGHT -->
+      <div style="flex:none;">
+        <div style="font-size:11px; font-weight:700; letter-spacing:0.08em; color:#9AA4AF; text-transform:uppercase; margin-bottom:9px;">Light</div>
+        <div style="width:316px; height:712px; background:#EEF1F5; border-radius:30px; border:1px solid #DBE1E9; box-shadow:0 12px 34px rgba(20,33,58,0.13); overflow:hidden; display:flex; flex-direction:column;">
+          <div style="height:46px; flex:none; background:#FFFFFF; border-bottom:1px solid #E7ECF2; display:flex; align-items:center; padding:0 16px;"><div style="width:22px;"></div><div style="flex:1; text-align:center; font-family:'Manrope',sans-serif; font-weight:700; font-size:15px; color:#14213A;">Профиль</div><div style="width:22px; text-align:right; color:#9AA4AF; font-size:17px;">✕</div></div>
+          <div style="flex:1; overflow:hidden; padding:14px; display:flex; flex-direction:column; gap:12px;">
+            <!-- profile head -->
+            <div style="background:#FFFFFF; border:1px solid #E7ECF2; border-radius:16px; padding:18px; display:flex; flex-direction:column; align-items:center;">
+              <div style="width:66px; height:66px; border-radius:50%; background:linear-gradient(150deg,#2563EB,#1D4ED8); color:#fff; display:flex; align-items:center; justify-content:center; font-family:'Manrope',sans-serif; font-weight:800; font-size:24px;">АМ</div>
+              <div style="font-family:'Manrope',sans-serif; font-weight:800; font-size:19px; color:#14213A; margin-top:11px;">Алексей Морозов</div>
+              <div style="display:flex; gap:7px; margin-top:9px;">
+                <span style="font-size:11px; font-weight:600; color:#0E7C5A; background:#E2F4EF; padding:4px 10px; border-radius:7px;">● Активен</span>
+                <span style="font-size:11px; font-weight:600; color:#5B45C9; background:#EDEAFB; padding:4px 10px; border-radius:7px;">Manager</span>
+              </div>
+              <div style="display:flex; gap:0; margin-top:16px; width:100%; border-top:1px solid #EEF1F5; padding-top:14px;">
+                <div style="flex:1; text-align:center;"><div class="izi-num" style="font-weight:700; font-size:16px; color:#14213A;">8</div><div style="font-size:10.5px; color:#6B7785;">Приглашено</div></div>
+                <div style="width:1px; background:#EEF1F5;"></div>
+                <div style="flex:1; text-align:center;"><div class="izi-num" style="font-weight:700; font-size:16px; color:#14213A;">24</div><div style="font-size:10.5px; color:#6B7785;">В команде</div></div>
+                <div style="width:1px; background:#EEF1F5;"></div>
+                <div style="flex:1; text-align:center;"><div class="izi-num" style="font-weight:700; font-size:16px; color:#14213A;">#10482</div><div style="font-size:10.5px; color:#6B7785;">ID</div></div>
+              </div>
+            </div>
+            <!-- ref code -->
+            <div style="background:#FFFFFF; border:1px solid #E7ECF2; border-radius:14px; padding:14px;">
+              <div style="font-size:11.5px; color:#6B7785; font-weight:600; margin-bottom:8px;">Реферальный код</div>
+              <div style="display:flex; align-items:center; gap:9px; margin-bottom:11px;"><span class="izi-num" style="font-family:'Manrope',sans-serif; font-weight:800; font-size:20px; color:#14213A; letter-spacing:0.04em;">IZIGO-AM4821</span><span style="font-size:11px; color:#9AA4AF;">⧉</span></div>
+              <div style="display:flex; align-items:center; background:#F4F6F9; border:1px solid #E7ECF2; border-radius:10px; padding:9px 11px; gap:8px;">
+                <span style="flex:1; font-size:11.5px; color:#54606F; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">t.me/izigo_bot?start=AM4821</span>
+              </div>
+              <div style="display:flex; gap:8px; margin-top:10px;">
+                <div style="flex:1; text-align:center; background:#2563EB; color:#fff; font-size:13px; font-weight:600; padding:10px; border-radius:10px;">Копировать ссылку</div>
+                <div style="width:44px; text-align:center; background:#EEF1F5; color:#54606F; font-size:15px; padding:10px 0; border-radius:10px;">↗</div>
+              </div>
+            </div>
+            <!-- settings list -->
+            <div style="background:#FFFFFF; border:1px solid #E7ECF2; border-radius:14px; padding:0 14px;">
+              <div style="display:flex; align-items:center; gap:11px; padding:13px 0; border-bottom:1px solid #F0F3F7;"><span style="color:#6B7785;">🔔</span><span style="flex:1; font-size:13px; color:#14213A;">Уведомления</span><span style="font-size:12px; color:#9AA4AF;">Вкл ›</span></div>
+              <div style="display:flex; align-items:center; gap:11px; padding:13px 0; border-bottom:1px solid #F0F3F7;"><span style="color:#6B7785;">🌐</span><span style="flex:1; font-size:13px; color:#14213A;">Язык</span><span style="font-size:12px; color:#9AA4AF;">Русский ›</span></div>
+              <div style="display:flex; align-items:center; gap:11px; padding:13px 0;"><span style="color:#D33A36;">⎋</span><span style="flex:1; font-size:13px; color:#D33A36;">Выйти</span></div>
+            </div>
+          </div>
+          <div style="height:62px; flex:none; background:#FFFFFF; border-top:1px solid #E7ECF2; display:flex; align-items:center; padding:0 6px 4px;">
+            <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:3px; color:#98A2AE;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="13" rx="2.5"/><path d="M3 10h18"/><circle cx="16.5" cy="14.5" r="1.3" fill="currentColor" stroke="none"/></svg><span style="font-size:10px; font-weight:600;">Доход</span></div>
+            <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:3px; color:#98A2AE;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="9" r="3"/><path d="M3.5 19a5.5 5.5 0 0 1 11 0"/><path d="M16 7a3 3 0 0 1 0 6M21 19a5 5 0 0 0-4-4.9"/></svg><span style="font-size:10px; font-weight:600;">Команда</span></div>
+            <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:3px; color:#98A2AE;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 10a6 6 0 0 0 12 0V4H6z"/><path d="M6 5H4a2 2 0 0 0 2 3M18 5h2a2 2 0 0 1-2 3M9 20h6M12 16v4"/></svg><span style="font-size:10px; font-weight:600;">Ранг</span></div>
+            <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:3px; color:#2563EB;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.2"/><path d="M5 20a7 7 0 0 1 14 0"/></svg><span style="font-size:10px; font-weight:600;">Профиль</span></div>
+            <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:3px; color:#98A2AE;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z"/></svg><span style="font-size:10px; font-weight:600;">Админ</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- DARK -->
+      <div style="flex:none;">
+        <div style="font-size:11px; font-weight:700; letter-spacing:0.08em; color:#9AA4AF; text-transform:uppercase; margin-bottom:9px;">Dark</div>
+        <div style="width:316px; height:712px; background:#0E1621; border-radius:30px; border:1px solid #243140; box-shadow:0 12px 34px rgba(0,0,0,0.34); overflow:hidden; display:flex; flex-direction:column;">
+          <div style="height:46px; flex:none; background:#18222E; border-bottom:1px solid #243140; display:flex; align-items:center; padding:0 16px;"><div style="width:22px;"></div><div style="flex:1; text-align:center; font-family:'Manrope',sans-serif; font-weight:700; font-size:15px; color:#EAF0F6;">Профиль</div><div style="width:22px; text-align:right; color:#7E8C9C; font-size:17px;">✕</div></div>
+          <div style="flex:1; overflow:hidden; padding:14px; display:flex; flex-direction:column; gap:12px;">
+            <div style="background:#18222E; border:1px solid #243140; border-radius:16px; padding:18px; display:flex; flex-direction:column; align-items:center;">
+              <div style="width:66px; height:66px; border-radius:50%; background:linear-gradient(150deg,#2563EB,#1D4ED8); color:#fff; display:flex; align-items:center; justify-content:center; font-family:'Manrope',sans-serif; font-weight:800; font-size:24px;">АМ</div>
+              <div style="font-family:'Manrope',sans-serif; font-weight:800; font-size:19px; color:#EAF0F6; margin-top:11px;">Алексей Морозов</div>
+              <div style="display:flex; gap:7px; margin-top:9px;">
+                <span style="font-size:11px; font-weight:600; color:#4FC79A; background:#16322A; padding:4px 10px; border-radius:7px;">● Активен</span>
+                <span style="font-size:11px; font-weight:600; color:#A99BF0; background:#272148; padding:4px 10px; border-radius:7px;">Manager</span>
+              </div>
+              <div style="display:flex; gap:0; margin-top:16px; width:100%; border-top:1px solid #243140; padding-top:14px;">
+                <div style="flex:1; text-align:center;"><div class="izi-num" style="font-weight:700; font-size:16px; color:#EAF0F6;">8</div><div style="font-size:10.5px; color:#93A4B6;">Приглашено</div></div>
+                <div style="width:1px; background:#243140;"></div>
+                <div style="flex:1; text-align:center;"><div class="izi-num" style="font-weight:700; font-size:16px; color:#EAF0F6;">24</div><div style="font-size:10.5px; color:#93A4B6;">В команде</div></div>
+                <div style="width:1px; background:#243140;"></div>
+                <div style="flex:1; text-align:center;"><div class="izi-num" style="font-weight:700; font-size:16px; color:#EAF0F6;">#10482</div><div style="font-size:10.5px; color:#93A4B6;">ID</div></div>
+              </div>
+            </div>
+            <div style="background:#18222E; border:1px solid #243140; border-radius:14px; padding:14px;">
+              <div style="font-size:11.5px; color:#93A4B6; font-weight:600; margin-bottom:8px;">Реферальный код</div>
+              <div style="display:flex; align-items:center; gap:9px; margin-bottom:11px;"><span class="izi-num" style="font-family:'Manrope',sans-serif; font-weight:800; font-size:20px; color:#EAF0F6; letter-spacing:0.04em;">IZIGO-AM4821</span><span style="font-size:11px; color:#7E8C9C;">⧉</span></div>
+              <div style="display:flex; align-items:center; background:#121C27; border:1px solid #243140; border-radius:10px; padding:9px 11px; gap:8px;">
+                <span style="flex:1; font-size:11.5px; color:#A9B6C4; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">t.me/izigo_bot?start=AM4821</span>
+              </div>
+              <div style="display:flex; gap:8px; margin-top:10px;">
+                <div style="flex:1; text-align:center; background:#2563EB; color:#fff; font-size:13px; font-weight:600; padding:10px; border-radius:10px;">Копировать ссылку</div>
+                <div style="width:44px; text-align:center; background:#222D3A; color:#A9B6C4; font-size:15px; padding:10px 0; border-radius:10px;">↗</div>
+              </div>
+            </div>
+            <div style="background:#18222E; border:1px solid #243140; border-radius:14px; padding:0 14px;">
+              <div style="display:flex; align-items:center; gap:11px; padding:13px 0; border-bottom:1px solid #232F3C;"><span style="color:#93A4B6;">🔔</span><span style="flex:1; font-size:13px; color:#EAF0F6;">Уведомления</span><span style="font-size:12px; color:#7E8C9C;">Вкл ›</span></div>
+              <div style="display:flex; align-items:center; gap:11px; padding:13px 0; border-bottom:1px solid #232F3C;"><span style="color:#93A4B6;">🌐</span><span style="flex:1; font-size:13px; color:#EAF0F6;">Язык</span><span style="font-size:12px; color:#7E8C9C;">Русский ›</span></div>
+              <div style="display:flex; align-items:center; gap:11px; padding:13px 0;"><span style="color:#F0635E;">⎋</span><span style="flex:1; font-size:13px; color:#F0635E;">Выйти</span></div>
+            </div>
+          </div>
+          <div style="height:62px; flex:none; background:#18222E; border-top:1px solid #243140; display:flex; align-items:center; padding:0 6px 4px;">
+            <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:3px; color:#6F7E8E;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="13" rx="2.5"/><path d="M3 10h18"/><circle cx="16.5" cy="14.5" r="1.3" fill="currentColor" stroke="none"/></svg><span style="font-size:10px; font-weight:600;">Доход</span></div>
+            <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:3px; color:#6F7E8E;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="9" r="3"/><path d="M3.5 19a5.5 5.5 0 0 1 11 0"/><path d="M16 7a3 3 0 0 1 0 6M21 19a5 5 0 0 0-4-4.9"/></svg><span style="font-size:10px; font-weight:600;">Команда</span></div>
+            <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:3px; color:#6F7E8E;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 10a6 6 0 0 0 12 0V4H6z"/><path d="M6 5H4a2 2 0 0 0 2 3M18 5h2a2 2 0 0 1-2 3M9 20h6M12 16v4"/></svg><span style="font-size:10px; font-weight:600;">Ранг</span></div>
+            <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:3px; color:#5AA2F0;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.2"/><path d="M5 20a7 7 0 0 1 14 0"/></svg><span style="font-size:10px; font-weight:600;">Профиль</span></div>
+            <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:3px; color:#6F7E8E;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z"/></svg><span style="font-size:10px; font-weight:600;">Админ</span></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ============ SCREEN 5 · АДМИН ============ -->
+  <div style="margin-bottom:46px;">
+    <div style="font-family:'Manrope',sans-serif; font-weight:700; font-size:15px; color:#14213A; margin-bottom:5px;">5 · Админ <span style="font-weight:600; color:#9AA4AF; font-size:12px;">(owner / finance / leader / support)</span></div>
+    <div style="font-size:13px; color:#6B7785; margin-bottom:18px; max-width:700px; line-height:1.5;">Переключатель «Участники / Маркетинг-план». Слева — список участников с поиском (обе темы). Справа — карточка участника с назначением роли и настройки плана.</div>
+    <div style="display:flex; gap:32px; align-items:flex-start;">
+
+      <!-- УЧАСТНИКИ LIGHT -->
+      <div style="flex:none;">
+        <div style="font-size:11px; font-weight:700; letter-spacing:0.08em; color:#9AA4AF; text-transform:uppercase; margin-bottom:9px;">Участники · Light</div>
+        <div style="width:316px; height:712px; background:#EEF1F5; border-radius:30px; border:1px solid #DBE1E9; box-shadow:0 12px 34px rgba(20,33,58,0.13); overflow:hidden; display:flex; flex-direction:column;">
+          <div style="height:46px; flex:none; background:#FFFFFF; border-bottom:1px solid #E7ECF2; display:flex; align-items:center; padding:0 16px;"><div style="width:22px;"></div><div style="flex:1; text-align:center; font-family:'Manrope',sans-serif; font-weight:700; font-size:15px; color:#14213A;">Админ</div><div style="width:22px; text-align:right; color:#9AA4AF; font-size:17px;">✕</div></div>
+          <div style="flex:1; overflow:hidden; padding:14px; display:flex; flex-direction:column; gap:12px;">
+            <div style="display:flex; background:#E9EDF2; border-radius:10px; padding:3px;">
+              <div style="flex:1; text-align:center; font-size:12.5px; font-weight:600; color:#14213A; background:#FFFFFF; border-radius:8px; padding:7px; box-shadow:0 1px 2px rgba(20,33,58,0.08);">Участники</div>
+              <div style="flex:1; text-align:center; font-size:12.5px; font-weight:600; color:#7C8794; padding:7px;">Маркетинг-план</div>
+            </div>
+            <div style="display:flex; align-items:center; gap:8px; background:#FFFFFF; border:1px solid #E7ECF2; border-radius:11px; padding:10px 12px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9AA4AF" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg><span style="font-size:12.5px; color:#9AA4AF;">Поиск по имени или ID</span></div>
+            <div style="background:#FFFFFF; border:1px solid #E7ECF2; border-radius:14px; padding:0 14px;">
+              <div style="display:flex; align-items:center; gap:10px; padding:11px 0; border-bottom:1px solid #F0F3F7;"><span style="width:34px; height:34px; border-radius:50%; background:#EDEAFB; color:#5B45C9; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700;">АМ</span><div style="flex:1;"><div style="font-size:13px; font-weight:600; color:#14213A;">Алексей М.</div><div style="font-size:10.5px; color:#8A95A2;">#10482 · Manager</div></div><span style="font-size:10px; font-weight:700; color:#5B45C9; background:#EDEAFB; padding:3px 8px; border-radius:6px;">owner</span></div>
+              <div style="display:flex; align-items:center; gap:10px; padding:11px 0; border-bottom:1px solid #F0F3F7;"><span style="width:34px; height:34px; border-radius:50%; background:#E2F4EF; color:#0E7C5A; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700;">ИВ</span><div style="flex:1;"><div style="font-size:13px; font-weight:600; color:#14213A;">Ирина В.</div><div style="font-size:10.5px; color:#8A95A2;">#10231 · Director</div></div><span style="font-size:10px; font-weight:700; color:#0E7C5A; background:#E2F4EF; padding:3px 8px; border-radius:6px;">finance</span></div>
+              <div style="display:flex; align-items:center; gap:10px; padding:11px 0; border-bottom:1px solid #F0F3F7;"><span style="width:34px; height:34px; border-radius:50%; background:#E8F0FE; color:#1D4ED8; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700;">ПС</span><div style="flex:1;"><div style="font-size:13px; font-weight:600; color:#14213A;">Павел С.</div><div style="font-size:10.5px; color:#8A95A2;">#10198 · Leader</div></div><span style="font-size:10px; font-weight:700; color:#1D4ED8; background:#E8F0FE; padding:3px 8px; border-radius:6px;">leader</span></div>
+              <div style="display:flex; align-items:center; gap:10px; padding:11px 0; border-bottom:1px solid #F0F3F7;"><span style="width:34px; height:34px; border-radius:50%; background:#FBEFD9; color:#9A6700; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700;">АК</span><div style="flex:1;"><div style="font-size:13px; font-weight:600; color:#14213A;">Анна К.</div><div style="font-size:10.5px; color:#8A95A2;">#10482 · Manager</div></div><span style="font-size:10px; font-weight:700; color:#9A6700; background:#FBEFD9; padding:3px 8px; border-radius:6px;">support</span></div>
+              <div style="display:flex; align-items:center; gap:10px; padding:11px 0; border-bottom:1px solid #F0F3F7;"><span style="width:34px; height:34px; border-radius:50%; background:#EEF1F5; color:#54606F; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700;">ОД</span><div style="flex:1;"><div style="font-size:13px; font-weight:600; color:#14213A;">Олег Д.</div><div style="font-size:10.5px; color:#8A95A2;">#10500 · Partner</div></div><span style="font-size:10px; font-weight:700; color:#54606F; background:#EEF1F5; padding:3px 8px; border-radius:6px;">partner</span></div>
+              <div style="display:flex; align-items:center; gap:10px; padding:11px 0;"><span style="width:34px; height:34px; border-radius:50%; background:#EEF1F5; color:#54606F; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700;">МЛ</span><div style="flex:1;"><div style="font-size:13px; font-weight:600; color:#14213A;">Мария Л.</div><div style="font-size:10.5px; color:#8A95A2;">#10355 · Partner</div></div><span style="font-size:10px; font-weight:700; color:#54606F; background:#EEF1F5; padding:3px 8px; border-radius:6px;">partner</span></div>
+            </div>
+          </div>
+          <div style="height:62px; flex:none; background:#FFFFFF; border-top:1px solid #E7ECF2; display:flex; align-items:center; padding:0 6px 4px;">
+            <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:3px; color:#98A2AE;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="13" rx="2.5"/><path d="M3 10h18"/><circle cx="16.5" cy="14.5" r="1.3" fill="currentColor" stroke="none"/></svg><span style="font-size:10px; font-weight:600;">Доход</span></div>
+            <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:3px; color:#98A2AE;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="9" r="3"/><path d="M3.5 19a5.5 5.5 0 0 1 11 0"/><path d="M16 7a3 3 0 0 1 0 6M21 19a5 5 0 0 0-4-4.9"/></svg><span style="font-size:10px; font-weight:600;">Команда</span></div>
+            <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:3px; color:#98A2AE;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 10a6 6 0 0 0 12 0V4H6z"/><path d="M6 5H4a2 2 0 0 0 2 3M18 5h2a2 2 0 0 1-2 3M9 20h6M12 16v4"/></svg><span style="font-size:10px; font-weight:600;">Ранг</span></div>
+            <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:3px; color:#98A2AE;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.2"/><path d="M5 20a7 7 0 0 1 14 0"/></svg><span style="font-size:10px; font-weight:600;">Профиль</span></div>
+            <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:3px; color:#2563EB;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z"/></svg><span style="font-size:10px; font-weight:600;">Админ</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- УЧАСТНИКИ DARK -->
+      <div style="flex:none;">
+        <div style="font-size:11px; font-weight:700; letter-spacing:0.08em; color:#9AA4AF; text-transform:uppercase; margin-bottom:9px;">Участники · Dark</div>
+        <div style="width:316px; height:712px; background:#0E1621; border-radius:30px; border:1px solid #243140; box-shadow:0 12px 34px rgba(0,0,0,0.34); overflow:hidden; display:flex; flex-direction:column;">
+          <div style="height:46px; flex:none; background:#18222E; border-bottom:1px solid #243140; display:flex; align-items:center; padding:0 16px;"><div style="width:22px;"></div><div style="flex:1; text-align:center; font-family:'Manrope',sans-serif; font-weight:700; font-size:15px; color:#EAF0F6;">Админ</div><div style="width:22px; text-align:right; color:#7E8C9C; font-size:17px;">✕</div></div>
+          <div style="flex:1; overflow:hidden; padding:14px; display:flex; flex-direction:column; gap:12px;">
+            <div style="display:flex; background:#121C27; border:1px solid #243140; border-radius:10px; padding:3px;">
+              <div style="flex:1; text-align:center; font-size:12.5px; font-weight:600; color:#EAF0F6; background:#26313E; border-radius:8px; padding:7px;">Участники</div>
+              <div style="flex:1; text-align:center; font-size:12.5px; font-weight:600; color:#7E8C9C; padding:7px;">Маркетинг-план</div>
+            </div>
+            <div style="display:flex; align-items:center; gap:8px; background:#18222E; border:1px solid #243140; border-radius:11px; padding:10px 12px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#7E8C9C" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg><span style="font-size:12.5px; color:#7E8C9C;">Поиск по имени или ID</span></div>
+            <div style="background:#18222E; border:1px solid #243140; border-radius:14px; padding:0 14px;">
+              <div style="display:flex; align-items:center; gap:10px; padding:11px 0; border-bottom:1px solid #232F3C;"><span style="width:34px; height:34px; border-radius:50%; background:#272148; color:#A99BF0; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700;">АМ</span><div style="flex:1;"><div style="font-size:13px; font-weight:600; color:#EAF0F6;">Алексей М.</div><div style="font-size:10.5px; color:#7E8C9C;">#10482 · Manager</div></div><span style="font-size:10px; font-weight:700; color:#A99BF0; background:#272148; padding:3px 8px; border-radius:6px;">owner</span></div>
+              <div style="display:flex; align-items:center; gap:10px; padding:11px 0; border-bottom:1px solid #232F3C;"><span style="width:34px; height:34px; border-radius:50%; background:#16322A; color:#4FC79A; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700;">ИВ</span><div style="flex:1;"><div style="font-size:13px; font-weight:600; color:#EAF0F6;">Ирина В.</div><div style="font-size:10.5px; color:#7E8C9C;">#10231 · Director</div></div><span style="font-size:10px; font-weight:700; color:#4FC79A; background:#16322A; padding:3px 8px; border-radius:6px;">finance</span></div>
+              <div style="display:flex; align-items:center; gap:10px; padding:11px 0; border-bottom:1px solid #232F3C;"><span style="width:34px; height:34px; border-radius:50%; background:#1B2C44; color:#7FB3F5; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700;">ПС</span><div style="flex:1;"><div style="font-size:13px; font-weight:600; color:#EAF0F6;">Павел С.</div><div style="font-size:10.5px; color:#7E8C9C;">#10198 · Leader</div></div><span style="font-size:10px; font-weight:700; color:#7FB3F5; background:#1B2C44; padding:3px 8px; border-radius:6px;">leader</span></div>
+              <div style="display:flex; align-items:center; gap:10px; padding:11px 0; border-bottom:1px solid #232F3C;"><span style="width:34px; height:34px; border-radius:50%; background:#352B19; color:#E0B050; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700;">АК</span><div style="flex:1;"><div style="font-size:13px; font-weight:600; color:#EAF0F6;">Анна К.</div><div style="font-size:10.5px; color:#7E8C9C;">#10482 · Manager</div></div><span style="font-size:10px; font-weight:700; color:#E0B050; background:#352B19; padding:3px 8px; border-radius:6px;">support</span></div>
+              <div style="display:flex; align-items:center; gap:10px; padding:11px 0; border-bottom:1px solid #232F3C;"><span style="width:34px; height:34px; border-radius:50%; background:#222D3A; color:#A9B6C4; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700;">ОД</span><div style="flex:1;"><div style="font-size:13px; font-weight:600; color:#EAF0F6;">Олег Д.</div><div style="font-size:10.5px; color:#7E8C9C;">#10500 · Partner</div></div><span style="font-size:10px; font-weight:700; color:#A9B6C4; background:#222D3A; padding:3px 8px; border-radius:6px;">partner</span></div>
+              <div style="display:flex; align-items:center; gap:10px; padding:11px 0;"><span style="width:34px; height:34px; border-radius:50%; background:#222D3A; color:#A9B6C4; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700;">МЛ</span><div style="flex:1;"><div style="font-size:13px; font-weight:600; color:#EAF0F6;">Мария Л.</div><div style="font-size:10.5px; color:#7E8C9C;">#10355 · Partner</div></div><span style="font-size:10px; font-weight:700; color:#A9B6C4; background:#222D3A; padding:3px 8px; border-radius:6px;">partner</span></div>
+            </div>
+          </div>
+          <div style="height:62px; flex:none; background:#18222E; border-top:1px solid #243140; display:flex; align-items:center; padding:0 6px 4px;">
+            <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:3px; color:#6F7E8E;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="13" rx="2.5"/><path d="M3 10h18"/><circle cx="16.5" cy="14.5" r="1.3" fill="currentColor" stroke="none"/></svg><span style="font-size:10px; font-weight:600;">Доход</span></div>
+            <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:3px; color:#6F7E8E;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="9" r="3"/><path d="M3.5 19a5.5 5.5 0 0 1 11 0"/><path d="M16 7a3 3 0 0 1 0 6M21 19a5 5 0 0 0-4-4.9"/></svg><span style="font-size:10px; font-weight:600;">Команда</span></div>
+            <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:3px; color:#6F7E8E;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 10a6 6 0 0 0 12 0V4H6z"/><path d="M6 5H4a2 2 0 0 0 2 3M18 5h2a2 2 0 0 1-2 3M9 20h6M12 16v4"/></svg><span style="font-size:10px; font-weight:600;">Ранг</span></div>
+            <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:3px; color:#6F7E8E;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.2"/><path d="M5 20a7 7 0 0 1 14 0"/></svg><span style="font-size:10px; font-weight:600;">Профиль</span></div>
+            <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:3px; color:#5AA2F0;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z"/></svg><span style="font-size:10px; font-weight:600;">Админ</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- КАРТОЧКА УЧАСТНИКА LIGHT -->
+      <div style="flex:none;">
+        <div style="font-size:11px; font-weight:700; letter-spacing:0.08em; color:#9AA4AF; text-transform:uppercase; margin-bottom:9px;">Карточка участника · Light</div>
+        <div style="width:316px; height:712px; background:#EEF1F5; border-radius:30px; border:1px solid #DBE1E9; box-shadow:0 12px 34px rgba(20,33,58,0.13); overflow:hidden; display:flex; flex-direction:column;">
+          <div style="height:46px; flex:none; background:#FFFFFF; border-bottom:1px solid #E7ECF2; display:flex; align-items:center; padding:0 16px;"><div style="width:22px; color:#9AA4AF; font-size:18px;">‹</div><div style="flex:1; text-align:center; font-family:'Manrope',sans-serif; font-weight:700; font-size:15px; color:#14213A;">Ирина В.</div><div style="width:22px; text-align:right; color:#9AA4AF; font-size:17px;">✕</div></div>
+          <div style="flex:1; overflow:hidden; padding:14px; display:flex; flex-direction:column; gap:12px;">
+            <div style="background:#FFFFFF; border:1px solid #E7ECF2; border-radius:16px; padding:16px; display:flex; align-items:center; gap:13px;">
+              <span style="width:54px; height:54px; border-radius:50%; background:#E2F4EF; color:#0E7C5A; display:flex; align-items:center; justify-content:center; font-size:17px; font-weight:700;">ИВ</span>
+              <div style="flex:1;"><div style="font-family:'Manrope',sans-serif; font-weight:800; font-size:17px; color:#14213A;">Ирина Власова</div><div style="font-size:11.5px; color:#6B7785; margin-top:2px;">#10231 · с фев 2025</div><span style="display:inline-block; font-size:10px; font-weight:600; color:#0E7C5A; background:#E2F4EF; padding:2px 8px; border-radius:6px; margin-top:6px;">● Активна</span></div>
+            </div>
+            <div style="background:#FFFFFF; border:1px solid #E7ECF2; border-radius:14px; padding:4px 14px;">
+              <div style="display:flex; justify-content:space-between; padding:10px 0; border-bottom:1px solid #F0F3F7;"><span style="font-size:12.5px; color:#6B7785;">Ранг</span><span style="font-size:12.5px; font-weight:600; color:#14213A;">Director</span></div>
+              <div style="display:flex; justify-content:space-between; padding:10px 0; border-bottom:1px solid #F0F3F7;"><span style="font-size:12.5px; color:#6B7785;">Пакет</span><span style="font-size:12.5px; font-weight:600; color:#14213A;">Gold · 1000 PV</span></div>
+              <div style="display:flex; justify-content:space-between; padding:10px 0; border-bottom:1px solid #F0F3F7;"><span style="font-size:12.5px; color:#6B7785;">Команда</span><span class="izi-num" style="font-size:12.5px; font-weight:600; color:#14213A;">142 чел.</span></div>
+              <div style="display:flex; justify-content:space-between; padding:10px 0;"><span style="font-size:12.5px; color:#6B7785;">Оборот ветки</span><span class="izi-num" style="font-size:12.5px; font-weight:600; color:#14213A;">$48 200</span></div>
+            </div>
+            <div style="background:#FFFFFF; border:1px solid #E7ECF2; border-radius:14px; padding:14px;">
+              <div style="font-size:12px; font-weight:700; color:#14213A; margin-bottom:10px;">Назначить роль</div>
+              <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+                <div style="text-align:center; font-size:12px; font-weight:600; padding:9px; border-radius:9px; border:1.5px solid #0E9E6E; background:#E2F4EF; color:#0E7C5A;">finance ✓</div>
+                <div style="text-align:center; font-size:12px; font-weight:600; padding:9px; border-radius:9px; border:1px solid #E7ECF2; color:#54606F;">leader</div>
+                <div style="text-align:center; font-size:12px; font-weight:600; padding:9px; border-radius:9px; border:1px solid #E7ECF2; color:#54606F;">support</div>
+                <div style="text-align:center; font-size:12px; font-weight:600; padding:9px; border-radius:9px; border:1px solid #E7ECF2; color:#54606F;">partner</div>
+              </div>
+              <div style="text-align:center; background:#2563EB; color:#fff; font-size:13px; font-weight:600; padding:11px; border-radius:10px; margin-top:11px;">Сохранить роль</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- МАРКЕТИНГ-ПЛАН DARK -->
+      <div style="flex:none;">
+        <div style="font-size:11px; font-weight:700; letter-spacing:0.08em; color:#9AA4AF; text-transform:uppercase; margin-bottom:9px;">Маркетинг-план · Dark</div>
+        <div style="width:316px; height:712px; background:#0E1621; border-radius:30px; border:1px solid #243140; box-shadow:0 12px 34px rgba(0,0,0,0.34); overflow:hidden; display:flex; flex-direction:column;">
+          <div style="height:46px; flex:none; background:#18222E; border-bottom:1px solid #243140; display:flex; align-items:center; padding:0 16px;"><div style="width:22px;"></div><div style="flex:1; text-align:center; font-family:'Manrope',sans-serif; font-weight:700; font-size:15px; color:#EAF0F6;">Админ</div><div style="width:22px; text-align:right; color:#7E8C9C; font-size:17px;">✕</div></div>
+          <div style="flex:1; overflow:hidden; padding:14px; display:flex; flex-direction:column; gap:12px;">
+            <div style="display:flex; background:#121C27; border:1px solid #243140; border-radius:10px; padding:3px;">
+              <div style="flex:1; text-align:center; font-size:12.5px; font-weight:600; color:#7E8C9C; padding:7px;">Участники</div>
+              <div style="flex:1; text-align:center; font-size:12.5px; font-weight:600; color:#EAF0F6; background:#26313E; border-radius:8px; padding:7px;">Маркетинг-план</div>
+            </div>
+            <div style="background:#18222E; border:1px solid #243140; border-radius:14px; padding:14px;">
+              <div style="font-size:12px; font-weight:700; color:#EAF0F6; margin-bottom:11px;">Режим размещения</div>
+              <div style="display:flex; align-items:center; gap:10px; padding:9px 11px; border-radius:10px; border:1.5px solid #5AA2F0; background:#152434; margin-bottom:7px;"><span style="width:16px; height:16px; border-radius:50%; border:5px solid #5AA2F0; background:#0E1621;"></span><div style="flex:1;"><div style="font-size:12.5px; font-weight:600; color:#8FC0F6;">Бинар</div><div style="font-size:10.5px; color:#7E8C9C;">Две ветки, авто-баланс слабой</div></div></div>
+              <div style="display:flex; align-items:center; gap:10px; padding:9px 11px; border-radius:10px; border:1px solid #243140; margin-bottom:7px;"><span style="width:16px; height:16px; border-radius:50%; border:1.5px solid #3A4858;"></span><div style="flex:1;"><div style="font-size:12.5px; font-weight:600; color:#EAF0F6;">Матрица 3×N</div><div style="font-size:10.5px; color:#7E8C9C;">Фиксированная ширина</div></div></div>
+              <div style="display:flex; align-items:center; gap:10px; padding:9px 11px; border-radius:10px; border:1px solid #243140;"><span style="width:16px; height:16px; border-radius:50%; border:1.5px solid #3A4858;"></span><div style="flex:1;"><div style="font-size:12.5px; font-weight:600; color:#EAF0F6;">Линейный</div><div style="font-size:10.5px; color:#7E8C9C;">Один уровень в глубину</div></div></div>
+            </div>
+            <div style="background:#18222E; border:1px solid #243140; border-radius:14px; padding:4px 14px;">
+              <div style="font-size:12px; font-weight:700; color:#EAF0F6; padding:12px 0 4px;">Бонусы рангов</div>
+              <div style="display:flex; align-items:center; justify-content:space-between; padding:9px 0; border-top:1px solid #232F3C;"><span style="font-size:12.5px; color:#C3D4E6;">Manager</span><span class="izi-num" style="font-size:12.5px; font-weight:700; color:#EAF0F6; background:#121C27; border:1px solid #243140; padding:4px 11px; border-radius:7px;">3 %</span></div>
+              <div style="display:flex; align-items:center; justify-content:space-between; padding:9px 0; border-top:1px solid #232F3C;"><span style="font-size:12.5px; color:#C3D4E6;">Director</span><span class="izi-num" style="font-size:12.5px; font-weight:700; color:#EAF0F6; background:#121C27; border:1px solid #243140; padding:4px 11px; border-radius:7px;">5 %</span></div>
+              <div style="display:flex; align-items:center; justify-content:space-between; padding:9px 0; border-top:1px solid #232F3C;"><span style="font-size:12.5px; color:#C3D4E6;">Leader</span><span class="izi-num" style="font-size:12.5px; font-weight:700; color:#EAF0F6; background:#121C27; border:1px solid #243140; padding:4px 11px; border-radius:7px;">7 %</span></div>
+              <div style="display:flex; align-items:center; justify-content:space-between; padding:9px 0; border-top:1px solid #232F3C;"><span style="font-size:12.5px; color:#C3D4E6;">Глубина бинара</span><span class="izi-num" style="font-size:12.5px; font-weight:700; color:#EAF0F6; background:#121C27; border:1px solid #243140; padding:4px 11px; border-radius:7px;">15 ур.</span></div>
+            </div>
+            <div style="text-align:center; background:#2563EB; color:#fff; font-size:13px; font-weight:600; padding:12px; border-radius:11px;">Сохранить план</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ============ TOKEN REFERENCE ============ -->
+  <div style="margin-top:8px;">
+    <div style="font-family:'Manrope',sans-serif; font-weight:700; font-size:15px; color:#14213A; margin-bottom:5px;">Токены Ant Design · ConfigProvider</div>
+    <div style="font-size:13px; color:#6B7785; margin-bottom:18px; max-width:700px; line-height:1.5;">Передаются в <span style="color:#14213A; font-weight:600;">theme.token</span> через ConfigProvider. В Telegram-окружении биндятся к <span style="color:#14213A; font-weight:600;">window.Telegram.WebApp.themeParams</span> — соответствие указано справа от каждого токена.</div>
+    <div style="display:flex; gap:32px; align-items:flex-start;">
+
+      <!-- LIGHT TOKENS -->
+      <div style="flex:none; width:452px; background:#FFFFFF; border:1px solid #E2E6EC; border-radius:16px; padding:20px 22px; box-shadow:0 1px 3px rgba(0,0,0,0.05);">
+        <div style="display:flex; align-items:center; gap:9px; margin-bottom:14px;"><span style="width:9px; height:9px; border-radius:50%; background:#F6C453; border:1px solid #E0AE3C;"></span><span style="font-family:'Manrope',sans-serif; font-weight:800; font-size:15px; color:#14213A;">Light theme</span><span style="font-size:11px; color:#9AA4AF;">algorithm: defaultAlgorithm</span></div>
+        <div style="display:flex; align-items:center; gap:13px; padding:9px 0; border-top:1px solid #F0F3F7;"><span style="width:26px; height:26px; border-radius:7px; background:#2563EB; border:1px solid rgba(0,0,0,0.08);"></span><span style="font-family:ui-monospace,Menlo,monospace; font-size:12.5px; font-weight:600; color:#14213A; flex:1;">colorPrimary</span><span class="izi-num" style="font-size:12px; color:#54606F;">#2563EB</span><span style="font-size:10.5px; color:#9AA4AF; width:96px; text-align:right;">button_color</span></div>
+        <div style="display:flex; align-items:center; gap:13px; padding:9px 0; border-top:1px solid #F0F3F7;"><span style="width:26px; height:26px; border-radius:7px; background:#EEF1F5; border:1px solid #E2E6EC;"></span><span style="font-family:ui-monospace,Menlo,monospace; font-size:12.5px; font-weight:600; color:#14213A; flex:1;">colorBgBase</span><span class="izi-num" style="font-size:12px; color:#54606F;">#EEF1F5</span><span style="font-size:10.5px; color:#9AA4AF; width:96px; text-align:right;">secondary_bg</span></div>
+        <div style="display:flex; align-items:center; gap:13px; padding:9px 0; border-top:1px solid #F0F3F7;"><span style="width:26px; height:26px; border-radius:7px; background:#FFFFFF; border:1px solid #E2E6EC;"></span><span style="font-family:ui-monospace,Menlo,monospace; font-size:12.5px; font-weight:600; color:#14213A; flex:1;">colorBgContainer</span><span class="izi-num" style="font-size:12px; color:#54606F;">#FFFFFF</span><span style="font-size:10.5px; color:#9AA4AF; width:96px; text-align:right;">bg_color</span></div>
+        <div style="display:flex; align-items:center; gap:13px; padding:9px 0; border-top:1px solid #F0F3F7;"><span style="width:26px; height:26px; border-radius:7px; background:#14213A; border:1px solid rgba(0,0,0,0.08);"></span><span style="font-family:ui-monospace,Menlo,monospace; font-size:12.5px; font-weight:600; color:#14213A; flex:1;">colorText</span><span class="izi-num" style="font-size:12px; color:#54606F;">#14213A</span><span style="font-size:10.5px; color:#9AA4AF; width:96px; text-align:right;">text_color</span></div>
+        <div style="display:flex; align-items:center; gap:13px; padding:9px 0; border-top:1px solid #F0F3F7;"><span style="width:26px; height:26px; border-radius:7px; background:#6B7785; border:1px solid rgba(0,0,0,0.08);"></span><span style="font-family:ui-monospace,Menlo,monospace; font-size:12.5px; font-weight:600; color:#14213A; flex:1;">colorTextSecondary</span><span class="izi-num" style="font-size:12px; color:#54606F;">#6B7785</span><span style="font-size:10.5px; color:#9AA4AF; width:96px; text-align:right;">hint_color</span></div>
+        <div style="display:flex; align-items:center; gap:13px; padding:9px 0; border-top:1px solid #F0F3F7;"><span style="width:26px; height:26px; border-radius:7px; background:#E7ECF2; border:1px solid #DCE2E9;"></span><span style="font-family:ui-monospace,Menlo,monospace; font-size:12.5px; font-weight:600; color:#14213A; flex:1;">colorBorder</span><span class="izi-num" style="font-size:12px; color:#54606F;">#E7ECF2</span><span style="font-size:10.5px; color:#9AA4AF; width:96px; text-align:right;">section_sep</span></div>
+        <div style="display:flex; align-items:center; gap:13px; padding:9px 0; border-top:1px solid #F0F3F7;"><span style="width:26px; height:26px; border-radius:7px; background:#0E9E6E; border:1px solid rgba(0,0,0,0.08);"></span><span style="font-family:ui-monospace,Menlo,monospace; font-size:12.5px; font-weight:600; color:#14213A; flex:1;">colorSuccess</span><span class="izi-num" style="font-size:12px; color:#54606F;">#0E9E6E</span><span style="font-size:10.5px; color:#9AA4AF; width:96px; text-align:right;">—</span></div>
+        <div style="display:flex; align-items:center; gap:13px; padding:9px 0; border-top:1px solid #F0F3F7;"><span style="width:26px; height:26px; border-radius:7px; background:#C77700; border:1px solid rgba(0,0,0,0.08);"></span><span style="font-family:ui-monospace,Menlo,monospace; font-size:12.5px; font-weight:600; color:#14213A; flex:1;">colorWarning</span><span class="izi-num" style="font-size:12px; color:#54606F;">#C77700</span><span style="font-size:10.5px; color:#9AA4AF; width:96px; text-align:right;">—</span></div>
+        <div style="display:flex; align-items:center; gap:13px; padding:9px 0; border-top:1px solid #F0F3F7;"><span style="width:26px; height:26px; border-radius:7px; background:#D33A36; border:1px solid rgba(0,0,0,0.08);"></span><span style="font-family:ui-monospace,Menlo,monospace; font-size:12.5px; font-weight:600; color:#14213A; flex:1;">colorError</span><span class="izi-num" style="font-size:12px; color:#54606F;">#D33A36</span><span style="font-size:10.5px; color:#9AA4AF; width:96px; text-align:right;">destructive</span></div>
+        <div style="display:flex; align-items:center; gap:13px; padding:9px 0; border-top:1px solid #F0F3F7;"><span style="width:26px; height:26px; border-radius:7px; background:#FFFFFF; border:2px solid #14213A;"></span><span style="font-family:ui-monospace,Menlo,monospace; font-size:12.5px; font-weight:600; color:#14213A; flex:1;">borderRadius</span><span class="izi-num" style="font-size:12px; color:#54606F;">14</span><span style="font-size:10.5px; color:#9AA4AF; width:96px; text-align:right;">—</span></div>
+      </div>
+
+      <!-- DARK TOKENS -->
+      <div style="flex:none; width:452px; background:#18222E; border:1px solid #243140; border-radius:16px; padding:20px 22px; box-shadow:0 1px 3px rgba(0,0,0,0.2);">
+        <div style="display:flex; align-items:center; gap:9px; margin-bottom:14px;"><span style="width:9px; height:9px; border-radius:50%; background:#3B4654; border:1px solid #4A5666;"></span><span style="font-family:'Manrope',sans-serif; font-weight:800; font-size:15px; color:#EAF0F6;">Dark theme</span><span style="font-size:11px; color:#7E8C9C;">algorithm: darkAlgorithm</span></div>
+        <div style="display:flex; align-items:center; gap:13px; padding:9px 0; border-top:1px solid #232F3C;"><span style="width:26px; height:26px; border-radius:7px; background:#5AA2F0; border:1px solid rgba(255,255,255,0.08);"></span><span style="font-family:ui-monospace,Menlo,monospace; font-size:12.5px; font-weight:600; color:#EAF0F6; flex:1;">colorPrimary</span><span class="izi-num" style="font-size:12px; color:#A9B6C4;">#5AA2F0</span><span style="font-size:10.5px; color:#6F7E8E; width:96px; text-align:right;">button_color</span></div>
+        <div style="display:flex; align-items:center; gap:13px; padding:9px 0; border-top:1px solid #232F3C;"><span style="width:26px; height:26px; border-radius:7px; background:#0E1621; border:1px solid #2A3645;"></span><span style="font-family:ui-monospace,Menlo,monospace; font-size:12.5px; font-weight:600; color:#EAF0F6; flex:1;">colorBgBase</span><span class="izi-num" style="font-size:12px; color:#A9B6C4;">#0E1621</span><span style="font-size:10.5px; color:#6F7E8E; width:96px; text-align:right;">secondary_bg</span></div>
+        <div style="display:flex; align-items:center; gap:13px; padding:9px 0; border-top:1px solid #232F3C;"><span style="width:26px; height:26px; border-radius:7px; background:#18222E; border:1px solid #2A3645;"></span><span style="font-family:ui-monospace,Menlo,monospace; font-size:12.5px; font-weight:600; color:#EAF0F6; flex:1;">colorBgContainer</span><span class="izi-num" style="font-size:12px; color:#A9B6C4;">#18222E</span><span style="font-size:10.5px; color:#6F7E8E; width:96px; text-align:right;">bg_color</span></div>
+        <div style="display:flex; align-items:center; gap:13px; padding:9px 0; border-top:1px solid #232F3C;"><span style="width:26px; height:26px; border-radius:7px; background:#EAF0F6; border:1px solid rgba(255,255,255,0.08);"></span><span style="font-family:ui-monospace,Menlo,monospace; font-size:12.5px; font-weight:600; color:#EAF0F6; flex:1;">colorText</span><span class="izi-num" style="font-size:12px; color:#A9B6C4;">#EAF0F6</span><span style="font-size:10.5px; color:#6F7E8E; width:96px; text-align:right;">text_color</span></div>
+        <div style="display:flex; align-items:center; gap:13px; padding:9px 0; border-top:1px solid #232F3C;"><span style="width:26px; height:26px; border-radius:7px; background:#93A4B6; border:1px solid rgba(255,255,255,0.08);"></span><span style="font-family:ui-monospace,Menlo,monospace; font-size:12.5px; font-weight:600; color:#EAF0F6; flex:1;">colorTextSecondary</span><span class="izi-num" style="font-size:12px; color:#A9B6C4;">#93A4B6</span><span style="font-size:10.5px; color:#6F7E8E; width:96px; text-align:right;">hint_color</span></div>
+        <div style="display:flex; align-items:center; gap:13px; padding:9px 0; border-top:1px solid #232F3C;"><span style="width:26px; height:26px; border-radius:7px; background:#243140; border:1px solid #2F3D4D;"></span><span style="font-family:ui-monospace,Menlo,monospace; font-size:12.5px; font-weight:600; color:#EAF0F6; flex:1;">colorBorder</span><span class="izi-num" style="font-size:12px; color:#A9B6C4;">#243140</span><span style="font-size:10.5px; color:#6F7E8E; width:96px; text-align:right;">section_sep</span></div>
+        <div style="display:flex; align-items:center; gap:13px; padding:9px 0; border-top:1px solid #232F3C;"><span style="width:26px; height:26px; border-radius:7px; background:#3FBE84; border:1px solid rgba(255,255,255,0.08);"></span><span style="font-family:ui-monospace,Menlo,monospace; font-size:12.5px; font-weight:600; color:#EAF0F6; flex:1;">colorSuccess</span><span class="izi-num" style="font-size:12px; color:#A9B6C4;">#3FBE84</span><span style="font-size:10.5px; color:#6F7E8E; width:96px; text-align:right;">—</span></div>
+        <div style="display:flex; align-items:center; gap:13px; padding:9px 0; border-top:1px solid #232F3C;"><span style="width:26px; height:26px; border-radius:7px; background:#E0B050; border:1px solid rgba(255,255,255,0.08);"></span><span style="font-family:ui-monospace,Menlo,monospace; font-size:12.5px; font-weight:600; color:#EAF0F6; flex:1;">colorWarning</span><span class="izi-num" style="font-size:12px; color:#A9B6C4;">#E0B050</span><span style="font-size:10.5px; color:#6F7E8E; width:96px; text-align:right;">—</span></div>
+        <div style="display:flex; align-items:center; gap:13px; padding:9px 0; border-top:1px solid #232F3C;"><span style="width:26px; height:26px; border-radius:7px; background:#F0635E; border:1px solid rgba(255,255,255,0.08);"></span><span style="font-family:ui-monospace,Menlo,monospace; font-size:12.5px; font-weight:600; color:#EAF0F6; flex:1;">colorError</span><span class="izi-num" style="font-size:12px; color:#A9B6C4;">#F0635E</span><span style="font-size:10.5px; color:#6F7E8E; width:96px; text-align:right;">destructive</span></div>
+        <div style="display:flex; align-items:center; gap:13px; padding:9px 0; border-top:1px solid #232F3C;"><span style="width:26px; height:26px; border-radius:7px; background:#18222E; border:2px solid #EAF0F6;"></span><span style="font-family:ui-monospace,Menlo,monospace; font-size:12.5px; font-weight:600; color:#EAF0F6; flex:1;">borderRadius</span><span class="izi-num" style="font-size:12px; color:#A9B6C4;">14</span><span style="font-size:10.5px; color:#6F7E8E; width:96px; text-align:right;">—</span></div>
+      </div>
+
+    </div>
+
+    <!-- contrast note -->
+    <div style="max-width:936px; margin-top:20px; background:#FFFFFF; border:1px solid #E2E6EC; border-radius:14px; padding:16px 18px;">
+      <div style="font-family:'Manrope',sans-serif; font-weight:700; font-size:13px; color:#14213A; margin-bottom:8px;">Контраст и темизация — заметки для разработки</div>
+      <div style="font-size:12.5px; color:#54606F; line-height:1.6;">
+        • Текст по фону везде проходит <b style="color:#14213A;">WCAG AA</b>: основной ≥ 7:1, вторичный ≥ 4.5:1, бейджи статусов ≥ 4.5:1.<br>
+        • Цветные бейджи бонусов/ролей — это <b style="color:#14213A;">tint + насыщенный текст</b>, а не заливка цветом по цветному фону (главная правка контраста).<br>
+        • Бинд к Telegram: читаем <span style="font-family:ui-monospace,monospace;">themeParams</span> в <span style="font-family:ui-monospace,monospace;">colorScheme === 'dark' ? darkAlgorithm : defaultAlgorithm</span> и подставляем токены выше.<br>
+        • Если <span style="font-family:ui-monospace,monospace;">button_color</span> Telegram даёт низкий контраст с белым текстом — оставляем фиксированный <span style="font-family:ui-monospace,monospace;">colorPrimary</span> IziGo.
+      </div>
+    </div>
+  </div>
+
+</div>
+</x-dc>
+</body>
+</html>
