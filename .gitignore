@@ -16,6 +16,11 @@
 **/.env
 **/.env.local
 **/.env.*.local
+# Защитная сетка: плейнтекст-секреты не коммитим (источник секретов — Azure Key Vault)
+**/*api*.txt
+**/*token*.txt
+**/*secret*.txt
+docs/tg*.txt
 
 # Laravel runtime
 **/storage/*.key
