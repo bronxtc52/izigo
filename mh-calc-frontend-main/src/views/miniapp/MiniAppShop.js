@@ -93,7 +93,8 @@ export default function MiniAppShop({ initData, pal, isDark, wa, onUnauthorized 
                                         <Tag style={{ ...numFont, background: tint('blue', isDark).bg, color: tint('blue', isDark).color, border: 'none', fontWeight: 600 }}>
                                             {p.pv} PV
                                         </Tag>
-                                        {Number(p.stock ?? 0) <= 0 && (
+                                        {/* stock=null → безлимит; «нет в наличии» только при реальном 0/отрицательном */}
+                                        {p.stock != null && Number(p.stock) <= 0 && (
                                             <Tag style={{ background: tint('neutral', isDark).bg, color: tint('neutral', isDark).color, border: 'none' }}>нет в наличии</Tag>
                                         )}
                                     </Flex>
@@ -102,7 +103,7 @@ export default function MiniAppShop({ initData, pal, isDark, wa, onUnauthorized 
                                     <div style={{ ...numFont, fontWeight: 800, fontSize: 18 }}>${usd(p.price_usdt_cents)}</div>
                                     <Button type="primary" size="small" style={{ marginTop: 8 }}
                                         loading={buying === p.id}
-                                        disabled={buying !== 0 || Number(p.stock ?? 0) <= 0}
+                                        disabled={buying !== 0 || (p.stock != null && Number(p.stock) <= 0)}
                                         onClick={() => onBuy(p)}>Купить</Button>
                                 </div>
                             </Flex>

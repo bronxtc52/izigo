@@ -10,7 +10,7 @@ import {
 } from '@ant-design/icons';
 import { useTelegram, antdThemeFromTelegram, miniAppPalette } from './telegram';
 import { tint, bonusTint, statusTint, roleTint, bonusDot, numFont } from './tokens';
-import { mmMe, mmDashboard, mmRank, mmTree, mmActivate, mmWallet, mmWalletTx, mmWithdrawals, mmWithdrawCreate, PACKAGES } from './api';
+import { mmMe, mmDashboard, mmRank, mmTree, mmWallet, mmWalletTx, mmWithdrawals, mmWithdrawCreate, PACKAGES } from './api';
 import MiniAppAdmin from './MiniAppAdmin';
 import MiniAppShop from './MiniAppShop';
 
@@ -80,7 +80,6 @@ const MiniAppShell = () => {
     const [loading, setLoading] = useState(true);
     const [authError, setAuthError] = useState(false);
     const [serverError, setServerError] = useState(false);
-    const [activating, setActivating] = useState(false);
     const [wdOpen, setWdOpen] = useState(false);
     const [wdAmount, setWdAmount] = useState(null);
     const [wdDetails, setWdDetails] = useState('');
@@ -122,16 +121,6 @@ const MiniAppShell = () => {
         else { setLoading(false); setAuthError(true); }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [ready, initData]);
-
-    const onActivate = async (pkgId) => {
-        setActivating(true);
-        const res = await mmActivate(initData, pkgId);
-        setActivating(false);
-        if (res?.error) { message.error('Не удалось активировать'); return; }
-        message.success('Пакет активирован');
-        wa?.HapticFeedback?.notificationOccurred?.('success');
-        load();
-    };
 
     const onWithdraw = async () => {
         const amount = Number(wdAmount);
@@ -233,21 +222,21 @@ const MiniAppShell = () => {
                                 </div>
                             </div>
 
-                            {/* Пакет */}
+                            {/* Пакет — активация ТОЛЬКО через покупку в Магазине (без бесплатной активации) */}
                             <Card size="small" title="Пакет">
-                                <Flex vertical gap={8}>
-                                    {PACKAGES.map((p) => {
-                                        const active = me?.package_id === p.id;
-                                        return (
-                                            <Button key={p.id} block type={active ? 'default' : 'primary'}
-                                                disabled={active || activating} loading={activating && !active}
-                                                onClick={() => onActivate(p.id)}
-                                                style={active ? { borderColor: pal.accent, borderWidth: 1.5, color: pal.accent, fontWeight: 600 } : undefined}>
-                                                {p.name} · {p.pv} PV {active ? '✓ активен' : `· $${p.price}`}
-                                            </Button>
-                                        );
-                                    })}
-                                </Flex>
+                                {me?.package_id ? (
+                                    <Flex justify="space-between" align="center" gap={8}>
+                                        <span style={{ fontSize: 13.5 }}>
+                                            Текущий: <b>{PACKAGES.find((p) => p.id === me.package_id)?.name ?? `#${me.package_id}`}</b>
+                                        </span>
+                                        <Button onClick={() => setTab('shop')}>Сменить в Магазине</Button>
+                                    </Flex>
+                                ) : (
+                                    <Flex justify="space-between" align="center" gap={8}>
+                                        <span style={{ fontSize: 13, color: pal.muted }}>Пакет не активирован</span>
+                                        <Button type="primary" onClick={() => setTab('shop')}>Купить в Магазине</Button>
+                                    </Flex>
+                                )}
                             </Card>
 
                             {/* Последние начисления */}
