@@ -73,7 +73,23 @@
 17. Тесты: валидация initData, доставка уведомлений (мок), deep-link регистрация.
 
 ## Чек-лист
-- [x] S1 реальная сеть  [x] S2 кабинет  [x] S3 админка+RBAC  [x] S4 Telegram (код готов; ДЕПЛОЙ S4c — на approval)
+- [x] S1 реальная сеть  [x] S2 кабинет  [x] S3 админка+RBAC  [x] S4 Telegram
+
+### ДЕПЛОЙ НА ПРОД — ВЫПОЛНЕН (2026-06-21, по гейтам)
+- Гейт 1: `ltree` в `azure.extensions` allowlist на `izigo-pg-beta` (динамически, без рестарта).
+- Гейт 2–3: коммит S4c + push → CI зелёный, backend+frontend выкачены на ACA.
+- Гейт 4: миграции применены на проде (`start.sh: migrate --force`) — ltree + 8 таблиц DONE.
+  Smoke прод: /cabinet→403, /miniapp→401, /admin→403, /packages→200.
+- Гейт 5: бот `@Izigopro_mlm_bot` ЖИВ — новый ACA-сервис `ca-izigo-bot` (без ingress, single-replica,
+  identity `id-izigo` + `AZURE_CLIENT_ID`, токен из KV, menu-кнопка Mini App). Уведомления включены
+  на backend (`TELEGRAM_NOTIFY_ENABLED=true`, токен через ACA keyvaultref `tg-bot-token`).
+- Запуск Mini App: ТОЛЬКО из Telegram (бот → /start → «Открыть IziGo» или menu-кнопка). Прямой URL
+  в браузере by design показывает «Откройте через Telegram» (initData пуст).
+
+Остаточные хвосты (не блокируют):
+- Sentry-проект `izigo` + DSN в KV `izigo--beta--SENTRY-DSN` (бот: sentry=false; backend SDK есть).
+- server-watchdog: добавить `rg-izigo-beta-neu` в `AZURE_RESOURCE_GROUPS` на mh-central.
+- BotFather: опц. зарегистрировать Mini App как `t.me/bot/<app>` для `startapp=`-инвайтов.
 
 ### S4c — статус: КОД ГОТОВ (Гейт 4); деплой на approval
 Архитектура: **входящее** — отдельный grammY-воркер (`mh-calc-bot/`); **исходящее** — backend шлёт

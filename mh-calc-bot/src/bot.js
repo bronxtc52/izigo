@@ -36,5 +36,12 @@ export function buildBot(token) {
         { command: 'help', description: 'Помощь' },
     ]).catch(() => { /* best-effort: не валим бота из-за установки меню */ });
 
+    // Постоянная menu-кнопка → запуск Mini App (передаёт initData). Best-effort.
+    if (MINI_APP_URL) {
+        bot.api.setChatMenuButton({
+            menu_button: { type: 'web_app', text: 'IziGo', web_app: { url: MINI_APP_URL } },
+        }).catch(() => { /* best-effort */ });
+    }
+
     return bot;
 }
