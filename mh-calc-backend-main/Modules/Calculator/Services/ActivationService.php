@@ -10,6 +10,8 @@ use Modules\Calculator\Models\MemberBonusLine;
 use Modules\Calculator\Models\MemberEarning;
 use Modules\Calculator\Repositories\EloquentNetworkRepository;
 use Modules\Calculator\Repositories\EloquentPlanRepository;
+use Modules\Calculator\Services\Telegram\TelegramNotifications;
+use Modules\Calculator\Services\Telegram\TelegramNotifier;
 
 /**
  * Активация пакета (мок-оплата) как идемпотентное событие. По событию активирует
@@ -23,12 +25,16 @@ class ActivationService
     public function __construct(
         private readonly EloquentNetworkRepository $networkRepository,
         private readonly EloquentPlanRepository $planRepository,
+        private readonly TelegramNotifier $notifier,
     ) {
     }
 
     public function activate(int $memberId, int $packageId, string $idempotencyKey): ActivationEvent
     {
-        return DB::transaction(function () use ($memberId, $packageId, $idempotencyKey) {
+        $oldRank = null;
+        $applied = false;
+
+        $event = DB::transaction(function () use ($memberId, $packageId, $idempotencyKey, &$oldRank, &$applied) {
             // exactly-once, в т.ч. под конкуренцией: ON CONFLICT DO NOTHING не роняет
             // транзакцию (в отличие от firstOrCreate), а параллельная вставка того же
             // ключа сериализуется и вернёт 0 → пересчёт не повторяется.
@@ -47,14 +53,63 @@ class ActivationService
             }
 
             $member = Member::query()->where('id', $memberId)->lockForUpdate()->firstOrFail();
+            $oldRank = $member->rank_id;
             $member->package_id = $packageId;
             $member->status = 'active';
             $member->save();
 
             $this->recompute($event->id);
+            $applied = true;
 
             return $event;
         });
+
+        // Уведомления — ПОСЛЕ коммита (best-effort, не держим транзакцию на HTTP).
+        if ($applied) {
+            $this->notifyActivation($memberId, (int) $oldRank, $packageId);
+        }
+
+        return $event;
+    }
+
+    /** Best-effort Telegram-уведомления по факту активации (вне транзакции). */
+    private function notifyActivation(int $memberId, int $oldRank, int $packageId): void
+    {
+        if (!$this->notifier->isEnabled()) {
+            return; // быстрый выход без лишних запросов, когда уведомления выключены
+        }
+
+        $member = Member::query()->find($memberId);
+        if ($member === null) {
+            return;
+        }
+
+        $package = $this->planRepository->load()->package($packageId);
+        $total = (string) (MemberEarning::query()->where('member_id', $memberId)->value('total') ?? '0.00');
+
+        if ($member->telegram_id) {
+            $this->notifier->notify(
+                (int) $member->telegram_id,
+                TelegramNotifications::packageActivated($package?->name ?? ('#' . $packageId), $total),
+            );
+
+            if ($member->rank_id && (int) $member->rank_id > $oldRank) {
+                $alias = DB::table('calculator_ranks')->where('id', $member->rank_id)->value('alias');
+                if ($alias) {
+                    $this->notifier->notify((int) $member->telegram_id, TelegramNotifications::rankAchieved($alias));
+                }
+            }
+        }
+
+        if ($member->sponsor_id) {
+            $sponsor = Member::query()->find($member->sponsor_id);
+            if ($sponsor?->telegram_id) {
+                $this->notifier->notify(
+                    (int) $sponsor->telegram_id,
+                    TelegramNotifications::newReferralActivated($member->name ?? ('#' . $member->id)),
+                );
+            }
+        }
     }
 
     /** Полный пересчёт сети и перезапись снимка начислений/рангов. */

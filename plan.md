@@ -73,7 +73,33 @@
 17. Тесты: валидация initData, доставка уведомлений (мок), deep-link регистрация.
 
 ## Чек-лист
-- [x] S1 реальная сеть  [x] S2 кабинет  [x] S3 админка+RBAC  [~] S4 Telegram (S4a+S4b готовы; S4c бот+деплой — на approval)
+- [x] S1 реальная сеть  [x] S2 кабинет  [x] S3 админка+RBAC  [x] S4 Telegram (код готов; ДЕПЛОЙ S4c — на approval)
+
+### S4c — статус: КОД ГОТОВ (Гейт 4); деплой на approval
+Архитектура: **входящее** — отдельный grammY-воркер (`mh-calc-bot/`); **исходящее** — backend шлёт
+в Telegram Bot API напрямую (без второго shared-secret/HTTP-seam).
+**Бот-воркер `mh-calc-bot/` (Node ESM, grammY 1.30):** /start (deep-link payload), /app, /help,
+WebApp-кнопка запуска Mini App, меню команд. Токен — ТОЛЬКО из Key Vault (`@azure/identity`
+DefaultAzureCredential + `@azure/keyvault-secrets`), не из env. Dockerfile (long-polling, без ingress),
+README. Тесты: 4 (node --test, экранирование/тексты). `node --check` + импорт grammY — ок.
+**Backend уведомления:** `TelegramNotifier` (best-effort, opt-in флаг `telegram_notify_enabled` +
+токен из KV; ошибки доставки не ломают активацию), `TelegramNotifications` (ru, HTML-экранирование),
+хук в `ActivationService` (post-commit): подтверждение активации партнёру + ранг-ап + «новый реферал»
+спонсору. Тесты: TelegramNotifierTest (4, Http::fake — выкл/вкл/активация/экранирование).
+Итог backend: 61 passed (188 assert); бот: 4 passed.
+
+**ДЕПЛОЙ (НЕ сделано, на approval):** новый ACA-сервис для бота (без ingress, single-replica,
+managed identity → доступ к kv-bronxtc-dev), `MINI_APP_URL`, в проде `TELEGRAM_NOTIFY_ENABLED=true`,
+RG в server-watchdog. + ltree extension allowlist (S1). Деплой остального стека — тоже отдельно.
+
+Ревью S4c (reviewer): P0 нет. Исправлено — graceful stop (await bot.stop) + try/catch boot,
+config-комментарий «токен в проде из KV через ACA keyvaultref, не plain env», предупреждение
+в notifier не логировать токен; тесты best-effort при ошибке Telegram + конструирование бота без URL.
+Sentry в боте: ПОДКЛЮЧЁН (`@sentry/node`, best-effort, DSN из KV `izigo--beta--SENTRY-DSN`;
+без DSN не включается). Остаётся при деплое: создать Sentry-проект izigo + положить DSN в KV.
+Долг S4c: команды /balance,/ref через backend (сейчас всё в Mini App); MainButton/BackButton; /start-payload
+не пробрасывает ref в Mini App (инвайт идёт через startapp= — принятый дефолт); дизайн Mini App под
+open-design макет; 3 moderate npm-vuln в транзитивных депах бота (audit при деплое).
 
 ### S4 — статус: S4a+S4b ГОТОВО (Гейт 4 пройден); S4c отложен
 **S4a backend (готово):** `TelegramInitData` (HMAC-SHA256, secret=HMAC("WebAppData",token), timing-safe

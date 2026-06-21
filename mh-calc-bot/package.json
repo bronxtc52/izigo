@@ -1,0 +1,21 @@
+{
+  "name": "mh-calc-bot",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "IziGo Telegram bot (grammY): онбординг, deep-link, запуск Mini App.",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@azure/identity": "4.5.0",
+    "@azure/keyvault-secrets": "4.9.0",
+    "@sentry/node": "8.47.0",
+    "grammy": "1.30.0"
+  }
+}
