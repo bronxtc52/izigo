@@ -6,18 +6,27 @@ use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 use Modules\Calculator\Models\Member;
 use Modules\Calculator\Models\MemberWallet;
+use Modules\Calculator\Models\PayoutTransaction;
 use Modules\Calculator\Models\WithdrawalRequest;
+use Modules\Calculator\Services\Payout\PayoutGateway;
+use Modules\Calculator\Services\Payout\PayoutResult;
 use RuntimeException;
 
 /**
- * Заявки на вывод средств (Фаза 3). Создание партнёром — с холдом доступного баланса
- * через ledger; одобрение/отклонение/выплата — финансистом (статус-машина).
+ * Заявки на вывод средств (Фаза 3 + Фаза 4 on-chain). Создание партнёром — с холдом
+ * доступного баланса через ledger; одобрение/отклонение/выплата — финансистом.
  * Суммы — целые центы. Все денежные шаги — в транзакции с холдом ledger.
+ *
+ * Фаза 4: payout_details трактуется как TON-адрес получателя USDT; sendOnChain
+ * заменяет ручной markPaid реальной on-chain выплатой.
  */
 class WithdrawalService
 {
-    public function __construct(private readonly LedgerService $ledger)
-    {
+    public function __construct(
+        private readonly LedgerService $ledger,
+        private readonly PayoutGateway $payout,
+        private readonly KycService $kyc,
+    ) {
     }
 
     /** Список заявок партнёра (новые сверху). */
@@ -44,6 +53,8 @@ class WithdrawalService
         if (trim($payoutDetails) === '') {
             throw new RuntimeException('Укажите реквизиты для вывода');
         }
+        // Пороговый KYC-гейт (Фаза 4): выше порога нужен одобренный KYC.
+        $this->kyc->assertCleared($member, $amountCents);
 
         return DB::transaction(function () use ($member, $amountCents, $payoutDetails) {
             $wallet = MemberWallet::query()->where('member_id', $member->id)->lockForUpdate()->first();
@@ -128,6 +139,114 @@ class WithdrawalService
             $w->status = WithdrawalRequest::STATUS_PAID;
             $w->paid_at = now();
             $w->save();
+        });
+    }
+
+    /**
+     * approved → paid через on-chain выплату USDT (Фаза 4). Создаёт payout_transaction,
+     * отправляет средства, при успехе фиксирует held → выплачено и пишет tx_hash. При
+     * неуспехе шлюза (result=failed) возвращает холд и переводит заявку в cancelled.
+     * Если драйвер бросает (не сконфигурирован) — транзакция откатывается, заявка цела.
+     */
+    public function sendOnChain(int $id): array
+    {
+        // Контролируемый отказ шлюза (result=failed) ПЕРСИСТИМ (возврат холда + cancelled),
+        // транзакция коммитится, и лишь затем бросаем — иначе откат стёр бы отмену. Если же
+        // драйвер сам бросит (не сконфигурирован/сеть) — транзакция откатится, заявка цела.
+        $outcome = DB::transaction(function () use ($id) {
+            $w = WithdrawalRequest::query()->where('id', $id)->lockForUpdate()->firstOrFail();
+            if ($w->status !== WithdrawalRequest::STATUS_APPROVED) {
+                throw new InvalidArgumentException("Недопустимый переход из статуса «{$w->status}»");
+            }
+            $address = trim((string) $w->payout_details);
+            if ($address === '') {
+                throw new RuntimeException('Не указан адрес выплаты');
+            }
+
+            $tx = PayoutTransaction::query()->create([
+                'withdrawal_request_id' => $w->id,
+                'to_address' => $address,
+                'amount_cents' => $w->amount_cents,
+                'status' => PayoutTransaction::STATUS_QUEUED,
+            ]);
+
+            $result = $this->payout->send($address, $w->amount_cents, "wd:{$w->id}");
+
+            if (!$result->isSuccess()) {
+                $tx->status = PayoutTransaction::STATUS_FAILED;
+                $tx->error = $result->error;
+                $tx->save();
+                $this->ledger->releaseHold($w); // возврат холда в доступный баланс
+                $w->status = WithdrawalRequest::STATUS_CANCELLED;
+                $w->reject_reason = 'on-chain failed: ' . ($result->error ?? '');
+                $w->decided_at = now();
+                $w->save();
+
+                return ['ok' => false, 'error' => $result->error ?? ''];
+            }
+
+            $tx->tx_hash = $result->txHash;
+            $tx->status = $result->status;
+            $tx->save();
+
+            // Фиксируем выплату ТОЛЬКО при подтверждении сети. На broadcast средства
+            // остаются в холде, заявка — approved; финализирует/откатывает poll-команда
+            // (reconcilePayout) по факту confirmed/failed. Иначе broadcast→failed терял бы холд.
+            if ($result->status === PayoutResult::CONFIRMED) {
+                $this->ledger->markPaid($w); // held → company_payouts_paid
+                $w->status = WithdrawalRequest::STATUS_PAID;
+                $w->paid_at = now();
+                $w->save();
+            }
+
+            return ['ok' => true, 'data' => $this->present($w) + [
+                'tx_hash' => $result->txHash,
+                'payout_status' => $result->status,
+            ]];
+        });
+
+        if (!$outcome['ok']) {
+            throw new RuntimeException('Выплата on-chain не удалась: ' . $outcome['error']);
+        }
+
+        return $outcome['data'];
+    }
+
+    /**
+     * Финализация broadcast-выплаты по данным сети (poll-команда). confirmed → held
+     * списан как выплачено, заявка paid; failed → возврат холда, заявка cancelled.
+     * Идемпотентно и под блокировкой: трогает только записи в статусе broadcast/approved.
+     */
+    public function reconcilePayout(int $payoutTxId, string $chainStatus): void
+    {
+        DB::transaction(function () use ($payoutTxId, $chainStatus) {
+            $tx = PayoutTransaction::query()->where('id', $payoutTxId)->lockForUpdate()->first();
+            if ($tx === null || $tx->status !== PayoutTransaction::STATUS_BROADCAST) {
+                return;
+            }
+            $w = WithdrawalRequest::query()->where('id', $tx->withdrawal_request_id)->lockForUpdate()->first();
+
+            if ($chainStatus === PayoutResult::CONFIRMED) {
+                $tx->status = PayoutTransaction::STATUS_CONFIRMED;
+                $tx->save();
+                if ($w !== null && $w->status === WithdrawalRequest::STATUS_APPROVED) {
+                    $this->ledger->markPaid($w);
+                    $w->status = WithdrawalRequest::STATUS_PAID;
+                    $w->paid_at = now();
+                    $w->save();
+                }
+            } elseif ($chainStatus === PayoutResult::FAILED) {
+                $tx->status = PayoutTransaction::STATUS_FAILED;
+                $tx->error = 'on-chain failed (poll)';
+                $tx->save();
+                if ($w !== null && $w->status === WithdrawalRequest::STATUS_APPROVED) {
+                    $this->ledger->releaseHold($w);
+                    $w->status = WithdrawalRequest::STATUS_CANCELLED;
+                    $w->reject_reason = 'on-chain failed (poll)';
+                    $w->decided_at = now();
+                    $w->save();
+                }
+            }
         });
     }
 

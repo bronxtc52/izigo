@@ -9,6 +9,7 @@ use InvalidArgumentException;
 use Modules\Calculator\Models\Member;
 use Modules\Calculator\Services\AdminService;
 use Modules\Calculator\Services\WithdrawalService;
+use RuntimeException;
 
 /**
  * Админ-портал: участники, роли, настройка плана. Доступ ограничен RBAC-гейтами
@@ -100,6 +101,12 @@ class AdminController
         return $this->guarded(fn () => $this->withdrawals->markPaid($id));
     }
 
+    /** approved → paid через on-chain выплату USDT (Фаза 4, S7). */
+    public function sendWithdrawal(Request $request, int $id): JsonResponse
+    {
+        return $this->guarded(fn () => $this->withdrawals->sendOnChain($id));
+    }
+
     public function cancelWithdrawal(Request $request, int $id): JsonResponse
     {
         return $this->guarded(fn () => $this->withdrawals->cancel($id, $this->viewer($request)));
@@ -119,6 +126,8 @@ class AdminController
             return response()->json(['status' => 'error', 'message' => 'Не найдено'], 404);
         } catch (InvalidArgumentException $e) {
             return response()->json(['status' => 'error', 'message' => $e->getMessage()], 422);
+        } catch (RuntimeException $e) {
+            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 400);
         }
     }
 }

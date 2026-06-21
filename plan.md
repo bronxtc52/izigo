@@ -1,3 +1,193 @@
+# План: Фаза 4 — Commerce и платежи (модель A, TON/USDT) — Гейт 2
+
+**ТЗ:** `docs/specs/2026-06-21-phase4-commerce-payments.md`. **Решение архитектуры — Вариант A**
+(товары = тарифы): заказ маппится в один `package_id`, оплаченный заказ дёргает существующий
+`ActivationService::activate` — **комп-движок не трогаем**. Денежный контур (ledger/wallet/withdrawal)
+переиспользуем, расширяем точечно. Ветка: `feat/phase4-commerce` (поверх `chore/phase-0-foundation`).
+
+> **Δ 2026-06-21 — приём развёрнут на TON Pay (non-custodial).** Backend S1–S8 уже реализован под
+> Wallet Pay (webhook). Теперь активный приём = **TON Pay** (`@ton-pay/*` поверх TON Connect): деньги
+> прямо на наш TON-адрес, бэкенд сам валидирует on-chain (адрес+сумма+memo=`external_ref`), подтверждение
+> — **poll TON-сети** вместо webhook. `WalletPayGateway` остаётся fallback-драйвером за `PaymentGateway`.
+> Новый объём — увеличение S3 (`S3-TON`, ниже) + фронт-чекаут.
+
+## A. Целевая архитектура (как ложится на Фазы 1–3)
+
+```
+Каталог(тариф+цена USDT+PV) → Заказ(pending_payment) → TON Pay checkout (TON Connect)
+   → юзер подписывает перевод USDT (memo = pay:{id}) ПРЯМО на наш merchant-адрес
+   → [poll TON-сети: адрес+сумма+memo совпали → confirmed] → Payment.paid → Order.paid
+   → ActivationService::activate(member, package_id, "order:{id}")   ← БЕЗ изменений ядра
+   → recompute → дельта в ledger → баланс кошелька (как сейчас)
+Autoship → периодическая ре-покупка тарифа (списание с внутр. USDT-баланса) + retry д.3/7/14
+Вывод → approve → PayoutGateway.send(USDT on-chain) → tx_hash → confirmed → markPaid
+KYC → Telegram Passport (сбор) → ручной аппрув → пороговый гейт перед выплатой
+```
+
+**Денежный слой — переиспользуем как есть** (`LedgerService`/`WalletService`/`WithdrawalService`,
+центы, дельты). Добавляем в `LedgerService` 2 метода + 2 account_type (аддитивно):
+- `deposit(memberId, cents, key)` — пополнение `member_available` от Wallet Pay (Dr `company_deposits` / Cr `member_available`).
+- `charge(memberId, cents, key, srcType, srcId)` — списание под покупку/autoship (Dr `member_available` / Cr `company_sales_revenue`), guard `available ≥ cents`.
+- Расширить `source_type` ledger: + `deposit`, `purchase`, `payout` (миграция-альтер).
+
+**Начисления — НЕ трогаем** `CompensationEngine`/`Bonus/*`/`Plan`/`ActivationService`. Каталог-товар
+несёт `package_id` существующего тарифа (1/2/3); активация работает 1:1.
+
+⚠️ **Учесть «две вселенные пакетов»:** `members.package_id` FK → legacy `calculator_packages`
+(PV 100/200/600), а движок берёт PV из жёсткой фабрики `IziGoPlanFactory` (PV 90/180/540). Совпадают
+только по id 1/2/3. Каталог-товар ссылается на `package_id` ∈ {1,2,3} — не плодим новый источник PV.
+
+## B. Схема БД (новые таблицы; модуль Calculator/Database/Migrations)
+
+- **products** — каталог: `id, name, description, price_usdt_cents, pv, package_id→calculator_packages,
+  sku(uniq), is_active, sort, stock?(nullable), timestamps`. Товар = покупаемый тариф (+цена USDT).
+- **orders** — `id, member_id→members, package_id→calculator_packages, total_usdt_cents, total_pv,
+  status(pending_payment|paid|processing|shipped|delivered|cancelled|refunded), shipping_info(text),
+  tracking_no(text,null), activation_event_id→activation_events(null), idempotency_key(uniq), timestamps`.
+- **order_items** — `id, order_id→orders, product_id→products, qty, unit_price_usdt_cents, pv,
+  name_snapshot`. (MVP: 1 позиция/заказ — см. C; таблица на будущее.)
+- **payments** — `id, order_id→orders(null=пополнение), member_id→members, provider('wallet_pay'),
+  external_id(uniq), amount_usdt_cents, purpose(order|topup), status(created|pending|paid|failed|expired),
+  raw_payload json, idempotency_key(uniq), paid_at, timestamps`. Идемпотентно по external_id.
+- **autoship_subscriptions** — `id, member_id→members, product_id→products, package_id, interval_days,
+  next_charge_at, status(active|paused|cancelled), retry_stage(0|3|7|14), last_charge_at, timestamps`.
+- **payout_transactions** — `id, withdrawal_request_id→withdrawal_requests, to_address, amount_usdt_cents,
+  tx_hash(null), status(queued|broadcast|confirmed|failed), error(null), timestamps`.
+- **kyc_records** — `id, member_id→members(uniq), source('telegram_passport'), documents json(зашифр.),
+  review_status(pending|approved|rejected), reviewed_by→members(null), reviewed_at(null), threshold_level,
+  timestamps`.
+
+## C. Уточнение scope под Вариант A (важно)
+
+- **Корзина:** под «товары=тарифы» активация ставит ОДИН `package_id`, поэтому мульти-товарная корзина
+  для комп-математики не имеет смысла. **MVP: заказ = покупка одного тарифа** (выбор тарифа → оплата →
+  активация). `order_items` оставляем (1 строка), полноценную мульти-корзину/немонетизируемый мерч —
+  в 4.2. (Отступление от §2 ТЗ — подтвердить на стоп-кране.)
+- **Autoship:** ре-покупка того же тарифа даёт дельту 0 → **новых бонусов не создаёт** (ядро не
+  аккумулирует повторы). Роль autoship = поддержание `status=active` + оборот от НОВЫХ активаций сети.
+  Списание — с внутреннего USDT-баланса (`member_available`) через `LedgerService::charge`; пополнение
+  баланса — Wallet Pay top-up. Enforcement лапса квалификации = изменение ядра → **в MVP не гейтим**
+  (открытый вопрос D1).
+- **Выплаты on-chain** заменяют ручной `markPaid`: шаг `approved → (PayoutService.send) → paid+tx_hash`.
+
+## D. Открытые вопросы (решить на стоп-кране или по ходу)
+
+- **D1.** Гейтить ли квалификацию по активности autoship (нужен `qualified_through` + правка движка —
+  выходит за «минимум изменений»)? Рекомендация: НЕТ в MVP, autoship = статус + оборот.
+- **D2.** Очередь: оставить `QUEUE_CONNECTION=sync` и гонять активацию синхронно в webhook (recompute уже
+  так работает на `activate-package`), а autoship/poll выплат — через scheduler-команды (инфра воркера не
+  нужна). Рекомендация: ДА (минимум инфры). Вынести в воркер — позже при росте.
+- **D3.** Refund-политика: полный возврат заказа = clawback-проводки (Δ<0) + откат активации? Рекомендация:
+  MVP — только пометка `refunded` без авто-отката начислений (ручной clawback финансистом), авто — в 4.2.
+
+## E. Платёжные абстракции (расширяемость без TON Connect)
+
+- `PaymentGateway` (интерфейс): `createInvoice(amountCents, purpose, ref): InvoiceResult`,
+  `verifyWebhook(request): WebhookEvent`. Драйверы: `WalletPayGateway` (реальный) + `FakeGateway`
+  (тесты/dev). Биндинг по конфигу в `CalculatorServiceProvider`.
+- `PayoutGateway` (интерфейс): `send(toAddress, amountCents, ref): PayoutResult`, `status(ref): PayoutStatus`.
+  Драйверы: `UsdtTonPayoutGateway` (подпись hot-wallet ключом из KV) + `FakePayoutGateway`.
+
+## F. Секреты (Azure Key Vault — обязательно, §6 ТЗ)
+
+**Приём TON Pay (non-custodial):** `izigo--<env>--TON-MERCHANT-ADDRESS` (наш адрес-получатель),
+`…--TON-API-KEY` (toncenter, для опроса сети). Приватный ключ приёма НЕ нужен (деньги идут прямо на адрес).
+**Выплаты:** `…--TON-PAYOUT-WALLET-KEY` (mnemonic/приватный ключ hot-wallet — критично),
+`…--TON-PAYOUT-WALLET-ADDRESS`. **KYC:** `…--PASSPORT-PRIVATE-KEY`. **Fallback Wallet Pay:**
+`…--WALLETPAY-API-KEY`, `…--WALLETPAY-WEBHOOK-SECRET` (не активны). В env — только имена секретов.
+Документы Passport — `encrypted:array`. Зависимости фронта (пин): `@ton-pay/api`, `@ton-pay/ui-react`
+(v0.3.x beta!), `@tonconnect/ui-react@3`.
+
+## G. Маршруты (Routes/api.php)
+
+**Публичный (без telegram.auth):** `POST webhooks/wallet-pay` (проверка подписи).
+**cabinet/* (telegram.auth):** `GET catalog`; `POST orders`, `GET orders`, `GET orders/{id}`;
+`POST wallet/topup`; `GET/POST autoship`, `PATCH autoship/{id}` (pause/resume/cancel);
+`POST kyc/passport`, `GET kyc`; расширить `POST withdrawals` (+`ton_address`).
+**admin/* (telegram.auth + role):** products CRUD (`owner,support`); `GET orders`,
+`PATCH orders/{id}/status` (`owner,support`); `GET autoship` (`owner,support`);
+`PATCH withdrawals/{id}/send` on-chain (`owner,finance`); `GET kyc`, `PATCH kyc/{id}` (`owner,finance`).
+
+## H. Фронт (Next 14 + AntD, Mini App + web-кабинет)
+
+Экраны: Каталог (тарифы: цена USDT + PV) → Checkout (выбор тарифа → кнопка оплаты Wallet Pay) →
+Мои заказы (статус + трек) → Autoship (вкл/период/пауза) → Пополнить баланс (Wallet Pay top-up) →
+Вывод (добавить поле TON-адрес) → KYC (кнопка Telegram Passport + статус). Админка: товары CRUD,
+заказы+статусы, autoship-лист, выплаты on-chain (расширить AdminWithdrawals + tx_hash), KYC-очередь.
+Стиль — через дизайн-токены Фазы 3 (не хардкодим цвета).
+
+## I. Пошаговый план / чек-лист инкрементов (порядок сборки)
+
+- [x] **S1 — Каталог + заказ (без оплаты).** ✅ Backend: миграции products/orders/order_items; модели;
+  `ProductSeeder` (тарифы Bronze/Silver/Gold → package_id 1/2/3); `CatalogService`/`OrderService`/
+  `ProductAdminService`; `CommerceController` (cabinet: catalog/orders) + `CommerceAdminController`
+  (admin products CRUD, архив вместо удаления); роуты cabinet+admin. Тесты: 9 зелёных
+  (CatalogCabinetTest/OrderCabinetTest/ProductAdminTest) — витрина только активные, заказ
+  `pending_payment` с суммами/PV/package_id, идемпотентность, изоляция, RBAC owner/support.
+  ⏳ UI каталога/checkout (фронт) — отдельным шагом перед Гейтом 4 или в связке с S3.
+- [x] **S2 — Ledger-расширение.** ✅ `source_type` — свободная строка(16), CHECK нет → **альтер не нужен**.
+  Добавлены account_type `company_deposits`/`company_sales_revenue`, методы `deposit` (Dr deposits/Cr
+  available) и `charge` (Dr available/Cr sales_revenue, guard → `InsufficientFundsException`). Тесты:
+  5 зелёных (`LedgerCommerceTest`) — баланс проводок, идемпотентность, нехватка средств; регрессий нет.
+- [x] **S3 — Приём (Wallet Pay, теперь fallback).** ✅ Контракты `PaymentGateway`/`InvoiceResult`/
+  `WebhookEvent`; драйверы `WalletPayGateway` + `FakeGateway`; бинд по config `payment_gateway`.
+  Миграция+модель `payments`; `PaymentService` (инвойс заказа/topup; webhook с подписью/идемпотентностью/
+  защитой суммы → Order.paid / `ledger->deposit`). Тесты: 6 зелёных (`PaymentWebhookTest`).
+  **Остаётся как запасной драйвер** — активный приём переезжает на TON Pay (S3-TON).
+- [x] **S3-TON — Приём TON Pay (non-custodial), backend.** ✅ Интерфейс `PaymentGateway` расширен
+  `pollStatus(memo, сумма)` (webhook-драйверы → 'none'). Драйверы `TonPayGateway` (боевой, опрос
+  toncenter — `amountMatches`/jetton-парсинг помечены NEEDS-LIVE-VERIFY, fail-safe: без реализации не
+  подтверждает) + `FakeTonPayGateway` (статический реестр «прихода» для тестов). `PaymentService`:
+  вынесен `applyPaid` (общий для webhook и poll), добавлены `pollPending`/`confirmPayment`/
+  `checkForMember` (идемпотентно, под локом). Команда `commerce:tonpay-poll` (schedule everyMinute);
+  эндпоинт `POST cabinet/payments/{id}/check` (немедленная проверка). Бинд драйвера по config
+  (`ton_pay`|`ton_pay_fake`|`wallet_pay`|`fake`), дефолт → `ton_pay`. Ответ инвойса несёт `memo` +
+  `merchant_address` для фронта. **Товар/активация — только после `confirmed`** (poll подтверждает лишь
+  при совпадении memo+суммы; иначе failed). Тесты: 6 зелёных (`TonPayPollTest`) — confirm, no-tx→pending,
+  неверная сумма→failed, немедленная проверка, topup, идемпотентность ($18 реферал ровно раз). Wallet Pay
+  остаётся fallback. ⏳ **Фронт (Next): TON Pay UI / TON Connect manifest / чекаут — не сделан.**
+- [x] **S4 — Заказ → начисление.** ✅ `OrderService::markPaid` после статуса дёргает
+  `ActivationService::activate(member, package_id, "order:{id}")`, пишет `activation_event_id`.
+  Активация идемпотентна по ключу заказа → повтор webhook не задваивает. Тесты: 2 зелёных
+  (`OrderActivationTest`) — e2e заказ→оплата→активация→реферал $9 спонсору; повторный webhook не
+  задваивает начисление. S3 (6) не сломан.
+- [x] **S5 — Трекинг исполнения.** ✅ `OrderService::listForAdmin`/`setStatus` (валидные цели
+  processing/shipped/delivered/cancelled/refunded; запрет фулфилмента неоплаченного); `CommerceAdminController`
+  orders + `PATCH orders/{id}/status`; роуты owner/support. Тесты: 4 зелёных (`OrderAdminTest`) —
+  смена статуса+трек, видимость партнёру, запрет неоплаченного, RBAC.
+- [x] **S6 — Autoship + retry.** ✅ Миграция+модель `autoship_subscriptions`; `AutoshipService`
+  (create/list/setState; `runDue` — списание `charge` с баланса → заказ+активация; retry д.3/7/14 →
+  пауза); команда `commerce:autoship-run` (schedule daily 03:00); роуты cabinet autoship. Тесты:
+  5 зелёных (`AutoshipTest`) — списание+ре-покупка, retry-лестница 3→7, пауза после исчерпания,
+  без двойного списания в один прогон.
+- [x] **S7 — Выплаты on-chain.** ✅ Контракты `PayoutGateway`/`PayoutResult`; драйверы
+  `UsdtTonPayoutGateway` (NEEDS-LIVE-VERIFY) + `FakePayoutGateway`; миграция+модель `payout_transactions`;
+  `WithdrawalService::sendOnChain` (approved→send→paid+tx_hash; failed→возврат холда+cancelled, коммит
+  до throw); команда `commerce:payouts-poll`; роут `admin/withdrawals/{id}/send`; catch RuntimeException
+  →400 в AdminController. Тесты: 4 зелёных (`PayoutOnChainTest`) — успех, провал→возврат холда, переход,
+  RBAC. Регрессия выводов Фазы 3 зелёная.
+- [x] **S8 — KYC-intake.** ✅ Миграция+модель `kyc_records`; `KycService` (submit Passport / status /
+  admin review / пороговый `assertCleared`); гейт в `WithdrawalService::create` (порог из config,
+  null=выкл → Фаза 3 не затронута); роуты cabinet `kyc`/`kyc/passport`, admin `kyc`/`kyc/{id}`. Расшифровка
+  Passport — NEEDS-LIVE-VERIFY (Фаза 5). Тесты: 5 зелёных (`KycTest`) — intake/статус, гейт выше порога,
+  аппрув разблокирует, под порогом без KYC, RBAC.
+- [x] **S9 — Гейт 4 (backend).** ✅ reviewer (независимый) → нашёл P0×2 + P1×4 + P2. Применены фиксы:
+  P0-1 выплата broadcast→failed больше не теряет холд (markPaid только на confirmed; poll
+  `reconcilePayout` финализирует/откатывает под локом) + 2 теста; P0-2 уведомления активации через
+  `DB::afterCommit` (не стреляют до коммита внешней webhook-транзакции); P1-3 `payments.external_ref`
+  nullable unique (убран самоблок при ошибке инвойса); P1-4 webhook без обработчика → throw (нет
+  молчаливой потери); P1-5 верхняя граница topup; P1-6 KYC-документы `encrypted:array` + колонка text.
+  P2 (коды ответов 404 vs 409/422, currency label, NEEDS-LIVE-VERIFY драйверы) — приняты/задокументированы.
+  Итог: **124 теста зелёные** (Фаза 4 ~37 + регрессия Фаз 1–3); 16 падений — только легаси `StructureTest`
+  (пред-существующие). ⏳ Осталось: **фронт (Next/AntD Mini App + админ-экраны)** и ручной клик-тест/деплой.
+
+## J. Тесты (из §9 ТЗ, пишем до реализации)
+
+Соответствие S4/S3/S6/S7/S8 выше; БД — PostgreSQL (`izigo_test`, см. память `izigo-tests-postgres`),
+не SQLite (ltree/ilike). Каждый PR — lint/format/test зелёные перед ревью.
+
+---
+
 # План: Редизайн Mini App по hi-fi handoff (автономно)
 
 **Handoff:** `docs/design/izigo_handoff/design_handoff_izigo_miniapp/`. Ветка `feat/miniapp-redesign`

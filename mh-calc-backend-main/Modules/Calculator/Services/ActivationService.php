@@ -65,9 +65,11 @@ class ActivationService
             return $event;
         });
 
-        // Уведомления — ПОСЛЕ коммита (best-effort, не держим транзакцию на HTTP).
+        // Уведомления — строго ПОСЛЕ коммита (best-effort). Через DB::afterCommit, чтобы при
+        // вызове внутри внешней транзакции (webhook оплаты заказа) не выстрелить до её коммита;
+        // вне транзакции (endpoint активации) колбэк выполнится немедленно.
         if ($applied) {
-            $this->notifyActivation($memberId, (int) $oldRank, $packageId);
+            DB::afterCommit(fn () => $this->notifyActivation($memberId, (int) $oldRank, $packageId));
         }
 
         return $event;

@@ -4,8 +4,11 @@ use Illuminate\Support\Facades\Route;
 use Modules\Calculator\Http\Controllers\AdminController;
 use Modules\Calculator\Http\Controllers\CabinetController;
 use Modules\Calculator\Http\Controllers\CalculatorController;
+use Modules\Calculator\Http\Controllers\CommerceAdminController;
+use Modules\Calculator\Http\Controllers\CommerceController;
 use Modules\Calculator\Http\Controllers\PackageController;
 use Modules\Calculator\Http\Controllers\RankController;
+use Modules\Calculator\Http\Controllers\WebhookController;
 use Modules\Calculator\Http\Middleware\StructureEditTokenMiddleware;
 
 // Авторизация платформы — ТОЛЬКО через Telegram (middleware telegram.auth,
@@ -88,7 +91,35 @@ Route::group([
     // Заявки на вывод партнёра (Фаза 3): создание с холдом + список своих.
     Route::get('/withdrawals', [CabinetController::class, 'withdrawals'])->name('withdrawals');
     Route::post('/withdrawals', [CabinetController::class, 'createWithdrawal'])->name('withdrawals-create');
+
+    // Commerce (Фаза 4, S1): витрина каталога и заказы партнёра.
+    Route::get('/catalog', [CommerceController::class, 'catalog'])->name('catalog');
+    Route::get('/orders', [CommerceController::class, 'orders'])->name('orders');
+    Route::post('/orders', [CommerceController::class, 'createOrder'])->name('orders-create');
+    Route::get('/orders/{id}', [CommerceController::class, 'order'])->name('order')
+        ->where('id', '[0-9]+');
+    // Оплата заказа и пополнение баланса (Фаза 4, S3) — инвойс Wallet Pay.
+    Route::post('/orders/{id}/pay', [CommerceController::class, 'payOrder'])->name('orders-pay')
+        ->where('id', '[0-9]+');
+    Route::post('/wallet/topup', [CommerceController::class, 'topup'])->name('wallet-topup');
+    // TON Pay (S3-TON): немедленная проверка статуса своего платежа (non-custodial poll).
+    Route::post('/payments/{id}/check', [CommerceController::class, 'checkPayment'])->name('payment-check')
+        ->where('id', '[0-9]+');
+
+    // Autoship-подписки (Фаза 4, S6).
+    Route::get('/autoship', [CommerceController::class, 'autoshipList'])->name('autoship');
+    Route::post('/autoship', [CommerceController::class, 'autoshipCreate'])->name('autoship-create');
+    Route::patch('/autoship/{id}', [CommerceController::class, 'autoshipUpdate'])->name('autoship-update')
+        ->where('id', '[0-9]+');
+
+    // KYC-intake (Фаза 4, S8): подача Telegram Passport + статус.
+    Route::get('/kyc', [CommerceController::class, 'kycStatus'])->name('kyc');
+    Route::post('/kyc/passport', [CommerceController::class, 'kycSubmit'])->name('kyc-submit');
 });
+
+// Публичные webhook'и платёжных шлюзов (Фаза 4, S3). Без telegram.auth — проверка
+// подписи внутри драйвера шлюза.
+Route::post('webhooks/wallet-pay', [WebhookController::class, 'walletPay'])->name('webhooks.wallet-pay');
 
 // Админ-портал — Telegram initData + RBAC-гейты. owner проходит всегда (в RoleMiddleware).
 Route::group([
@@ -118,8 +149,33 @@ Route::group([
         ->middleware('calculator.role:owner,finance')->where('id', '[0-9]+')->name('withdrawals-reject');
     Route::post('/withdrawals/{id}/mark-paid', [AdminController::class, 'markPaidWithdrawal'])
         ->middleware('calculator.role:owner,finance')->where('id', '[0-9]+')->name('withdrawals-mark-paid');
+    // Фаза 4 (S7): выплата on-chain в USDT (approved → paid + tx_hash).
+    Route::post('/withdrawals/{id}/send', [AdminController::class, 'sendWithdrawal'])
+        ->middleware('calculator.role:owner,finance')->where('id', '[0-9]+')->name('withdrawals-send');
     Route::post('/withdrawals/{id}/cancel', [AdminController::class, 'cancelWithdrawal'])
         ->middleware('calculator.role:owner,finance')->where('id', '[0-9]+')->name('withdrawals-cancel');
+
+    // Каталог (Фаза 4, S1): управление товарами. owner/support.
+    Route::get('/products', [CommerceAdminController::class, 'products'])
+        ->middleware('calculator.role:owner,support')->name('products');
+    Route::post('/products', [CommerceAdminController::class, 'createProduct'])
+        ->middleware('calculator.role:owner,support')->name('products-create');
+    Route::put('/products/{id}', [CommerceAdminController::class, 'updateProduct'])
+        ->middleware('calculator.role:owner,support')->where('id', '[0-9]+')->name('products-update');
+    Route::delete('/products/{id}', [CommerceAdminController::class, 'deleteProduct'])
+        ->middleware('calculator.role:owner,support')->where('id', '[0-9]+')->name('products-delete');
+
+    // Заказы (Фаза 4, S5): список + смена статуса исполнения. owner/support.
+    Route::get('/orders', [CommerceAdminController::class, 'orders'])
+        ->middleware('calculator.role:owner,support')->name('orders');
+    Route::patch('/orders/{id}/status', [CommerceAdminController::class, 'updateOrderStatus'])
+        ->middleware('calculator.role:owner,support')->where('id', '[0-9]+')->name('orders-status');
+
+    // KYC-очередь и ревью (Фаза 4, S8). owner/finance.
+    Route::get('/kyc', [CommerceAdminController::class, 'kyc'])
+        ->middleware('calculator.role:owner,finance')->name('kyc');
+    Route::patch('/kyc/{id}', [CommerceAdminController::class, 'reviewKyc'])
+        ->middleware('calculator.role:owner,finance')->where('id', '[0-9]+')->name('kyc-review');
 });
 
 

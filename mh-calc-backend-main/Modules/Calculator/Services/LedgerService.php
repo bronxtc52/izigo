@@ -4,6 +4,7 @@ namespace Modules\Calculator\Services;
 
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Modules\Calculator\Exceptions\InsufficientFundsException;
 use Modules\Calculator\Models\LedgerEntry;
 use Modules\Calculator\Models\MemberWallet;
 use Modules\Calculator\Models\WithdrawalRequest;
@@ -26,6 +27,9 @@ class LedgerService
     public const ACC_AVAILABLE = 'member_available';
     public const ACC_HELD = 'member_held';
     public const ACC_CLAWBACK_DEBT = 'member_clawback_debt';
+    // Фаза 4 (commerce): клиринг внешних пополнений и выручка от покупок с баланса.
+    public const ACC_DEPOSITS = 'company_deposits';
+    public const ACC_SALES_REVENUE = 'company_sales_revenue';
 
     public const DR = 'debit';
     public const CR = 'credit';
@@ -138,6 +142,59 @@ class LedgerService
         ], 'withdrawal', $w->id, $key);
 
         $wallet->held_cents -= $w->amount_cents;
+        $this->saveWallet($wallet);
+    }
+
+    /**
+     * Пополнение доступного баланса извне (Wallet Pay top-up). Деньги партнёра, а не
+     * комиссия: идут сразу в available, долг clawback НЕ гасим. Идемпотентно по ключу.
+     * Dr company_deposits / Cr member_available.
+     */
+    public function deposit(int $memberId, int $cents, string $idempotencyKey, ?int $sourceId = null): void
+    {
+        if ($cents <= 0) {
+            throw new \DomainException('Deposit amount must be positive');
+        }
+        if ($this->alreadyPosted($idempotencyKey)) {
+            return;
+        }
+        $wallet = $this->lockWallet($memberId);
+
+        $this->post([
+            $this->leg(null, self::ACC_DEPOSITS, self::DR, $cents),
+            $this->leg($memberId, self::ACC_AVAILABLE, self::CR, $cents),
+        ], 'deposit', $sourceId, $idempotencyKey);
+
+        $wallet->available_cents += $cents;
+        $this->saveWallet($wallet);
+    }
+
+    /**
+     * Списание с доступного баланса под покупку/autoship. Требует available ≥ cents,
+     * иначе InsufficientFundsException (S6 ловит для retry). Идемпотентно по ключу.
+     * Dr member_available / Cr company_sales_revenue.
+     */
+    public function charge(int $memberId, int $cents, string $idempotencyKey, ?int $sourceId = null): void
+    {
+        if ($cents <= 0) {
+            throw new \DomainException('Charge amount must be positive');
+        }
+        if ($this->alreadyPosted($idempotencyKey)) {
+            return;
+        }
+        $wallet = $this->lockWallet($memberId);
+        if ($wallet->available_cents < $cents) {
+            throw new InsufficientFundsException(
+                "Недостаточно средств: доступно {$wallet->available_cents}, требуется {$cents}",
+            );
+        }
+
+        $this->post([
+            $this->leg($memberId, self::ACC_AVAILABLE, self::DR, $cents),
+            $this->leg(null, self::ACC_SALES_REVENUE, self::CR, $cents),
+        ], 'purchase', $sourceId, $idempotencyKey);
+
+        $wallet->available_cents -= $cents;
         $this->saveWallet($wallet);
     }
 
