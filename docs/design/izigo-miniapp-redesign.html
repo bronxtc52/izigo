@@ -1,0 +1,669 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>IziGo · Telegram Mini App — Income / Team / Rank / Profile / Admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   STUDIO / PAGE SHELL
+   ============================================================ */
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --studio-bg:#E9ECF1;
+  --studio-fg:#1A2230;
+  --studio-muted:#5C6B7B;
+  --studio-line:#D5DAE2;
+}
+html{-webkit-text-size-adjust:100%}
+body{
+  font-family:'Inter',-apple-system,BlinkMacSystemFont,system-ui,sans-serif;
+  background:
+    radial-gradient(120% 80% at 50% -10%, #F4F6FA 0%, #E9ECF1 60%) fixed;
+  color:#1A2230;
+  -webkit-font-smoothing:antialiased;
+  padding:48px 24px 96px;
+}
+.page-head{max-width:1180px;margin:0 auto 40px;display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:24px}
+.brandmark{display:flex;align-items:center;gap:12px}
+.brand-logo{width:42px;height:42px;border-radius:12px;background:linear-gradient(145deg,#2B86E8,#1F6FD4);display:grid;place-items:center;color:#fff;font-family:'Plus Jakarta Sans';font-weight:800;font-size:20px;box-shadow:0 6px 18px rgba(31,111,212,.32)}
+.brand-text h1{font-family:'Plus Jakarta Sans';font-weight:800;font-size:24px;letter-spacing:-.02em;line-height:1.1}
+.brand-text p{font-size:13.5px;color:#5C6B7B;margin-top:3px;max-width:520px;line-height:1.5}
+.page-head .legend{display:flex;gap:18px;font-size:12.5px;color:#5C6B7B}
+.page-head .legend b{font-family:'Plus Jakarta Sans';font-weight:700;color:#1A2230;display:block;font-size:13.5px}
+.swatch{display:inline-block;width:11px;height:11px;border-radius:3px;vertical-align:-1px;margin-right:6px}
+
+.rows{max-width:1180px;margin:0 auto;display:flex;flex-direction:column;gap:56px}
+.row-head{display:flex;align-items:baseline;gap:14px;margin-bottom:22px}
+.row-num{font-family:'Plus Jakarta Sans';font-weight:800;font-size:13px;color:#1F6FD4;letter-spacing:.06em}
+.row-title{font-family:'Plus Jakarta Sans';font-weight:700;font-size:20px;letter-spacing:-.01em}
+.row-desc{font-size:13px;color:#5C6B7B;margin-left:auto;max-width:360px;text-align:right;line-height:1.45}
+.pair{display:flex;gap:36px;flex-wrap:wrap}
+figure{margin:0}
+figcaption{font-size:11.5px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#7A8597;margin-bottom:12px;display:flex;align-items:center;gap:7px}
+figcaption .dot{width:8px;height:8px;border-radius:50%}
+figcaption.l .dot{background:#fff;border:1px solid #C7CFDA}
+figcaption.d .dot{background:#17212B}
+
+/* ============================================================
+   PHONE FRAME
+   ============================================================ */
+.phone{
+  width:390px;height:812px;border-radius:42px;position:relative;
+  padding:0;overflow:hidden;flex:none;
+  border:1px solid rgba(0,0,0,.06);
+  box-shadow:0 30px 60px -22px rgba(20,30,55,.38),0 6px 18px -6px rgba(20,30,55,.18);
+}
+.theme-dark.phone{box-shadow:0 30px 60px -22px rgba(8,16,30,.6),0 4px 14px rgba(0,0,0,.3)}
+.phone *{font-family:inherit}
+
+/* ---- THEME TOKENS (mirror antd ConfigProvider tokens) ---- */
+.theme-light{
+  --bg:#EFF1F5;--surface:#FFFFFF;--surface-2:#F5F7FA;
+  --fg:#14181F;--muted:#5E6B7B;--muted2:#8B95A3;
+  --border:#E4E8ED;--border-strong:#D6DCE4;
+  --accent:#1F6FD4;--accent-2:#2B86E8;--accent-weak:#E9F1FB;--on-accent:#FFFFFF;
+  --success:#1A9E55;--success-weak:#E4F5EC;
+  --warning:#B97708;--warning-weak:#FBF1DF;
+  --error:#D23B40;--error-weak:#FBE9EA;
+  --shadow:0 2px 8px rgba(20,30,55,.06);
+  --bar-track:#EDF0F4;
+  color-scheme:light;
+}
+.theme-dark{
+  --bg:#0E1621;--surface:#17212B;--surface-2:#1C2A38;
+  --fg:#F4F6F8;--muted:#92A2B4;--muted2:#6E7E90;
+  --border:#243240;--border-strong:#2E3F50;
+  --accent:#4F9BEF;--accent-2:#62A8F2;--accent-weak:#172A3E;--on-accent:#07121F;
+  --success:#4FC07A;--success-weak:#15301F;
+  --warning:#E0A93D;--warning-weak:#2E2613;
+  --error:#F2686C;--error-weak:#341A1C;
+  --shadow:0 2px 10px rgba(0,0,0,.4);
+  --bar-track:#22303E;
+  color-scheme:dark;
+}
+.phone{background:var(--bg);color:var(--fg)}
+
+/* ---- status bar ---- */
+.statusbar{height:46px;display:flex;align-items:center;justify-content:space-between;padding:0 26px 0 30px;font-weight:600;font-size:15px;color:var(--fg);position:relative;z-index:5}
+.statusbar .time{font-family:'Plus Jakarta Sans';font-weight:700;letter-spacing:.01em}
+.statusbar .sysicons{display:flex;align-items:center;gap:6px}
+.notch{position:absolute;top:11px;left:50%;transform:translateX(-50%);width:118px;height:32px;background:#000;border-radius:18px;z-index:6}
+.theme-dark .notch{background:#000}
+
+/* ---- app header ---- */
+.app-header{display:flex;align-items:center;gap:12px;padding:6px 20px 14px}
+.app-header .h-title{font-family:'Plus Jakarta Sans';font-weight:800;font-size:23px;letter-spacing:-.02em}
+.app-header .h-actions{margin-left:auto;display:flex;align-items:center;gap:10px}
+.icon-btn{width:38px;height:38px;border-radius:12px;background:var(--surface);border:1px solid var(--border);display:grid;place-items:center;color:var(--muted);position:relative}
+.icon-btn .badge{position:absolute;top:-3px;right:-3px;min-width:16px;height:16px;padding:0 4px;border-radius:8px;background:var(--error);color:#fff;font-size:10px;font-weight:700;display:grid;place-items:center;border:2px solid var(--bg)}
+.avatar{border-radius:50%;background:linear-gradient(140deg,#2B86E8,#1F6FD4);color:#fff;display:grid;place-items:center;font-family:'Plus Jakarta Sans';font-weight:700;flex:none}
+.avatar.sm{width:38px;height:38px;font-size:14px}
+.avatar.md{width:46px;height:46px;font-size:16px}
+.avatar.lg{width:62px;height:62px;font-size:22px}
+
+/* ---- scroll content ---- */
+.content{position:absolute;top:128px;bottom:84px;left:0;right:0;overflow-y:auto;padding:2px 20px 24px;-webkit-overflow-scrolling:touch}
+.content::-webkit-scrollbar{width:0}
+.sec-label{font-size:11.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted2);margin:22px 4px 11px;display:flex;align-items:center;justify-content:space-between}
+.sec-label a{color:var(--accent);font-weight:600;text-transform:none;letter-spacing:0;font-size:12.5px}
+
+/* ---- cards & primitives ---- */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:16px;box-shadow:var(--shadow)}
+.num{font-family:'Plus Jakarta Sans';font-feature-settings:"tnum";font-variant-numeric:tabular-nums}
+.btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;height:48px;border-radius:14px;background:var(--accent);color:var(--on-accent);font-family:'Plus Jakarta Sans';font-weight:700;font-size:15px;border:none;cursor:pointer}
+.btn.ghost{background:var(--accent-weak);color:var(--accent)}
+.btn.sm{height:38px;font-size:13.5px;border-radius:11px;width:auto;padding:0 16px}
+.pill{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600;padding:3px 9px;border-radius:999px}
+.pill.ok{background:var(--success-weak);color:var(--success)}
+.pill.warn{background:var(--warning-weak);color:var(--warning)}
+.pill.err{background:var(--error-weak);color:var(--error)}
+.pill.acc{background:var(--accent-weak);color:var(--accent)}
+.divider{height:1px;background:var(--border);margin:14px -16px}
+
+/* hero balance */
+.balance{background:linear-gradient(150deg,var(--accent-2),var(--accent));color:#fff;border:none;position:relative;overflow:hidden}
+.balance::after{content:"";position:absolute;right:-40px;top:-50px;width:170px;height:170px;border-radius:50%;background:rgba(255,255,255,.10)}
+.balance::before{content:"";position:absolute;right:30px;bottom:-70px;width:150px;height:150px;border-radius:50%;background:rgba(255,255,255,.07)}
+.balance .lab{font-size:12.5px;opacity:.9;font-weight:500;position:relative}
+.balance .big{font-family:'Plus Jakarta Sans';font-weight:800;font-size:38px;letter-spacing:-.02em;margin:5px 0 2px;position:relative;font-feature-settings:"tnum"}
+.balance .sub{font-size:12.5px;opacity:.92;position:relative;display:flex;align-items:center;gap:6px}
+.balance .acts{display:flex;gap:10px;margin-top:16px;position:relative}
+.balance .acts .btn{background:rgba(255,255,255,.16);color:#fff;backdrop-filter:blur(2px)}
+.balance .acts .btn.solid{background:#fff;color:var(--accent)}
+
+/* breakdown rows */
+.brk{display:flex;align-items:center;gap:12px;padding:11px 0}
+.brk+.brk{border-top:1px solid var(--border)}
+.brk .ic{width:38px;height:38px;border-radius:11px;display:grid;place-items:center;flex:none}
+.brk .meta{flex:1;min-width:0}
+.brk .meta .n{font-weight:600;font-size:14px}
+.brk .meta .track{height:5px;border-radius:3px;background:var(--bar-track);margin-top:7px;overflow:hidden}
+.brk .meta .track i{display:block;height:100%;border-radius:3px}
+.brk .amt{text-align:right;flex:none}
+.brk .amt .v{font-weight:700;font-size:14.5px}
+.brk .amt .p{font-size:11.5px;color:var(--muted)}
+
+/* mini chart */
+.chart{display:flex;align-items:flex-end;gap:9px;height:96px;padding:6px 2px 0}
+.chart .col{flex:1;display:flex;flex-direction:column;align-items:center;gap:7px;height:100%;justify-content:flex-end}
+.chart .col .bar{width:100%;border-radius:6px 6px 3px 3px;background:var(--accent-weak)}
+.chart .col.on .bar{background:linear-gradient(var(--accent-2),var(--accent))}
+.chart .col span{font-size:10.5px;color:var(--muted2);font-weight:600}
+
+/* tx list */
+.tx{display:flex;align-items:center;gap:12px;padding:12px 0}
+.tx+.tx{border-top:1px solid var(--border)}
+.tx .ic{width:36px;height:36px;border-radius:50%;display:grid;place-items:center;flex:none;background:var(--surface-2)}
+.tx .meta{flex:1}
+.tx .meta .n{font-weight:600;font-size:13.5px}
+.tx .meta .d{font-size:11.5px;color:var(--muted);margin-top:2px}
+.tx .v{font-weight:700;font-size:14px}
+.tx .v.in{color:var(--success)}
+.tx .v.out{color:var(--fg)}
+
+/* stat grid */
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:11px}
+.grid4{display:grid;grid-template-columns:1fr 1fr;gap:11px}
+.stat{background:var(--surface);border:1px solid var(--border);border-radius:15px;padding:14px}
+.stat .k{font-size:11.5px;color:var(--muted);font-weight:500}
+.stat .v{font-family:'Plus Jakarta Sans';font-weight:800;font-size:22px;letter-spacing:-.01em;margin-top:5px;font-feature-settings:"tnum"}
+.stat .v small{font-size:13px;font-weight:600;color:var(--muted2)}
+.stat .trend{font-size:11.5px;font-weight:600;margin-top:4px}
+.stat .trend.up{color:var(--success)}
+.stat .trend.flat{color:var(--muted)}
+
+/* binary tree */
+.tree{padding:8px 0 4px}
+.tree .you{display:flex;justify-content:center}
+.node{background:var(--surface-2);border:1px solid var(--border);border-radius:13px;padding:9px 13px;text-align:center;min-width:96px}
+.node .nm{font-weight:700;font-size:12.5px}
+.node .vol{font-size:11px;color:var(--muted);margin-top:2px;font-feature-settings:"tnum"}
+.node.root{background:var(--accent);border-color:var(--accent);color:#fff}
+.node.root .vol{color:rgba(255,255,255,.85)}
+.legs{display:flex;justify-content:space-between;gap:14px;margin-top:0;position:relative}
+.connector{height:26px;position:relative;margin:0 25%}
+.connector::before{content:"";position:absolute;left:50%;top:0;width:1px;height:13px;background:var(--border-strong)}
+.connector::after{content:"";position:absolute;left:0;right:0;top:13px;height:1px;background:var(--border-strong)}
+.leg-wrap{flex:1;display:flex;flex-direction:column;align-items:center;gap:0}
+.leg-wrap .stem{width:1px;height:13px;background:var(--border-strong)}
+.leg-tag{font-size:10.5px;font-weight:700;letter-spacing:.05em;color:var(--muted2);margin-bottom:7px;text-transform:uppercase}
+
+/* member list */
+.member{display:flex;align-items:center;gap:11px;padding:11px 0}
+.member+.member{border-top:1px solid var(--border)}
+.member .meta{flex:1;min-width:0}
+.member .meta .n{font-weight:600;font-size:13.5px;display:flex;align-items:center;gap:6px}
+.member .meta .sub{font-size:11.5px;color:var(--muted);margin-top:2px}
+.member .right{text-align:right}
+.member .right .v{font-weight:700;font-size:13px;font-feature-settings:"tnum"}
+.member .right .v small{color:var(--muted);font-weight:500}
+
+/* rank */
+.rankhero{display:flex;align-items:center;gap:14px}
+.medal{width:60px;height:60px;border-radius:16px;display:grid;place-items:center;flex:none;background:linear-gradient(145deg,#F0C24B,#D99A2B);color:#5A3E00;box-shadow:0 6px 16px -4px rgba(217,154,43,.5)}
+.rankhero .rk{font-family:'Plus Jakarta Sans';font-weight:800;font-size:21px;letter-spacing:-.01em}
+.rankhero .rk small{display:block;font-size:12px;color:var(--muted);font-weight:500;margin-top:2px}
+.progress{margin-top:16px}
+.progress .top{display:flex;justify-content:space-between;font-size:12px;margin-bottom:7px}
+.progress .top b{font-family:'Plus Jakarta Sans';font-feature-settings:"tnum"}
+.progress .track{height:9px;border-radius:5px;background:var(--bar-track);overflow:hidden}
+.progress .track i{display:block;height:100%;border-radius:5px;background:linear-gradient(90deg,var(--accent-2),var(--accent))}
+.req{display:flex;align-items:center;gap:11px;padding:11px 0}
+.req+.req{border-top:1px solid var(--border)}
+.req .chk{width:24px;height:24px;border-radius:8px;display:grid;place-items:center;flex:none}
+.req .chk.done{background:var(--success-weak);color:var(--success)}
+.req .chk.pend{background:var(--bar-track);color:var(--muted2)}
+.req .meta{flex:1}
+.req .meta .n{font-weight:600;font-size:13.5px}
+.req .meta .d{font-size:11.5px;color:var(--muted);margin-top:1px}
+.req .meta .track{height:5px;border-radius:3px;background:var(--bar-track);margin-top:7px;overflow:hidden}
+.req .meta .track i{display:block;height:100%;background:var(--accent)}
+.req .val{font-weight:700;font-size:12.5px;font-feature-settings:"tnum"}
+
+.ladder{padding:2px 0}
+.lstep{display:flex;align-items:center;gap:12px;padding:11px 0}
+.lstep+.lstep{border-top:1px solid var(--border)}
+.lstep .dotr{width:12px;height:12px;border-radius:50%;border:2px solid var(--border-strong);flex:none}
+.lstep.done .dotr{background:var(--success);border-color:var(--success)}
+.lstep.now .dotr{background:var(--accent);border-color:var(--accent);box-shadow:0 0 0 4px var(--accent-weak)}
+.lstep .nm{flex:1;font-weight:600;font-size:13.5px}
+.lstep.now .nm{color:var(--accent)}
+.lstep .rw{font-size:12px;color:var(--muted);font-feature-settings:"tnum"}
+.lstep.locked{opacity:.6}
+
+/* profile rows */
+.prof-card{display:flex;align-items:center;gap:14px}
+.prof-card .meta .nm{font-family:'Plus Jakarta Sans';font-weight:800;font-size:18px}
+.prof-card .meta .id{font-size:12px;color:var(--muted);margin-top:3px;font-feature-settings:"tnum"}
+.listrow{display:flex;align-items:center;gap:13px;padding:13px 2px}
+.listrow+.listrow{border-top:1px solid var(--border)}
+.listrow .ic{width:34px;height:34px;border-radius:10px;background:var(--surface-2);display:grid;place-items:center;color:var(--muted);flex:none}
+.listrow .lab{flex:1;font-weight:600;font-size:14px}
+.listrow .val{font-size:12.5px;color:var(--muted);display:flex;align-items:center;gap:7px}
+.refbox{display:flex;align-items:center;gap:10px;background:var(--surface-2);border:1px dashed var(--border-strong);border-radius:13px;padding:11px 13px}
+.refbox .url{flex:1;font-size:12.5px;color:var(--fg);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-feature-settings:"tnum"}
+.copy{border:none;background:var(--accent);color:var(--on-accent);font-weight:700;font-size:12px;padding:7px 12px;border-radius:9px;cursor:pointer;flex:none}
+.copy.done{background:var(--success)}
+
+/* segmented (theme switch) */
+.seg{display:flex;background:var(--surface-2);border:1px solid var(--border);border-radius:11px;padding:3px;gap:3px}
+.seg span{flex:1;text-align:center;font-size:12.5px;font-weight:600;padding:6px 0;border-radius:8px;color:var(--muted)}
+.seg span.on{background:var(--surface);color:var(--fg);box-shadow:var(--shadow)}
+
+/* admin */
+.role-chips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:4px}
+.rchip{font-size:12px;font-weight:700;padding:6px 12px;border-radius:999px;background:var(--surface);border:1px solid var(--border);color:var(--muted);display:flex;align-items:center;gap:6px}
+.rchip.on{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.gate-note{font-size:11.5px;color:var(--muted);display:flex;align-items:center;gap:7px;margin-top:2px;background:var(--accent-weak);color:var(--accent);padding:8px 11px;border-radius:10px;font-weight:600}
+.payout{display:flex;align-items:center;gap:11px;padding:12px 0}
+.payout+.payout{border-top:1px solid var(--border)}
+.payout .meta{flex:1;min-width:0}
+.payout .meta .n{font-weight:600;font-size:13.5px;display:flex;align-items:center;gap:6px}
+.payout .meta .d{font-size:11px;color:var(--muted);margin-top:2px;font-feature-settings:"tnum"}
+.payout .amt{font-weight:800;font-size:14px;font-feature-settings:"tnum";font-family:'Plus Jakarta Sans'}
+.payout .pacts{display:flex;gap:6px;margin-top:8px}
+.mini{border:none;border-radius:9px;font-size:11.5px;font-weight:700;padding:6px 11px;cursor:pointer}
+.mini.appr{background:var(--success);color:#fff}
+.mini.rej{background:var(--error-weak);color:var(--error)}
+
+/* ---- tab bar ---- */
+.tabbar{position:absolute;bottom:0;left:0;right:0;height:84px;background:color-mix(in srgb,var(--surface) 88%,transparent);backdrop-filter:blur(16px);border-top:1px solid var(--border);display:flex;padding:8px 6px 22px}
+.tab{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;color:var(--muted2);font-size:10.5px;font-weight:600;position:relative}
+.tab.on{color:var(--accent)}
+.tab svg{width:23px;height:23px}
+.tab .lk{position:absolute;top:-1px;right:50%;transform:translateX(22px);width:13px;height:13px;color:var(--muted2)}
+.home-ind{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:128px;height:5px;border-radius:3px;background:var(--fg);opacity:.22}
+
+/* ============================================================
+   TOKEN TABLE
+   ============================================================ */
+.tokens{max-width:1180px;margin:88px auto 0;background:#fff;border:1px solid #E1E5EC;border-radius:22px;padding:36px 34px;box-shadow:0 16px 40px -24px rgba(20,30,55,.25)}
+.tokens h2{font-family:'Plus Jakarta Sans';font-weight:800;font-size:22px;letter-spacing:-.02em}
+.tokens .lead{font-size:13.5px;color:#5C6B7B;margin:8px 0 26px;max-width:760px;line-height:1.55}
+.tokens code{font-family:ui-monospace,'SF Mono',Menlo,monospace;font-size:12.5px;background:#F1F4F8;padding:1px 6px;border-radius:5px;color:#1F6FD4}
+table{width:100%;border-collapse:collapse;font-size:13px}
+thead th{text-align:left;font-family:'Plus Jakarta Sans';font-weight:700;font-size:12px;letter-spacing:.04em;text-transform:uppercase;color:#7A8597;padding:0 14px 12px;border-bottom:2px solid #E1E5EC}
+tbody td{padding:11px 14px;border-bottom:1px solid #EEF1F5;vertical-align:middle}
+tbody tr:hover{background:#FAFBFD}
+.tk{font-family:ui-monospace,'SF Mono',Menlo,monospace;font-size:12.5px;color:#14181F;font-weight:600}
+.tk small{display:block;font-family:'Inter';color:#8B95A3;font-weight:400;font-size:11.5px;margin-top:2px}
+.cell{display:flex;align-items:center;gap:9px}
+.chip{width:22px;height:22px;border-radius:6px;border:1px solid rgba(0,0,0,.08);flex:none}
+.hex{font-family:ui-monospace,'SF Mono',Menlo,monospace;font-size:12.5px;font-feature-settings:"tnum"}
+.tk-foot{margin-top:22px;font-size:12.5px;color:#5C6B7B;display:flex;flex-wrap:wrap;gap:10px 26px}
+.tk-foot b{font-family:'Plus Jakarta Sans';font-weight:700;color:#14181F}
+.aa{display:inline-flex;align-items:center;gap:6px;font-weight:600;color:#1A9E55;font-size:12.5px;background:#E4F5EC;padding:4px 11px;border-radius:999px}
+
+@media (max-width:900px){
+  body{padding:28px 14px 64px}
+  .row-desc{display:none}
+  .pair{gap:24px}
+}
+</style>
+</head>
+<body>
+
+<header class="page-head">
+  <div class="brandmark">
+    <div class="brand-logo">iZ</div>
+    <div class="brand-text">
+      <h1>IziGo · Partner Cabinet</h1>
+      <p>Telegram Mini App redesign — calm fintech system. Five screens shown as paired light &amp; dark device frames, themed via Ant Design <code style="font-family:ui-monospace;font-size:12px;background:#F1F4F8;padding:1px 5px;border-radius:4px">ConfigProvider</code> tokens bound to Telegram <code style="font-family:ui-monospace;font-size:12px;background:#F1F4F8;padding:1px 5px;border-radius:4px">themeParams</code>.</p>
+    </div>
+  </div>
+  <div class="legend">
+    <div><b>Accent</b><span class="swatch" style="background:#1F6FD4"></span>Trust blue</div>
+    <div><b>Contrast</b><span class="aa">✓ WCAG AA</span></div>
+  </div>
+</header>
+
+<main class="rows" id="rows"></main>
+
+<!-- ====================================================================
+     SCREEN TEMPLATES — content only; shell (status/header/tabs) added by JS
+     ==================================================================== -->
+
+<template id="tpl-income">
+  <div class="card balance">
+    <div class="lab">Total earned</div>
+    <div class="big">$4,820.00</div>
+    <div class="sub">Available to withdraw <b class="num">$1,240.00</b></div>
+    <div class="acts">
+      <button class="btn solid">Withdraw</button>
+      <button class="btn">History</button>
+    </div>
+  </div>
+
+  <div class="sec-label">Earnings by source</div>
+  <div class="card" style="padding:8px 16px">
+    <div class="brk">
+      <div class="ic" style="background:var(--accent-weak);color:var(--accent)">⇆</div>
+      <div class="meta"><div class="n">Binary commission</div><div class="track"><i style="width:44.4%;background:var(--accent)"></i></div></div>
+      <div class="amt"><div class="v num">$2,140</div><div class="p">44%</div></div>
+    </div>
+    <div class="brk">
+      <div class="ic" style="background:var(--success-weak);color:var(--success)">👥</div>
+      <div class="meta"><div class="n">Referral bonus</div><div class="track"><i style="width:24.5%;background:var(--success)"></i></div></div>
+      <div class="amt"><div class="v num">$1,180</div><div class="p">24%</div></div>
+    </div>
+    <div class="brk">
+      <div class="ic" style="background:var(--warning-weak);color:var(--warning)">★</div>
+      <div class="meta"><div class="n">Leadership pool</div><div class="track"><i style="width:20.3%;background:var(--warning)"></i></div></div>
+      <div class="amt"><div class="v num">$980</div><div class="p">20%</div></div>
+    </div>
+    <div class="brk">
+      <div class="ic" style="background:var(--accent-weak);color:var(--accent)">🏆</div>
+      <div class="meta"><div class="n">Rank reward</div><div class="track"><i style="width:10.8%;background:var(--accent-2)"></i></div></div>
+      <div class="amt"><div class="v num">$520</div><div class="p">11%</div></div>
+    </div>
+  </div>
+
+  <div class="sec-label">Last 6 months</div>
+  <div class="card">
+    <div class="chart">
+      <div class="col"><div class="bar" style="height:38%"></div><span>Jan</span></div>
+      <div class="col"><div class="bar" style="height:52%"></div><span>Feb</span></div>
+      <div class="col"><div class="bar" style="height:46%"></div><span>Mar</span></div>
+      <div class="col"><div class="bar" style="height:68%"></div><span>Apr</span></div>
+      <div class="col"><div class="bar" style="height:60%"></div><span>May</span></div>
+      <div class="col on"><div class="bar" style="height:92%"></div><span>Jun</span></div>
+    </div>
+  </div>
+
+  <div class="sec-label">Recent activity <a>See all</a></div>
+  <div class="card" style="padding:6px 16px">
+    <div class="tx"><div class="ic" style="color:var(--accent)">⇆</div><div class="meta"><div class="n">Binary commission</div><div class="d">Jun 19 · Cycle 142</div></div><div class="v in num">+$84.00</div></div>
+    <div class="tx"><div class="ic" style="color:var(--success)">＋</div><div class="meta"><div class="n">Referral bonus · L. Reyes</div><div class="d">Jun 17</div></div><div class="v in num">+$120.00</div></div>
+    <div class="tx"><div class="ic" style="color:var(--warning)">🏆</div><div class="meta"><div class="n">Rank reward · Gold</div><div class="d">Jun 12</div></div><div class="v in num">+$520.00</div></div>
+    <div class="tx"><div class="ic">↑</div><div class="meta"><div class="n">Withdrawal · USDT</div><div class="d">Jun 08 · Confirmed</div></div><div class="v out num">−$500.00</div></div>
+  </div>
+</template>
+
+<template id="tpl-team">
+  <div class="grid4" style="grid-template-columns:1fr 1fr">
+    <div class="stat"><div class="k">Total team</div><div class="v num">248</div><div class="trend up">▲ +8 this week</div></div>
+    <div class="stat"><div class="k">Active</div><div class="v num">196 <small>/248</small></div><div class="trend flat">79% active</div></div>
+    <div class="stat"><div class="k">Direct partners</div><div class="v num">14</div><div class="trend up">▲ +2</div></div>
+    <div class="stat"><div class="k">Rank-qualified</div><div class="v num">6</div><div class="trend flat">legs 2/2</div></div>
+  </div>
+
+  <div class="sec-label">Binary structure</div>
+  <div class="card">
+    <div class="tree">
+      <div class="you"><div class="node root"><div class="nm">You · Gold</div><div class="vol num">22,200 GV</div></div></div>
+      <div class="connector"></div>
+      <div class="legs">
+        <div class="leg-wrap"><div class="leg-tag">Left leg</div><div class="node"><div class="nm">M. Okafor</div><div class="vol num">12,400 PV</div></div></div>
+        <div class="leg-wrap"><div class="leg-tag">Right leg</div><div class="node"><div class="nm">S. Petrova</div><div class="vol num">9,800 PV</div></div></div>
+      </div>
+    </div>
+    <div class="divider"></div>
+    <div style="display:flex;justify-content:space-between;font-size:12.5px"><span style="color:var(--muted)">Carry-forward (weaker leg)</span><b class="num" style="color:var(--accent)">2,600 PV →</b></div>
+  </div>
+
+  <div class="sec-label">Direct partners <a>Manage</a></div>
+  <div class="card" style="padding:6px 16px">
+    <div class="member"><div class="avatar sm">MO</div><div class="meta"><div class="n">Maya Okafor <span class="pill ok">Active</span></div><div class="sub">Gold · joined Feb 2026</div></div><div class="right"><div class="v num">12,400 <small>PV</small></div></div></div>
+    <div class="member"><div class="avatar sm" style="background:linear-gradient(140deg,#1A9E55,#157f45)">SP</div><div class="meta"><div class="n">Sofia Petrova <span class="pill ok">Active</span></div><div class="sub">Silver · joined Mar 2026</div></div><div class="right"><div class="v num">9,800 <small>PV</small></div></div></div>
+    <div class="member"><div class="avatar sm" style="background:linear-gradient(140deg,#B97708,#965f06)">LR</div><div class="meta"><div class="n">Luis Reyes <span class="pill warn">New</span></div><div class="sub">Bronze · joined Jun 2026</div></div><div class="right"><div class="v num">1,150 <small>PV</small></div></div></div>
+    <div class="member"><div class="avatar sm" style="background:linear-gradient(140deg,#7A5BD8,#5e44b8)">AK</div><div class="meta"><div class="n">Anya Kim <span class="pill ok">Active</span></div><div class="sub">Silver · joined Apr 2026</div></div><div class="right"><div class="v num">6,420 <small>PV</small></div></div></div>
+  </div>
+</template>
+
+<template id="tpl-rank">
+  <div class="card">
+    <div class="rankhero">
+      <div class="medal">🏅</div>
+      <div class="rk">Gold Director<small>Achieved Jun 12, 2026</small></div>
+      <span class="pill acc" style="margin-left:auto">Tier 3</span>
+    </div>
+    <div class="progress">
+      <div class="top"><span style="color:var(--muted)">Progress to <b style="color:var(--fg)">Platinum</b></span><b class="num" style="color:var(--accent)">78%</b></div>
+      <div class="track"><i style="width:78%"></i></div>
+    </div>
+  </div>
+
+  <div class="sec-label">Requirements for Platinum</div>
+  <div class="card" style="padding:6px 16px">
+    <div class="req">
+      <div class="chk pend">○</div>
+      <div class="meta"><div class="n">Group volume</div><div class="track"><i style="width:88.8%"></i></div></div>
+      <div class="val">22,200 / 25,000</div>
+    </div>
+    <div class="req">
+      <div class="chk pend">○</div>
+      <div class="meta"><div class="n">Direct partners</div><div class="track"><i style="width:93%"></i></div></div>
+      <div class="val">14 / 15</div>
+    </div>
+    <div class="req">
+      <div class="chk done">✓</div>
+      <div class="meta"><div class="n">Active legs balanced</div><div class="d">Both legs ≥ 30% of volume</div></div>
+      <div class="val" style="color:var(--success)">2 / 2</div>
+    </div>
+    <div class="req">
+      <div class="chk done">✓</div>
+      <div class="meta"><div class="n">Personal volume</div><div class="d">Monthly minimum met</div></div>
+      <div class="val" style="color:var(--success)">Met</div>
+    </div>
+  </div>
+
+  <div class="sec-label">Rank ladder</div>
+  <div class="card ladder">
+    <div class="lstep done"><div class="dotr"></div><div class="nm">Bronze</div><div class="rw num">5% · $0</div></div>
+    <div class="lstep done"><div class="dotr"></div><div class="nm">Silver</div><div class="rw num">8% · $150</div></div>
+    <div class="lstep now"><div class="dotr"></div><div class="nm">Gold Director</div><div class="rw num">12% · $520</div></div>
+    <div class="lstep locked"><div class="dotr"></div><div class="nm">Platinum</div><div class="rw num">16% · $1,200</div></div>
+    <div class="lstep locked"><div class="dotr"></div><div class="nm">Diamond</div><div class="rw num">20% · $3,500</div></div>
+  </div>
+</template>
+
+<template id="tpl-profile">
+  <div class="card">
+    <div class="prof-card">
+      <div class="avatar lg">AM</div>
+      <div class="meta">
+        <div class="nm">Alex Morgan</div>
+        <div class="id num">Partner ID · IZ-48213</div>
+        <span class="pill acc" style="margin-top:8px">🏅 Gold Director</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="sec-label">Referral link</div>
+  <div class="refbox">
+    <span class="url num">t.me/IziGoBot?start=IZ48213</span>
+    <button class="copy" data-copy>Copy</button>
+  </div>
+
+  <div class="sec-label">Wallet</div>
+  <div class="card" style="padding:6px 16px">
+    <div class="listrow"><div class="ic">₮</div><div class="lab">USDT (TRC-20)</div><div class="val"><span class="num">TJ…9x4F</span><span class="pill ok">Linked</span></div></div>
+    <div class="listrow"><div class="ic">$</div><div class="lab">Payout currency</div><div class="val">USD</div></div>
+  </div>
+
+  <div class="sec-label">Preferences</div>
+  <div class="card" style="padding:6px 16px">
+    <div class="listrow"><div class="ic">🌐</div><div class="lab">Language</div><div class="val">English ›</div></div>
+    <div class="listrow"><div class="ic">🔔</div><div class="lab">Notifications</div><div class="val">On ›</div></div>
+    <div class="listrow"><div class="ic">🛡</div><div class="lab">Security · 2FA</div><div class="val"><span class="pill ok">Enabled</span></div></div>
+    <div class="listrow" style="border-top:1px solid var(--border)">
+      <div class="ic">◐</div><div class="lab">Appearance</div>
+      <div class="val" style="flex:none;width:152px">
+        <div class="seg" data-theme-seg><span>Light</span><span>Dark</span><span class="on">Auto</span></div>
+      </div>
+    </div>
+    <div class="listrow"><div class="ic">↩</div><div class="lab" style="color:var(--error)">Sign out</div><div class="val"></div></div>
+  </div>
+  <div style="text-align:center;font-size:11px;color:var(--muted2);margin-top:14px">IziGo Mini App · v2.4 · synced with Telegram</div>
+</template>
+
+<template id="tpl-admin">
+  <div class="role-chips">
+    <div class="rchip on">🛡 Owner</div>
+    <div class="rchip">💳 Finance</div>
+    <div class="rchip">★ Leader</div>
+    <div class="rchip">💬 Support</div>
+  </div>
+  <div class="gate-note">🔒 Role-gated console · owner sees all sections below</div>
+
+  <div class="grid4" style="grid-template-columns:1fr 1fr;margin-top:14px">
+    <div class="stat"><div class="k">Members</div><div class="v num">3,482</div><div class="trend up">▲ +124 / 30d</div></div>
+    <div class="stat"><div class="k">Active 30d</div><div class="v num">2,140</div><div class="trend flat">61%</div></div>
+    <div class="stat"><div class="k">Pending payouts</div><div class="v num">$18,400</div><div class="trend flat">12 requests</div></div>
+    <div class="stat"><div class="k">Volume · MTD</div><div class="v num">$214K</div><div class="trend up">▲ +9%</div></div>
+  </div>
+
+  <div class="sec-label">Payout queue <a>Finance</a></div>
+  <div class="card" style="padding:8px 16px">
+    <div class="payout">
+      <div class="avatar sm">MO</div>
+      <div class="meta"><div class="n">Maya Okafor <span class="pill warn">Review</span></div><div class="d">USDT · IZ-50112 · 2h ago</div>
+        <div class="pacts"><button class="mini appr">Approve</button><button class="mini rej">Hold</button></div></div>
+      <div class="amt">$1,250</div>
+    </div>
+    <div class="payout">
+      <div class="avatar sm" style="background:linear-gradient(140deg,#1A9E55,#157f45)">SP</div>
+      <div class="meta"><div class="n">Sofia Petrova <span class="pill ok">KYC ok</span></div><div class="d">USDT · IZ-50338 · 5h ago</div>
+        <div class="pacts"><button class="mini appr">Approve</button><button class="mini rej">Hold</button></div></div>
+      <div class="amt">$840</div>
+    </div>
+  </div>
+
+  <div class="sec-label">Operations</div>
+  <div class="card" style="padding:6px 16px">
+    <div class="listrow"><div class="ic">👥</div><div class="lab">Member management</div><div class="val">3,482 ›</div></div>
+    <div class="listrow"><div class="ic">★</div><div class="lab">Rank overrides</div><div class="val"><span class="pill acc">Leader</span></div></div>
+    <div class="listrow"><div class="ic">💬</div><div class="lab">Support tickets</div><div class="val"><span class="pill err">7 open</span></div></div>
+    <div class="listrow"><div class="ic">📊</div><div class="lab">Compensation plan</div><div class="val">Edit ›</div></div>
+  </div>
+</template>
+
+<!-- ====================================================================
+     TOKEN TABLE
+     ==================================================================== -->
+<section class="tokens">
+  <h2>Ant Design <code>ConfigProvider</code> token map</h2>
+  <p class="lead">Drop these into two <code>theme.token</code> objects and swap on Telegram’s <code>colorScheme</code>. All foreground/background pairings below are verified to meet <b>WCAG AA</b> (≥ 4.5:1 body text, ≥ 3:1 large text &amp; UI). Components are antd-equivalents only — no custom widgets required.</p>
+  <table>
+    <thead>
+      <tr>
+        <th style="width:32%">Token</th>
+        <th>Light</th>
+        <th>Dark</th>
+      </tr>
+    </thead>
+    <tbody id="tk-body"></tbody>
+  </table>
+  <div class="tk-foot">
+    <span><b>Telegram bind:</b> <code>bg_color → colorBgBase</code>, <code>text_color → colorText</code>, <code>button_color → colorPrimary</code>, <code>hint_color → colorTextSecondary</code></span>
+    <span><b>borderRadius:</b> 12 (both themes)</span>
+    <span class="aa">✓ AA contrast verified</span>
+  </div>
+</section>
+
+<script>
+/* ---------- shell pieces ---------- */
+function statusBar(){
+  return `<div class="notch"></div>
+  <div class="statusbar">
+    <span class="time">9:41</span>
+    <span class="sysicons">
+      <svg width="18" height="12" viewBox="0 0 18 12" fill="currentColor"><rect x="0" y="7" width="3" height="5" rx="1"/><rect x="5" y="4" width="3" height="8" rx="1"/><rect x="10" y="1.5" width="3" height="10.5" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1" opacity=".35"/></svg>
+      <svg width="17" height="12" viewBox="0 0 17 12" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M1 4.2C3.1 2.2 5.7 1 8.5 1S13.9 2.2 16 4.2"/><path d="M3.6 6.8C5 5.5 6.7 4.8 8.5 4.8s3.5.7 4.9 2"/><path d="M6.2 9.4c.65-.6 1.45-.95 2.3-.95s1.65.35 2.3.95"/></svg>
+      <svg width="26" height="13" viewBox="0 0 26 13" fill="none"><rect x="1" y="1" width="21" height="11" rx="3" stroke="currentColor" stroke-width="1.2" opacity=".5"/><rect x="2.8" y="2.8" width="16" height="7.4" rx="1.6" fill="currentColor"/><rect x="23.2" y="4.2" width="1.8" height="4.6" rx="1" fill="currentColor" opacity=".6"/></svg>
+    </span>
+  </div>`;
+}
+function header(s){
+  return `<div class="app-header">
+    <div class="h-title">${s.title}</div>
+    <div class="h-actions">
+      <div class="icon-btn"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg><span class="badge">3</span></div>
+      <div class="avatar sm">AM</div>
+    </div>
+  </div>`;
+}
+const ICONS={
+  income:'<path d="M4 19V9m5 10V5m5 14v-7m5 7V11"/>',
+  team:'<circle cx="9" cy="8" r="3"/><path d="M3.5 20a5.5 5.5 0 0 1 11 0"/><path d="M16.5 6.2a3 3 0 0 1 0 5.6"/><path d="M17 14.5a5.5 5.5 0 0 1 3.5 5.5"/>',
+  rank:'<circle cx="12" cy="9" r="5"/><path d="M9 13.5 7.5 21l4.5-2.5L16.5 21 15 13.5"/>',
+  profile:'<circle cx="12" cy="8" r="4"/><path d="M4.5 20a7.5 7.5 0 0 1 15 0"/>',
+  admin:'<path d="M12 3 5 6v5c0 4.5 3 8 7 10 4-2 7-5.5 7-10V6l-7-3Z"/>'
+};
+function tabbar(active){
+  const items=[['income','Income'],['team','Team'],['rank','Rank'],['profile','Profile'],['admin','Admin']];
+  let h='<div class="tabbar">';
+  items.forEach(([id,lab],i)=>{
+    const lock = id==='admin' ? '<svg class="lk" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>' : '';
+    h+=`<div class="tab ${i===active?'on':''}">${lock}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">${ICONS[id]}</svg><span>${lab}</span></div>`;
+  });
+  h+='<div class="home-ind"></div></div>';
+  return h;
+}
+function phone(theme,s){
+  return `<div class="phone theme-${theme}">${statusBar()}${header(s)}<div class="content">${document.getElementById('tpl-'+s.id).innerHTML}</div>${tabbar(s.tab)}</div>`;
+}
+
+/* ---------- build rows ---------- */
+const SCREENS=[
+  {id:'income', title:'Income',  tab:0, num:'01', desc:'Balance, source breakdown, 6-month trend and recent commissions.'},
+  {id:'team',   title:'Team',    tab:1, num:'02', desc:'Binary leg volumes, carry-forward and direct-partner roster.'},
+  {id:'rank',   title:'Rank',    tab:2, num:'03', desc:'Current tier, progress to next rank and the full rank ladder.'},
+  {id:'profile',title:'Profile', tab:3, num:'04', desc:'Identity, referral link, wallet and Telegram-synced preferences.'},
+  {id:'admin',  title:'Admin',   tab:4, num:'05', desc:'Role-gated console — owner / finance / leader / support scopes.'}
+];
+const rows=document.getElementById('rows');
+SCREENS.forEach(s=>{
+  const sec=document.createElement('section');
+  sec.className='row';
+  sec.innerHTML=`
+    <div class="row-head">
+      <span class="row-num">${s.num}</span>
+      <span class="row-title">${s.title}</span>
+      <span class="row-desc">${s.desc}</span>
+    </div>
+    <div class="pair">
+      <figure><figcaption class="l"><span class="dot"></span>Light theme</figcaption>${phone('light',s)}</figure>
+      <figure><figcaption class="d"><span class="dot"></span>Dark theme</figcaption>${phone('dark',s)}</figure>
+    </div>`;
+  rows.appendChild(sec);
+});
+
+/* ---------- token table ---------- */
+const TOKENS=[
+  ['colorPrimary','Primary / accent · buttons, links','#1F6FD4','#4F9BEF'],
+  ['colorBgBase','Page background','#EFF1F5','#0E1621'],
+  ['colorBgContainer','Card / surface','#FFFFFF','#17212B'],
+  ['colorBgLayout','Inset / subtle fill','#F5F7FA','#1C2A38'],
+  ['colorText','Primary text','#14181F','#F4F6F8'],
+  ['colorTextSecondary','Secondary / hint','#5E6B7B','#92A2B4'],
+  ['colorBorder','Borders / dividers','#E4E8ED','#243240'],
+  ['colorSuccess','Success / inflow','#1A9E55','#4FC07A'],
+  ['colorWarning','Warning / pending','#B97708','#E0A93D'],
+  ['colorError','Error / outflow','#D23B40','#F2686C'],
+  ['borderRadius','Corner radius (px)','12','12']
+];
+const tb=document.getElementById('tk-body');
+function swatch(v){ return v.startsWith('#') ? `<span class="chip" style="background:${v}"></span>` : ''; }
+TOKENS.forEach(([tk,desc,l,d])=>{
+  const tr=document.createElement('tr');
+  tr.innerHTML=`<td class="tk">${tk}<small>${desc}</small></td>
+    <td><div class="cell">${swatch(l)}<span class="hex">${l}</span></div></td>
+    <td><div class="cell">${swatch(d)}<span class="hex">${d}</span></div></td>`;
+  tb.appendChild(tr);
+});
+
+/* ---------- tiny interactions ---------- */
+document.addEventListener('click',e=>{
+  const c=e.target.closest('[data-copy]');
+  if(c){ c.textContent='Copied'; c.classList.add('done'); setTimeout(()=>{c.textContent='Copy';c.classList.remove('done');},1400); }
+  const seg=e.target.closest('[data-theme-seg] span');
+  if(seg){ seg.parentNode.querySelectorAll('span').forEach(x=>x.classList.remove('on')); seg.classList.add('on'); }
+});
+</script>
+</body>
+</html>

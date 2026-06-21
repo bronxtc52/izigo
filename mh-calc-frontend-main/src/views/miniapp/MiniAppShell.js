@@ -1,7 +1,7 @@
 'use client';
 import React, { useEffect, useMemo, useState } from 'react';
 import { ConfigProvider, Card, Statistic, Button, Tag, List, Spin, Result, Progress, message } from 'antd';
-import { useTelegram, antdThemeFromTelegram } from './telegram';
+import { useTelegram, antdThemeFromTelegram, miniAppPalette } from './telegram';
 import { mmMe, mmDashboard, mmRank, mmTree, mmActivate, PACKAGES } from './api';
 import MiniAppAdmin from './MiniAppAdmin';
 
@@ -30,7 +30,7 @@ const TreeList = ({ node, depth = 0 }) => {
 };
 
 const MiniAppShell = () => {
-    const { initData, theme, wa, ready } = useTelegram();
+    const { initData, theme, wa, ready, scheme } = useTelegram();
     const [tab, setTab] = useState('income');
     const [me, setMe] = useState(null);
     const [dash, setDash] = useState(null);
@@ -41,7 +41,8 @@ const MiniAppShell = () => {
     const [serverError, setServerError] = useState(false);
     const [activating, setActivating] = useState(false);
 
-    const themeConfig = useMemo(() => antdThemeFromTelegram(theme), [theme]);
+    const themeConfig = useMemo(() => antdThemeFromTelegram(theme, scheme), [theme, scheme]);
+    const pal = useMemo(() => miniAppPalette(theme, scheme), [theme, scheme]);
 
     const load = async () => {
         // Сброс прошлых состояний — иначе экран «Откройте через Telegram» залипает
@@ -81,36 +82,29 @@ const MiniAppShell = () => {
         load();
     };
 
-    if (loading) return <Spin size="large" style={{ display: 'block', margin: '80px auto' }} />;
-    if (authError) {
-        return (
-            <Result
-                status="warning"
-                title="Откройте через Telegram"
-                subTitle="Mini App доступен только внутри Telegram (авторизация по initData)."
-            />
-        );
-    }
-    if (serverError) {
-        return (
-            <Result
-                status="error"
-                title="Ошибка загрузки"
-                subTitle="Не удалось получить данные. Попробуйте позже."
-                extra={<Button type="primary" onClick={() => { setServerError(false); setLoading(true); load(); }}>Повторить</Button>}
-            />
-        );
-    }
-
     const byType = dash?.by_type ?? {};
 
     // Админ-вкладка видна только если у участника есть роли (owner/finance/leader/support).
     const isAdmin = (me?.roles ?? []).length > 0;
     const tabs = isAdmin ? [...BASE_TABS, { key: 'admin', label: 'Админ' }] : BASE_TABS;
 
+    // Экран состояния (загрузка/«вне Telegram»/ошибка) — в теме, читаемый.
+    const stateScreen = loading
+        ? <Spin size="large" style={{ display: 'block', margin: '80px auto' }} />
+        : authError
+            ? <Result status="warning" title="Откройте через Telegram"
+                subTitle="Mini App доступен только внутри Telegram (авторизация по initData)." />
+            : serverError
+                ? <Result status="error" title="Ошибка загрузки"
+                    subTitle="Не удалось получить данные. Попробуйте позже."
+                    extra={<Button type="primary" onClick={() => { setServerError(false); setLoading(true); load(); }}>Повторить</Button>} />
+                : null;
+
     return (
         <ConfigProvider theme={themeConfig}>
-            <div style={{ minHeight: '100vh', paddingBottom: 64 }}>
+            <div style={{ minHeight: '100vh', paddingBottom: stateScreen ? 0 : 64, background: pal.bg, color: pal.fg }}>
+                {stateScreen ?? (
+                <>
                 <div style={{ padding: 12 }}>
                     {tab === 'income' && (
                         <>
@@ -188,23 +182,25 @@ const MiniAppShell = () => {
                     )}
                 </div>
 
-                {/* Нижний таб-бар */}
+                {/* Нижний таб-бар — цвета из палитры (контраст гарантирован). */}
                 <div style={{
                     position: 'fixed', bottom: 0, left: 0, right: 0, height: 56,
-                    display: 'flex', borderTop: '1px solid rgba(128,128,128,0.2)',
-                    background: theme?.bg_color || '#fff',
+                    display: 'flex', borderTop: `1px solid ${pal.border}`,
+                    background: pal.surface, boxShadow: pal.shadow,
                 }}>
                     {tabs.map((t) => (
                         <button key={t.key} onClick={() => setTab(t.key)}
                             style={{
                                 flex: 1, border: 'none', background: 'transparent', cursor: 'pointer',
-                                fontWeight: tab === t.key ? 700 : 400,
-                                color: tab === t.key ? (theme?.button_color || '#2ea6ff') : (theme?.hint_color || '#888'),
+                                fontSize: 13, fontWeight: tab === t.key ? 700 : 500,
+                                color: tab === t.key ? pal.accent : pal.muted,
                             }}>
                             {t.label}
                         </button>
                     ))}
                 </div>
+                </>
+                )}
             </div>
         </ConfigProvider>
     );
