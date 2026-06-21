@@ -19,17 +19,32 @@ class LocalAuthService
     // Срок жизни токена локального входа — больше SSO для удобства dev.
     const TOKEN_LIFETIME_DAYS = 30;
 
+    public function __construct(private readonly MemberService $members)
+    {
+    }
+
     public function register(RegisterLocalDto $data): CalculatorUserToken
     {
+        $fullName = trim(($data->first_name ?? '') . ' ' . ($data->last_name ?? '')) ?: null;
+
         $user = CalculatorUser::query()->create([
             'email' => $data->email,
             'password' => Hash::make($data->password),
             'first_name' => $data->first_name,
             'last_name' => $data->last_name,
-            'full_name' => trim(($data->first_name ?? '') . ' ' . ($data->last_name ?? '')) ?: null,
+            'full_name' => $fullName,
             'language' => $data->language,
             'currency' => $data->currency,
         ]);
+
+        // Создаём реального участника и ставим его в сеть (по реф-ссылке/слоту).
+        $this->members->register(
+            userId: $user->id,
+            name: $fullName ?? $data->email,
+            sponsorRef: $data->sponsor_ref,
+            parentRef: $data->placement_parent_ref,
+            position: $data->placement_position,
+        );
 
         return $this->issueToken($user);
     }

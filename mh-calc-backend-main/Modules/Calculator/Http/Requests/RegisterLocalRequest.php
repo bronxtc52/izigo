@@ -21,6 +21,9 @@ class RegisterLocalRequest extends FormRequest
             'last_name' => 'nullable|string|max:255',
             'language' => 'nullable|string|max:5',
             'currency' => 'nullable|string|max:5',
+            'sponsor_ref' => 'nullable|string|max:16',
+            'placement_parent_ref' => 'nullable|string|max:16',
+            'placement_position' => 'nullable|in:left,right',
         ];
     }
 
@@ -35,6 +38,9 @@ class RegisterLocalRequest extends FormRequest
             'last_name' => $validated['last_name'] ?? null,
             'language' => $validated['language'] ?? null,
             'currency' => $validated['currency'] ?? null,
+            'sponsor_ref' => $validated['sponsor_ref'] ?? null,
+            'placement_parent_ref' => $validated['placement_parent_ref'] ?? null,
+            'placement_position' => $validated['placement_position'] ?? null,
         ]);
     }
 }
