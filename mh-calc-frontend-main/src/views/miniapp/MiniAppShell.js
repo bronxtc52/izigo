@@ -1,39 +1,65 @@
 'use client';
 import React, { useEffect, useMemo, useState } from 'react';
-import { ConfigProvider, Card, Statistic, Button, Tag, List, Spin, Result, Progress, Input, InputNumber, message } from 'antd';
+import {
+    ConfigProvider, Card, Statistic, Button, Tag, List, Spin, Result, Progress,
+    Input, InputNumber, Modal, Avatar, Divider, Flex, message,
+} from 'antd';
+import {
+    WalletOutlined, TeamOutlined, TrophyOutlined, UserOutlined, SafetyOutlined,
+    ExportOutlined, CopyOutlined,
+} from '@ant-design/icons';
 import { useTelegram, antdThemeFromTelegram, miniAppPalette } from './telegram';
+import { tint, bonusTint, statusTint, roleTint, bonusDot, numFont } from './tokens';
 import { mmMe, mmDashboard, mmRank, mmTree, mmActivate, mmWallet, mmWalletTx, mmWithdrawals, mmWithdrawCreate, PACKAGES } from './api';
 import MiniAppAdmin from './MiniAppAdmin';
 
-const BASE_TABS = [
-    { key: 'income', label: 'Доход' },
-    { key: 'wallet', label: 'Кошелёк' },
-    { key: 'team', label: 'Команда' },
-    { key: 'rank', label: 'Ранг' },
-    { key: 'profile', label: 'Профиль' },
-];
 const TYPE_LABEL = { binary: 'Бинар', referral: 'Реферал', leader: 'Лидер', rank: 'Ранг' };
 const TX_SOURCE_LABEL = { accrual: 'Начисление', withdrawal: 'Вывод' };
 const WD_STATUS = {
-    requested: { label: 'на рассмотрении', color: 'blue' },
-    approved: { label: 'одобрена', color: 'cyan' },
-    paid: { label: 'выплачена', color: 'green' },
-    rejected: { label: 'отклонена', color: 'red' },
-    cancelled: { label: 'отменена', color: 'default' },
+    requested: { label: 'на рассмотрении', kind: 'blue' },
+    approved: { label: 'одобрена', kind: 'blue' },
+    paid: { label: 'выплачена', kind: 'green' },
+    rejected: { label: 'отклонена', kind: 'amber' },
+    cancelled: { label: 'отменена', kind: 'neutral' },
 };
 
-/** Рекурсивный компактный список дерева команды (вместо d3 на узком экране). */
-const TreeList = ({ node, depth = 0 }) => {
+const initials = (name) => (name || '?').trim().split(/\s+/).map((w) => w[0]).slice(0, 2).join('').toUpperCase();
+
+/** Рекурсивный счётчик команды по дереву (всего узлов кроме корня + активных). */
+const countTeam = (node) => {
+    let total = 0;
+    let active = 0;
+    for (const c of node?.children ?? []) {
+        total += 1;
+        if (c.attributes?.status === 'active') active += 1;
+        const sub = countTeam(c);
+        total += sub.total;
+        active += sub.active;
+    }
+    return { total, active };
+};
+
+/** Узел дерева команды: аватар-инициалы (tint по статусу) + имя + статус-бейдж, вложенность бордером. */
+const TreeNode = ({ node, depth, isDark, filter }) => {
     if (!node) return null;
+    const st = node.attributes?.status;
+    const visible = filter === 'all' || (filter === 'active' && st === 'active') || (filter === 'new' && st !== 'active');
+    const t = statusTint(st, isDark);
+    const children = (node.children || []).filter(Boolean);
     return (
-        <div style={{ paddingLeft: depth ? 14 : 0 }}>
-            <div style={{ padding: '6px 0', borderBottom: '1px solid rgba(128,128,128,0.15)' }}>
-                <span style={{ fontWeight: depth ? 400 : 600 }}>{node.name}</span>{' '}
-                <Tag color={node.attributes?.status === 'active' ? 'green' : 'default'} style={{ marginLeft: 6 }}>
-                    {node.attributes?.status === 'active' ? 'активен' : 'нов'}
-                </Tag>
-            </div>
-            {(node.children || []).map((c, i) => <TreeList key={i} node={c} depth={depth + 1} />)}
+        <div style={depth ? { marginLeft: 15, borderLeft: `1.5px solid var(--tree-border)`, paddingLeft: 13 } : undefined}>
+            {(depth === 0 || visible) && (
+                <Flex align="center" gap={9} style={{ padding: '7px 0' }}>
+                    <Avatar size={28} style={{ background: t.bg, color: t.color, fontSize: 11, fontWeight: 700 }}>
+                        {initials(node.name)}
+                    </Avatar>
+                    <span style={{ fontSize: 13.5, fontWeight: depth ? 500 : 700, flex: 1 }}>{node.name}</span>
+                    <Tag style={{ background: t.bg, color: t.color, border: 'none', fontSize: 10.5, fontWeight: 600, marginInlineEnd: 0 }}>
+                        {st === 'active' ? 'активен' : 'нов'}
+                    </Tag>
+                </Flex>
+            )}
+            {children.map((c, i) => <TreeNode key={c.attributes?.id ?? c.name ?? i} node={c} depth={depth + 1} isDark={isDark} filter={filter} />)}
         </div>
     );
 };
@@ -42,49 +68,54 @@ const MiniAppShell = () => {
     const { initData, theme, wa, ready, scheme } = useTelegram();
     const [tab, setTab] = useState('income');
     const [me, setMe] = useState(null);
+    const [refLink, setRefLink] = useState('');
     const [dash, setDash] = useState(null);
     const [rank, setRank] = useState(null);
     const [tree, setTree] = useState(null);
     const [wallet, setWallet] = useState(null);
     const [walletTx, setWalletTx] = useState([]);
     const [withdrawals, setWithdrawals] = useState([]);
-    const [wdAmount, setWdAmount] = useState(null);
-    const [wdDetails, setWdDetails] = useState('');
-    const [wdSubmitting, setWdSubmitting] = useState(false);
+    const [teamFilter, setTeamFilter] = useState('all');
     const [loading, setLoading] = useState(true);
     const [authError, setAuthError] = useState(false);
     const [serverError, setServerError] = useState(false);
     const [activating, setActivating] = useState(false);
+    const [wdOpen, setWdOpen] = useState(false);
+    const [wdAmount, setWdAmount] = useState(null);
+    const [wdDetails, setWdDetails] = useState('');
+    const [wdSubmitting, setWdSubmitting] = useState(false);
 
     const themeConfig = useMemo(() => antdThemeFromTelegram(theme, scheme), [theme, scheme]);
     const pal = useMemo(() => miniAppPalette(theme, scheme), [theme, scheme]);
+    const isDark = pal.isDark;
 
     const load = async () => {
-        // Сброс прошлых состояний — иначе экран «Откройте через Telegram» залипает
-        // после того, как initData всё-таки пришёл и загрузка прошла успешно.
         setAuthError(false);
         setServerError(false);
         setLoading(true);
-        const [m, d, r, t, w, wtx, wd] = await Promise.all([
+        // Критичные данные кабинета: их сбой = экран ошибки/«Откройте через Telegram».
+        const [m, d, r, t] = await Promise.all([
             mmMe(initData), mmDashboard(initData), mmRank(initData), mmTree(initData),
-            mmWallet(initData), mmWalletTx(initData), mmWithdrawals(initData),
         ]);
-        const errors = [m, d, r, t, w, wtx, wd].map((x) => x?.error).filter((e) => e !== undefined);
+        const errors = [m, d, r, t].map((x) => x?.error).filter((e) => e !== undefined);
         if (errors.includes(401)) { setAuthError(true); setLoading(false); return; }
         if (errors.length) { setServerError(true); setLoading(false); return; }
         setMe(m?.data?.member ?? null);
+        setRefLink(m?.data?.ref_link ?? '');
         setDash(d?.data ?? null);
         setRank(r?.data ?? null);
         setTree(t?.data ?? null);
-        setWallet(w?.data ?? null);
-        setWalletTx(wtx?.data?.items ?? []);
-        setWithdrawals(wd?.data ?? []);
+        // Кошелёк/выводы (Фаза 3) — опциональны: их сбой НЕ роняет кабинет, просто пустые секции.
+        const [w, wtx, wd] = await Promise.all([
+            mmWallet(initData), mmWalletTx(initData), mmWithdrawals(initData),
+        ]);
+        setWallet(w?.error ? null : (w?.data ?? null));
+        setWalletTx(wtx?.error ? [] : (wtx?.data?.items ?? []));
+        setWithdrawals(Array.isArray(wd?.data) ? wd.data : []);
         setLoading(false);
     };
 
     useEffect(() => {
-        // Ждём, пока SDK Telegram либо подключится, либо исчерпает поллинг (ready).
-        // Только после этого решаем: есть initData → грузим; нет → открыто вне Telegram.
         if (!ready) return;
         if (initData) load();
         else { setLoading(false); setAuthError(true); }
@@ -113,16 +144,30 @@ const MiniAppShell = () => {
         wa?.HapticFeedback?.notificationOccurred?.('success');
         setWdAmount(null);
         setWdDetails('');
+        setWdOpen(false);
         load();
     };
 
+    const onCopyRef = () => {
+        navigator.clipboard?.writeText(refLink).then(
+            () => { message.success('Ссылка скопирована'); wa?.HapticFeedback?.notificationOccurred?.('success'); },
+            () => message.error('Не удалось скопировать'),
+        );
+    };
+
     const byType = dash?.by_type ?? {};
-
-    // Админ-вкладка видна только если у участника есть роли (owner/finance/leader/support).
     const isAdmin = (me?.roles ?? []).length > 0;
-    const tabs = isAdmin ? [...BASE_TABS, { key: 'admin', label: 'Админ' }] : BASE_TABS;
+    const teamCount = useMemo(() => (tree ? countTeam(tree) : { total: 0, active: 0 }), [tree]);
+    const personalCount = (tree?.children ?? []).length;
 
-    // Экран состояния (загрузка/«вне Telegram»/ошибка) — в теме, читаемый.
+    const TABS = [
+        { key: 'income', label: 'Доход', icon: <WalletOutlined /> },
+        { key: 'team', label: 'Команда', icon: <TeamOutlined /> },
+        { key: 'rank', label: 'Ранг', icon: <TrophyOutlined /> },
+        { key: 'profile', label: 'Профиль', icon: <UserOutlined /> },
+    ];
+    const tabs = isAdmin ? [...TABS, { key: 'admin', label: 'Админ', icon: <SafetyOutlined /> }] : TABS;
+
     const stateScreen = loading
         ? <Spin size="large" style={{ display: 'block', margin: '80px auto' }} />
         : authError
@@ -134,148 +179,266 @@ const MiniAppShell = () => {
                     extra={<Button type="primary" onClick={() => { setServerError(false); setLoading(true); load(); }}>Повторить</Button>} />
                 : null;
 
+    const SectionLabel = ({ children }) => (
+        <div style={{ fontSize: 12, fontWeight: 700, color: pal.muted, margin: '2px 2px 8px' }}>{children}</div>
+    );
+
     return (
         <ConfigProvider theme={themeConfig}>
-            <div style={{ minHeight: '100vh', paddingBottom: stateScreen ? 0 : 64, background: pal.bg, color: pal.fg }}>
+            <div style={{ minHeight: '100vh', paddingBottom: stateScreen ? 0 : 74, background: pal.bg, color: pal.fg, ['--tree-border']: pal.border }}>
                 {stateScreen ?? (
                 <>
-                <div style={{ padding: 12 }}>
+                <div style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 12 }}>
+
                     {tab === 'income' && (
                         <>
-                            <Card size="small" style={{ marginBottom: 12 }}>
-                                <Statistic title="Всего начислено" value={dash?.total ?? '0.00'} prefix="$" />
-                                <div style={{ marginTop: 8, display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                                    {Object.entries(TYPE_LABEL).map(([k, l]) => (
-                                        <Tag key={k}>{l}: ${byType[k] ?? '0.00'}</Tag>
+                            {/* Hero: всего начислено + доступно к выводу */}
+                            <Card size="small" styles={{ body: { padding: 18 } }}>
+                                <div style={{ fontSize: 12, color: pal.muted, fontWeight: 600 }}>Всего начислено</div>
+                                <div style={{ ...numFont, fontWeight: 800, fontSize: 33, lineHeight: 1.1, marginTop: 2 }}>
+                                    ${dash?.total ?? '0.00'}
+                                </div>
+                                <Divider style={{ margin: '14px 0' }} />
+                                <Flex justify="space-between" align="center">
+                                    <div>
+                                        <div style={{ fontSize: 11.5, color: pal.muted }}>Доступно к выводу</div>
+                                        <div style={{ ...numFont, fontWeight: 700, fontSize: 20 }}>${wallet?.available ?? '0.00'}</div>
+                                        {Number(wallet?.held ?? 0) > 0 && (
+                                            <div style={{ fontSize: 11, color: pal.muted }}>в холде ${wallet.held}</div>
+                                        )}
+                                        {Number(wallet?.clawback_debt ?? 0) > 0 && (
+                                            <div style={{ fontSize: 11, color: pal.error }}>к компенсации ${wallet.clawback_debt}</div>
+                                        )}
+                                    </div>
+                                    <Button type="primary" disabled={Number(wallet?.available ?? 0) <= 0}
+                                        onClick={() => setWdOpen(true)}>Вывести</Button>
+                                </Flex>
+                            </Card>
+
+                            {/* Бонусы по типам — 2×2 */}
+                            <div>
+                                <SectionLabel>Бонусы по типам</SectionLabel>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                                    {['binary', 'referral', 'leader', 'rank'].map((k) => (
+                                        <Card key={k} size="small" styles={{ body: { padding: 12 } }}>
+                                            <Flex align="center" gap={7}>
+                                                <span style={{ width: 8, height: 8, borderRadius: '50%', background: bonusDot(k, isDark) }} />
+                                                <span style={{ fontSize: 12, color: pal.muted }}>{TYPE_LABEL[k]}</span>
+                                            </Flex>
+                                            <div style={{ ...numFont, fontWeight: 700, fontSize: 18, marginTop: 4 }}>${byType[k] ?? '0.00'}</div>
+                                        </Card>
                                     ))}
                                 </div>
-                            </Card>
-                            <Card size="small" title="Пакет" style={{ marginBottom: 12 }}>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                            </div>
+
+                            {/* Пакет */}
+                            <Card size="small" title="Пакет">
+                                <Flex vertical gap={8}>
                                     {PACKAGES.map((p) => {
                                         const active = me?.package_id === p.id;
                                         return (
                                             <Button key={p.id} block type={active ? 'default' : 'primary'}
-                                                disabled={active || activating} loading={activating}
-                                                onClick={() => onActivate(p.id)}>
-                                                {p.name} · {p.pv} PV {active ? '(активен)' : `· $${p.price}`}
+                                                disabled={active || activating} loading={activating && !active}
+                                                onClick={() => onActivate(p.id)}
+                                                style={active ? { borderColor: pal.accent, borderWidth: 1.5, color: pal.accent, fontWeight: 600 } : undefined}>
+                                                {p.name} · {p.pv} PV {active ? '✓ активен' : `· $${p.price}`}
                                             </Button>
                                         );
                                     })}
-                                </div>
+                                </Flex>
                             </Card>
-                            <Card size="small" title="Начисления">
+
+                            {/* Последние начисления */}
+                            <Card size="small" title="Последние начисления">
                                 <List
                                     dataSource={dash?.lines ?? []}
                                     locale={{ emptyText: 'Пока пусто' }}
-                                    renderItem={(l) => (
-                                        <List.Item>
-                                            <span><Tag>{TYPE_LABEL[l.type] ?? l.type}</Tag></span>
-                                            <span>${l.amount}</span>
-                                        </List.Item>
-                                    )}
+                                    renderItem={(l) => {
+                                        const t = bonusTint(l.type, isDark);
+                                        return (
+                                            <List.Item>
+                                                <Flex align="center" gap={8}>
+                                                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: bonusDot(l.type, isDark) }} />
+                                                    <Tag style={{ background: t.bg, color: t.color, border: 'none', fontWeight: 600 }}>
+                                                        {TYPE_LABEL[l.type] ?? l.type}
+                                                    </Tag>
+                                                </Flex>
+                                                <span style={{ ...numFont, color: pal.success, fontWeight: 700 }}>+${l.amount}</span>
+                                            </List.Item>
+                                        );
+                                    }}
                                 />
                             </Card>
-                        </>
-                    )}
 
-                    {tab === 'wallet' && (
-                        <>
-                            <Card size="small" style={{ marginBottom: 12 }}>
-                                <Statistic title="Доступно к выводу" value={wallet?.available ?? '0.00'} prefix="$" />
-                                <div style={{ marginTop: 8, display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                                    <Tag color="blue">В холде: ${wallet?.held ?? '0.00'}</Tag>
-                                    {Number(wallet?.clawback_debt ?? 0) > 0 && (
-                                        <Tag color="red">К компенсации: ${wallet.clawback_debt}</Tag>
-                                    )}
-                                </div>
-                            </Card>
-                            <Card size="small" title="Вывод средств" style={{ marginBottom: 12 }}>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                                    <InputNumber
-                                        style={{ width: '100%' }} min={0.01} step={0.01} precision={2}
-                                        prefix="$" placeholder="Сумма" value={wdAmount} onChange={setWdAmount}
+                            {/* Заявки на вывод */}
+                            {withdrawals.length > 0 && (
+                                <Card size="small" title="Мои заявки">
+                                    <List
+                                        dataSource={withdrawals}
+                                        renderItem={(w) => {
+                                            const s = WD_STATUS[w.status] ?? { label: w.status, kind: 'neutral' };
+                                            const t = tint(s.kind, isDark);
+                                            return (
+                                                <List.Item>
+                                                    <span>
+                                                        <span style={{ ...numFont, fontWeight: 700 }}>${w.amount}</span>{' '}
+                                                        <Tag style={{ background: t.bg, color: t.color, border: 'none', fontSize: 10.5, fontWeight: 600 }}>{s.label}</Tag>
+                                                    </span>
+                                                    <span style={{ fontSize: 11, color: pal.muted }}>
+                                                        {w.requested_at ? new Date(w.requested_at).toLocaleDateString() : ''}
+                                                    </span>
+                                                </List.Item>
+                                            );
+                                        }}
                                     />
-                                    <Input.TextArea
-                                        rows={2} maxLength={1000} placeholder="Реквизиты (банк/крипто-кошелёк)"
-                                        value={wdDetails} onChange={(e) => setWdDetails(e.target.value)}
+                                </Card>
+                            )}
+
+                            {/* История движений по доступному балансу */}
+                            {walletTx.length > 0 && (
+                                <Card size="small" title="История операций">
+                                    <List
+                                        dataSource={walletTx}
+                                        renderItem={(tx) => {
+                                            const neg = String(tx.amount).startsWith('-');
+                                            return (
+                                                <List.Item>
+                                                    <span style={{ color: pal.muted, fontSize: 12 }}>
+                                                        {TX_SOURCE_LABEL[tx.source_type] ?? tx.source_type}
+                                                        {tx.created_at ? ` · ${new Date(tx.created_at).toLocaleDateString()}` : ''}
+                                                    </span>
+                                                    <span style={{ ...numFont, color: neg ? pal.muted : pal.success, fontWeight: 700 }}>
+                                                        ${tx.amount}
+                                                    </span>
+                                                </List.Item>
+                                            );
+                                        }}
                                     />
-                                    <Button type="primary" block loading={wdSubmitting}
-                                        disabled={wdSubmitting || Number(wallet?.available ?? 0) <= 0}
-                                        onClick={onWithdraw}>
-                                        Запросить вывод
-                                    </Button>
-                                </div>
-                            </Card>
-                            <Card size="small" title="Мои заявки" style={{ marginBottom: 12 }}>
-                                <List
-                                    dataSource={withdrawals}
-                                    locale={{ emptyText: 'Заявок нет' }}
-                                    renderItem={(w) => (
-                                        <List.Item>
-                                            <span>
-                                                ${w.amount}{' '}
-                                                <Tag color={(WD_STATUS[w.status] ?? {}).color}>
-                                                    {(WD_STATUS[w.status] ?? {}).label ?? w.status}
-                                                </Tag>
-                                            </span>
-                                            <span style={{ color: pal.muted, fontSize: 12 }}>
-                                                {w.requested_at ? new Date(w.requested_at).toLocaleDateString() : ''}
-                                            </span>
-                                        </List.Item>
-                                    )}
-                                />
-                            </Card>
-                            <Card size="small" title="История операций">
-                                <List
-                                    dataSource={walletTx}
-                                    locale={{ emptyText: 'Пока пусто' }}
-                                    renderItem={(t) => (
-                                        <List.Item>
-                                            <span>
-                                                <Tag>{TX_SOURCE_LABEL[t.source_type] ?? t.source_type}</Tag>
-                                                {t.created_at ? new Date(t.created_at).toLocaleDateString() : ''}
-                                            </span>
-                                            <span style={{ color: String(t.amount).startsWith('-') ? pal.muted : pal.accent, fontWeight: 600 }}>
-                                                ${t.amount}
-                                            </span>
-                                        </List.Item>
-                                    )}
-                                />
-                            </Card>
+                                </Card>
+                            )}
                         </>
                     )}
 
                     {tab === 'team' && (
-                        <Card size="small" title="Моя команда">
-                            {tree?.name ? <TreeList node={tree} /> : 'Команда пуста'}
-                        </Card>
+                        <>
+                            <Card size="small" styles={{ body: { padding: 14 } }}>
+                                <Flex justify="space-around" align="center">
+                                    <Statistic title="В команде" value={teamCount.total} />
+                                    <Divider type="vertical" style={{ height: 36 }} />
+                                    <Statistic title="Активных" value={teamCount.active} valueStyle={{ color: pal.success }} />
+                                    <Divider type="vertical" style={{ height: 36 }} />
+                                    <Statistic title="Личных" value={personalCount} />
+                                </Flex>
+                            </Card>
+                            <div style={{ display: 'flex', gap: 8 }}>
+                                {[['all', 'Все'], ['active', 'Активные'], ['new', 'Новые']].map(([k, lbl]) => (
+                                    <Button key={k} size="small" type={teamFilter === k ? 'primary' : 'default'}
+                                        onClick={() => setTeamFilter(k)} style={{ flex: 1 }}>{lbl}</Button>
+                                ))}
+                            </div>
+                            <Card size="small" title="Моя команда">
+                                {tree?.name ? <TreeNode node={tree} depth={0} isDark={isDark} filter={teamFilter} /> : 'Команда пуста'}
+                            </Card>
+                        </>
                     )}
 
                     {tab === 'rank' && (
-                        <Card size="small" title="Прогресс рангов">
-                            <div style={{ marginBottom: 8 }}>
-                                Ранг: <Tag color="gold">{rank?.current?.alias ?? 'нет'}</Tag>
-                                → <Tag color="blue">{rank?.next?.alias ?? 'макс.'}</Tag>
-                            </div>
+                        <>
+                            <Card size="small">
+                                <Flex justify="space-between" align="center">
+                                    <Flex align="center" gap={12}>
+                                        <div style={{ width: 52, height: 52, borderRadius: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', background: roleTint('owner', isDark).bg }}>
+                                            <TrophyOutlined style={{ fontSize: 24, color: roleTint('owner', isDark).color }} />
+                                        </div>
+                                        <div>
+                                            <div style={{ fontSize: 11.5, color: pal.muted }}>Текущий ранг</div>
+                                            <div style={{ ...numFont, fontWeight: 800, fontSize: 22 }}>{rank?.current?.alias ?? 'нет'}</div>
+                                        </div>
+                                    </Flex>
+                                    <div style={{ textAlign: 'right' }}>
+                                        <div style={{ fontSize: 11.5, color: pal.muted }}>далее</div>
+                                        <div style={{ fontWeight: 700, color: pal.accent }}>{rank?.next?.alias ?? 'макс.'} ↗</div>
+                                    </div>
+                                </Flex>
+                            </Card>
                             {rank?.next && (
                                 <>
-                                    <div>Малая ветка: {rank.progress?.small_branch_pv ?? 0} / {rank.next.conditions.small_branch_pv} PV</div>
-                                    <Progress percent={Math.min(100, Math.round(((rank.progress?.small_branch_pv ?? 0) / (rank.next.conditions.small_branch_pv || 1)) * 100))} />
-                                    <div>Приглашённые: {rank.progress?.personal_count ?? 0} / {rank.next.conditions.personal_count}</div>
-                                    <Progress percent={Math.min(100, Math.round(((rank.progress?.personal_count ?? 0) / (rank.next.conditions.personal_count || 1)) * 100))} />
+                                    <Card size="small" title="Малая ветка PV">
+                                        <Flex justify="space-between" style={{ ...numFont, fontWeight: 700, marginBottom: 6 }}>
+                                            <span>{rank.progress?.small_branch_pv ?? 0}</span>
+                                            <span style={{ color: pal.muted }}>/ {rank.next.conditions.small_branch_pv}</span>
+                                        </Flex>
+                                        <Progress showInfo={false}
+                                            percent={Math.min(100, Math.round(((rank.progress?.small_branch_pv ?? 0) / (rank.next.conditions.small_branch_pv || 1)) * 100))}
+                                            strokeColor={bonusDot('binary', isDark)} trailColor={pal.bg} />
+                                    </Card>
+                                    <Card size="small" title="Приглашённые">
+                                        <Flex justify="space-between" style={{ ...numFont, fontWeight: 700, marginBottom: 6 }}>
+                                            <span>{rank.progress?.personal_count ?? 0}</span>
+                                            <span style={{ color: pal.muted }}>/ {rank.next.conditions.personal_count}</span>
+                                        </Flex>
+                                        <Progress showInfo={false}
+                                            percent={Math.min(100, Math.round(((rank.progress?.personal_count ?? 0) / (rank.next.conditions.personal_count || 1)) * 100))}
+                                            strokeColor={bonusDot('referral', isDark)} trailColor={pal.bg} />
+                                    </Card>
+                                    <Card size="small" style={{ background: roleTint('leader', isDark).bg, borderColor: 'transparent' }}>
+                                        <div style={{ fontWeight: 700, color: roleTint('leader', isDark).color, marginBottom: 4 }}>
+                                            Ранг {rank.next.alias} открывает
+                                        </div>
+                                        <div style={{ fontSize: 12.5, color: pal.fg }}>＋ Лидерский бонус от объёма ветки</div>
+                                        <div style={{ fontSize: 12.5, color: pal.fg }}>＋ Повышенные условия квалификации</div>
+                                    </Card>
                                 </>
                             )}
-                        </Card>
+                        </>
                     )}
 
                     {tab === 'profile' && (
-                        <Card size="small" title="Профиль">
-                            <p>Имя: {me?.name}</p>
-                            <p>Статус: <Tag color={me?.status === 'active' ? 'green' : 'default'}>{me?.status}</Tag></p>
-                            <p>Ранг: {me?.rank?.alias ?? 'нет'}</p>
-                            <p>Реф-код: <b>{me?.ref_code}</b></p>
-                        </Card>
+                        <>
+                            <Card size="small">
+                                <Flex vertical align="center" gap={6}>
+                                    <Avatar size={66} style={{ background: pal.accent, color: '#fff', fontSize: 22, fontWeight: 700 }}>
+                                        {initials(me?.name)}
+                                    </Avatar>
+                                    <div style={{ ...numFont, fontWeight: 800, fontSize: 19 }}>{me?.name ?? '—'}</div>
+                                    <Flex gap={6}>
+                                        <Tag style={{ background: statusTint(me?.status, isDark).bg, color: statusTint(me?.status, isDark).color, border: 'none', fontWeight: 600 }}>
+                                            ● {me?.status === 'active' ? 'Активен' : 'Новый'}
+                                        </Tag>
+                                        {me?.rank?.alias && (
+                                            <Tag style={{ background: roleTint('owner', isDark).bg, color: roleTint('owner', isDark).color, border: 'none', fontWeight: 600 }}>
+                                                {me.rank.alias}
+                                            </Tag>
+                                        )}
+                                    </Flex>
+                                </Flex>
+                                <Divider style={{ margin: '14px 0' }} />
+                                <Flex justify="space-around">
+                                    <Statistic title="Приглашено" value={personalCount} />
+                                    <Statistic title="В команде" value={teamCount.total} />
+                                    <Statistic title="ID" value={me?.id ?? '—'} formatter={(v) => `#${v}`} />
+                                </Flex>
+                            </Card>
+                            <Card size="small" title="Реферальная ссылка">
+                                <div style={{ ...numFont, fontWeight: 800, fontSize: 18, marginBottom: 8 }}>{me?.ref_code ?? '—'}</div>
+                                <Input readOnly value={refLink} style={{ marginBottom: 8 }} />
+                                <Flex gap={8}>
+                                    <Button type="primary" icon={<CopyOutlined />} onClick={onCopyRef} style={{ flex: 1 }}>Копировать ссылку</Button>
+                                    {wa?.openTelegramLink && (
+                                        <Button icon={<ExportOutlined />} onClick={() => wa.openTelegramLink(`https://t.me/share/url?url=${encodeURIComponent(refLink)}`)} />
+                                    )}
+                                </Flex>
+                            </Card>
+                            <Card size="small" title="Настройки">
+                                <List>
+                                    <List.Item>Ранг <span style={{ color: pal.muted }}>{me?.rank?.alias ?? 'нет'} ›</span></List.Item>
+                                    <List.Item>Статус <span style={{ color: pal.muted }}>{me?.status} ›</span></List.Item>
+                                    <List.Item>
+                                        <span style={{ color: pal.error, cursor: 'pointer' }} onClick={() => wa?.close?.()}>Закрыть</span>
+                                    </List.Item>
+                                </List>
+                            </Card>
+                        </>
                     )}
 
                     {tab === 'admin' && isAdmin && (
@@ -283,23 +446,38 @@ const MiniAppShell = () => {
                     )}
                 </div>
 
-                {/* Нижний таб-бар — цвета из палитры (контраст гарантирован). */}
+                {/* Нижний таб-бар с иконками */}
                 <div style={{
-                    position: 'fixed', bottom: 0, left: 0, right: 0, height: 56,
+                    position: 'fixed', bottom: 0, left: 0, right: 0, height: 62,
                     display: 'flex', borderTop: `1px solid ${pal.border}`,
                     background: pal.surface, boxShadow: pal.shadow,
                 }}>
-                    {tabs.map((t) => (
-                        <button key={t.key} onClick={() => setTab(t.key)}
-                            style={{
-                                flex: 1, border: 'none', background: 'transparent', cursor: 'pointer',
-                                fontSize: 13, fontWeight: tab === t.key ? 700 : 500,
-                                color: tab === t.key ? pal.accent : pal.muted,
-                            }}>
-                            {t.label}
-                        </button>
-                    ))}
+                    {tabs.map((t) => {
+                        const on = tab === t.key;
+                        return (
+                            <button key={t.key} onClick={() => setTab(t.key)}
+                                style={{
+                                    flex: 1, border: 'none', background: 'transparent', cursor: 'pointer',
+                                    display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 3,
+                                    fontSize: 10.5, fontWeight: on ? 700 : 500,
+                                    color: on ? pal.accent : pal.tabInactive,
+                                }}>
+                                <span style={{ fontSize: 18, color: on ? pal.accent : pal.tabInactive }}>{t.icon}</span>
+                                {t.label}
+                            </button>
+                        );
+                    })}
                 </div>
+
+                {/* Модалка вывода средств */}
+                <Modal title="Вывод средств" open={wdOpen} onOk={onWithdraw} onCancel={() => setWdOpen(false)}
+                    okText="Запросить вывод" confirmLoading={wdSubmitting}>
+                    <div style={{ fontSize: 12, color: pal.muted, marginBottom: 8 }}>Доступно: ${wallet?.available ?? '0.00'}</div>
+                    <InputNumber style={{ width: '100%', marginBottom: 8 }} min={0.01} step={0.01} precision={2}
+                        prefix="$" placeholder="Сумма" value={wdAmount} onChange={setWdAmount} />
+                    <Input.TextArea rows={2} maxLength={1000} placeholder="Реквизиты (банк/крипто-кошелёк)"
+                        value={wdDetails} onChange={(e) => setWdDetails(e.target.value)} />
+                </Modal>
                 </>
                 )}
             </div>

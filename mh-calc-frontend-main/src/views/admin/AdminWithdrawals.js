@@ -1,6 +1,6 @@
 'use client';
 import React, { useEffect, useState } from 'react';
-import { Segmented, List, Tag, Button, Space, Spin, Modal, Input, message } from 'antd';
+import { Segmented, List, Tag, Button, Space, Spin, Modal, Input, message, theme } from 'antd';
 import {
     fetchWithdrawals, approveWithdrawal, rejectWithdrawal,
     markPaidWithdrawal, cancelWithdrawal, isForbidden,
@@ -25,6 +25,7 @@ const FILTERS = [
  * (403 на backend → onUnauthorized не дёргаем, просто показываем пусто).
  */
 const AdminWithdrawals = ({ creds, onUnauthorized }) => {
+    const { token } = theme.useToken();
     const [status, setStatus] = useState('requested');
     const [items, setItems] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -90,12 +91,12 @@ const AdminWithdrawals = ({ creds, onUnauthorized }) => {
                             <div style={{ fontSize: 12, opacity: 0.7 }}>
                                 Баланс партнёра: доступно ${w.member_balance.available} · в холде ${w.member_balance.held}
                                 {Number(w.member_balance.clawback_debt) > 0 && (
-                                    <span style={{ color: '#cf1322' }}> · долг ${w.member_balance.clawback_debt}</span>
+                                    <span style={{ color: token.colorError }}> · долг ${w.member_balance.clawback_debt}</span>
                                 )}
                             </div>
                         )}
                         {w.reject_reason && (
-                            <div style={{ fontSize: 12, color: '#cf1322' }}>Причина: {w.reject_reason}</div>
+                            <div style={{ fontSize: 12, color: token.colorError }}>Причина: {w.reject_reason}</div>
                         )}
                         <Space style={{ marginTop: 6 }}>
                             {w.status === 'requested' && (
