@@ -7,12 +7,17 @@ import React, {
 } from 'react';
 import { getData } from './utils/utils';
 import { useTranslation } from 'next-i18next';
+import { usePathname } from 'next/navigation';
 import LocalAuth from '@/views/auth/LocalAuth';
 
 const GlobalContext = createContext();
 
 export const GlobalContextProvider = ({ children }) => {
     const { i18n } = useTranslation();
+    const pathname = usePathname();
+    // Telegram Mini App авторизуется по initData, а не web-токеном — не гейтим его
+    // формой входа LocalAuth.
+    const isMiniApp = (pathname || '').startsWith('/miniapp');
 
     const [lang, setLang] = useState('kk');
     const [currency, setCurrency] = useState('kk'); // kk
@@ -125,9 +130,11 @@ export const GlobalContextProvider = ({ children }) => {
             setShowAuth,
             onAuthSuccess
         }}>
-            {showAuth
-                ? <LocalAuth onSuccess={onAuthSuccess} lang={lang} currency={currency} />
-                : (authChecked ? children : null)}
+            {isMiniApp
+                ? children
+                : (showAuth
+                    ? <LocalAuth onSuccess={onAuthSuccess} lang={lang} currency={currency} />
+                    : (authChecked ? children : null))}
         </GlobalContext.Provider>
     );
 };
