@@ -8,6 +8,7 @@ use Illuminate\Support\ServiceProvider;
 use Modules\Calculator\Console\RemoveOldEmptyStructuresCommand;
 use Modules\Calculator\Http\Middleware\SetCalculatorUserMiddleware;
 use Modules\Calculator\Http\Middleware\CheckUserTokenMiddleware;
+use Modules\Calculator\Http\Middleware\RoleMiddleware;
 use Modules\Calculator\Services\CalculatorAuthService;
 use Modules\ConfigIziGo\Http\Middleware\SetLocale;
 use Modules\ConfigIziGo\Providers\GetModulePath;
@@ -42,6 +43,7 @@ class CalculatorServiceProvider extends ServiceProvider
         $router->pushMiddlewareToGroup('api', SetCalculatorUserMiddleware::class);
 
         $router->aliasMiddleware('calculator.validate.token', CheckUserTokenMiddleware::class);
+        $router->aliasMiddleware('calculator.role', RoleMiddleware::class);
     }
 
     private function registerFacades():void

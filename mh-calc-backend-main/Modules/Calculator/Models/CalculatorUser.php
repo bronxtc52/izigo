@@ -3,6 +3,7 @@
 namespace Modules\Calculator\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 /**
  * @property int $id
@@ -18,6 +19,29 @@ use Illuminate\Database\Eloquent\Model;
  */
 class CalculatorUser extends Model
 {
+    public function roles(): BelongsToMany
+    {
+        return $this->belongsToMany(Role::class, 'role_user', 'calculator_user_id', 'role_id')
+            ->withPivot('leader_scope_member_id');
+    }
+
+    public function hasAnyRole(array $names): bool
+    {
+        return $this->roles()->whereIn('name', $names)->exists();
+    }
+
+    public function isOwner(): bool
+    {
+        return $this->hasAnyRole(['owner']);
+    }
+
+    /** Член-«охват» лидера (его поддерево). null, если не лидер/без охвата. */
+    public function leaderScopeMemberId(): ?int
+    {
+        $leader = $this->roles()->where('name', 'leader')->first();
+        return $leader?->pivot?->leader_scope_member_id;
+    }
+
     protected $fillable = [
         'email',
         'password',
