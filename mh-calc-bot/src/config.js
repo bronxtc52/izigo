@@ -19,7 +19,7 @@ function client() {
 }
 
 /** Прочитать секрет из Key Vault (null, если пуст/недоступен). */
-export async function getSecret(name) {
+async function getSecret(name) {
     try {
         const secret = await client().getSecret(name);
         return secret.value || null;
