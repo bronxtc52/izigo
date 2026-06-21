@@ -7,40 +7,24 @@ import React, {
 } from 'react';
 import { getData } from './utils/utils';
 import { useTranslation } from 'next-i18next';
-import { usePathname } from 'next/navigation';
-import LocalAuth from '@/views/auth/LocalAuth';
 
 const GlobalContext = createContext();
 
 export const GlobalContextProvider = ({ children }) => {
     const { i18n } = useTranslation();
-    const pathname = usePathname();
-    // Telegram Mini App авторизуется по initData, а не web-токеном — не гейтим его
-    // формой входа LocalAuth.
-    const isMiniApp = (pathname || '').startsWith('/miniapp');
 
     const [lang, setLang] = useState('kk');
     const [currency, setCurrency] = useState('kk'); // kk
 
     const [tokenViewStructure, setTokenViewStructure] = useState('');
     const [tokenStructure, setTokenStructure] = useState('');
+    // userToken оставлен ИСКЛЮЧИТЕЛЬНО для анонимного публичного калькулятора-витрины
+    // (src/views/calculator/*). Платформа (кабинет/админка) авторизуется ТОЛЬКО
+    // через Telegram Mini App (initData), email-входа больше нет.
     const [userToken, setUserToken] = useState(false);
 
     const [activeCurrency, setActiveCurrency] = useState(false);
     const [activeLangs, setActiveLangs] = useState(false);
-
-    // Локальная авторизация (email+пароль): показывать форму, если нет токена
-    const [showAuth, setShowAuth] = useState(false);
-    // Пока авторизация не решена — не монтируем калькулятор (иначе мигание и
-    // краш removeChild при сносе дерева d3-tree/antd при переключении на форму).
-    const [authChecked, setAuthChecked] = useState(false);
-
-    const onAuthSuccess = (token) => {
-        if (!token) return;
-        localStorage.setItem("userToken", token);
-        setUserToken(token);
-        setShowAuth(false);
-    };
 
     const changeTokenStructure = (token) => {
         if (!token) return;
@@ -63,14 +47,9 @@ export const GlobalContextProvider = ({ children }) => {
     useEffect(() => {
         if (typeof window === 'undefined') return;
 
+        // Токен витрины-калькулятора (анонимный инструмент), если есть в localStorage.
         const token = localStorage.getItem("userToken");
-        if (token) {
-            setUserToken(token);
-        } else {
-            // нет токена → локальная форма входа/регистрации (единственный вход)
-            setShowAuth(true);
-        }
-        setAuthChecked(true);
+        if (token) setUserToken(token);
     }, []);
 
     useEffect(() => {
@@ -122,19 +101,11 @@ export const GlobalContextProvider = ({ children }) => {
             activeCurrency,
             activeLangs,
             changeLocalization,
-            // user token
+            // токен витрины-калькулятора (анонимный, НЕ авторизация платформы)
             userToken,
-            setUserToken,
-            // local auth
-            showAuth,
-            setShowAuth,
-            onAuthSuccess
+            setUserToken
         }}>
-            {isMiniApp
-                ? children
-                : (showAuth
-                    ? <LocalAuth onSuccess={onAuthSuccess} lang={lang} currency={currency} />
-                    : (authChecked ? children : null))}
+            {children}
         </GlobalContext.Provider>
     );
 };

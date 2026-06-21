@@ -1,9 +1,7 @@
 'use client';
 import React, { useEffect, useState } from 'react';
 import { Card, Table, Input, Select, Space, Tag, Result, Spin } from 'antd';
-import { useRouter } from 'next/navigation';
-import { useGlobalContext } from '@/common/GlobalContext';
-import { fetchMembers, isForbidden, isUnauthorized } from './api';
+import * as tokenApi from './api';
 
 const STATUS = [
     { value: '', label: 'Все статусы' },
@@ -11,15 +9,16 @@ const STATUS = [
     { value: 'active', label: 'Активен' },
 ];
 
-const MembersList = () => {
-    const { userToken, setUserToken, setShowAuth } = useGlobalContext();
-    const router = useRouter();
+/**
+ * Список участников. Источник авторизации задаётся пропсами:
+ *  - creds: токен (CalculatorAuthToken) ИЛИ initData (Telegram) — первый аргумент API;
+ *  - api: модуль API (token-based ./api по умолчанию или initData-обёртка);
+ *  - onUnauthorized: что делать при 401 (по умолчанию — ничего, экран решает выше);
+ *  - onOpenMember(id): переход к карточке участника.
+ */
+const MembersList = ({ creds, api = tokenApi, onUnauthorized = () => {}, onOpenMember }) => {
+    const { fetchMembers, isForbidden, isUnauthorized } = api;
 
-    const onUnauthorized = () => {
-        if (typeof window !== 'undefined') localStorage.removeItem('userToken');
-        setUserToken(false);
-        setShowAuth(true);
-    };
     const [rows, setRows] = useState([]);
     const [total, setTotal] = useState(0);
     const [loading, setLoading] = useState(true);
@@ -29,7 +28,7 @@ const MembersList = () => {
 
     const load = async (params) => {
         setLoading(true);
-        const res = await fetchMembers(userToken, params);
+        const res = await fetchMembers(creds, params);
         if (isUnauthorized(res)) { onUnauthorized(); return; }
         if (isForbidden(res)) {
             setForbidden(true);
@@ -42,11 +41,11 @@ const MembersList = () => {
     };
 
     useEffect(() => {
-        if (userToken) load({ search, status });
+        if (creds) load({ search, status });
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [userToken, status]);
+    }, [creds, status]);
 
-    if (forbidden) return <Result status="403" title="Нет доступа" subTitle="Требуется роль администратора." />;
+    if (forbidden) return <Result status="403" title="Недостаточно прав" subTitle="Требуется роль администратора." />;
 
     const columns = [
         { title: 'ID', dataIndex: 'id', width: 70 },
@@ -70,7 +69,7 @@ const MembersList = () => {
         <Card title="Участники">
             <Space style={{ marginBottom: 16 }} wrap>
                 <Input.Search
-                    placeholder="Поиск по имени/email"
+                    placeholder="Поиск по имени"
                     allowClear
                     style={{ width: 280 }}
                     onSearch={(v) => { setSearch(v); load({ search: v, status }); }}
@@ -85,7 +84,7 @@ const MembersList = () => {
                     dataSource={rows}
                     columns={columns}
                     pagination={{ total, pageSize: 25 }}
-                    onRow={(r) => ({ onClick: () => router.push(`/admin/members/${r.id}`), style: { cursor: 'pointer' } })}
+                    onRow={(r) => ({ onClick: () => onOpenMember?.(r.id), style: { cursor: 'pointer' } })}
                     locale={{ emptyText: 'Нет участников' }}
                 />
             )}

@@ -3,7 +3,7 @@ import { API_SERVER_URL } from '@/common/utils/utils';
 
 // Mini App API: авторизация через заголовок X-Telegram-Init-Data (не web-токен).
 
-const req = async (path, initData, method = 'GET', body = null) => {
+export const req = async (path, initData, method = 'GET', body = null) => {
     try {
         const res = await fetch(`${API_SERVER_URL}${path}`, {
             method,
@@ -21,12 +21,12 @@ const req = async (path, initData, method = 'GET', body = null) => {
     }
 };
 
-export const mmMe = (i) => req('/api/v1/miniapp/me', i);
-export const mmDashboard = (i) => req('/api/v1/miniapp/dashboard', i);
-export const mmRank = (i) => req('/api/v1/miniapp/rank-progress', i);
-export const mmTree = (i) => req('/api/v1/miniapp/team-tree', i);
+export const mmMe = (i) => req('/api/v1/cabinet/me', i);
+export const mmDashboard = (i) => req('/api/v1/cabinet/dashboard', i);
+export const mmRank = (i) => req('/api/v1/cabinet/rank-progress', i);
+export const mmTree = (i) => req('/api/v1/cabinet/team-tree', i);
 export const mmActivate = (i, packageId) =>
-    req('/api/v1/miniapp/activate-package', i, 'POST', { package_id: packageId });
+    req('/api/v1/cabinet/activate-package', i, 'POST', { package_id: packageId });
 
 export const PACKAGES = [
     { id: 1, name: 'Bronze', pv: 90, price: 100 },

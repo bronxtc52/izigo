@@ -4,13 +4,17 @@ namespace Modules\Calculator\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * Реальный участник сети. placement (parent/position/path) — бинар; sponsor — ЛП.
+ * Идентичность платформы — Telegram (telegram_id). RBAC-роли — на участнике.
  *
  * @property int $id
- * @property ?int $calculator_user_id
+ * @property int $telegram_id
+ * @property ?string $telegram_username
+ * @property ?string $language
  * @property ?int $sponsor_id
  * @property ?int $parent_id
  * @property ?string $position  left|right
@@ -25,7 +29,6 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class Member extends Model
 {
     protected $fillable = [
-        'calculator_user_id',
         'sponsor_id',
         'parent_id',
         'position',
@@ -35,14 +38,34 @@ class Member extends Model
         'ref_code',
         'telegram_id',
         'telegram_username',
+        'language',
         'status',
         'version',
         'path',
     ];
 
-    public function user(): BelongsTo
+    /** RBAC-роли участника (owner|finance|leader|support). */
+    public function roles(): BelongsToMany
     {
-        return $this->belongsTo(CalculatorUser::class, 'calculator_user_id');
+        return $this->belongsToMany(Role::class, 'member_roles', 'member_id', 'role_id')
+            ->withPivot('leader_scope_member_id');
+    }
+
+    public function hasAnyRole(array $names): bool
+    {
+        return $this->roles()->whereIn('name', $names)->exists();
+    }
+
+    public function isOwner(): bool
+    {
+        return $this->hasAnyRole(['owner']);
+    }
+
+    /** Член-«охват» лидера (его поддерево). null, если не лидер/без охвата. */
+    public function leaderScopeMemberId(): ?int
+    {
+        $leader = $this->roles()->where('name', 'leader')->first();
+        return $leader?->pivot?->leader_scope_member_id;
     }
 
     public function sponsor(): BelongsTo

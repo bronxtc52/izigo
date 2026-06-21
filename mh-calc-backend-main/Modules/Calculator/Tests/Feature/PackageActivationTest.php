@@ -3,9 +3,7 @@
 namespace Modules\Calculator\Tests\Feature;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Hash;
 use Modules\Calculator\Models\ActivationEvent;
-use Modules\Calculator\Models\CalculatorUser;
 use Modules\Calculator\Models\Member;
 use Modules\Calculator\Models\MemberBonusLine;
 use Modules\Calculator\Models\MemberEarning;
@@ -23,18 +21,15 @@ class PackageActivationTest extends TestCase
 
     private const BRONZE = 1;
 
-    private function user(string $email): int
-    {
-        return CalculatorUser::create(['email' => $email, 'password' => Hash::make('secret123')])->id;
-    }
+    private int $tg = 2000;
 
     /** Дерево: Root R с двумя личниками A (left) и B (right). */
     private function buildTriangle(): array
     {
         $svc = app(MemberService::class);
-        $root = $svc->register($this->user('r@t.dev'), 'R', null);
-        $a = $svc->register($this->user('a@t.dev'), 'A', $root->ref_code);
-        $b = $svc->register($this->user('b@t.dev'), 'B', $root->ref_code);
+        $root = $svc->registerTelegram($this->tg++, 'R', null);
+        $a = $svc->registerTelegram($this->tg++, 'A', null, $root->ref_code);
+        $b = $svc->registerTelegram($this->tg++, 'B', null, $root->ref_code);
 
         return [$root, $a, $b];
     }

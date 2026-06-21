@@ -17,8 +17,10 @@ return new class extends Migration {
     {
         Schema::create('members', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('calculator_user_id')->nullable()
-                ->constrained('calculator_users')->nullOnDelete();
+            // Идентичность платформы — Telegram. Email/CalculatorUser больше не привязаны.
+            $table->unsignedBigInteger('telegram_id')->unique();
+            $table->string('telegram_username')->nullable();
+            $table->string('language')->nullable(); // user.language_code из Telegram
             $table->foreignId('sponsor_id')->nullable()
                 ->constrained('members')->nullOnDelete();
             $table->foreignId('parent_id')->nullable()

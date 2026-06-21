@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use InvalidArgumentException;
-use Modules\Calculator\Facades\CalculatorAuth;
+use Modules\Calculator\Models\Member;
 use Modules\Calculator\Services\AdminService;
 
 /**
@@ -24,14 +24,14 @@ class AdminController
     public function members(Request $request): JsonResponse
     {
         return $this->guarded(fn () => $this->service->listMembers(
-            CalculatorAuth::token()->user,
+            $this->viewer($request),
             $request->only(['search', 'status', 'rank_id', 'per_page']),
         ));
     }
 
-    public function member(int $id): JsonResponse
+    public function member(Request $request, int $id): JsonResponse
     {
-        return $this->guarded(fn () => $this->service->getMember(CalculatorAuth::token()->user, $id));
+        return $this->guarded(fn () => $this->service->getMember($this->viewer($request), $id));
     }
 
     public function assignRole(Request $request, int $id): JsonResponse
@@ -71,6 +71,12 @@ class AdminController
         ]);
 
         return $this->guarded(fn () => $this->service->updatePlanSettings($data));
+    }
+
+    /** Текущий участник-наблюдатель, резолвленный telegram.auth. */
+    private function viewer(Request $request): Member
+    {
+        return $request->attributes->get('member');
     }
 
     private function guarded(callable $fn): JsonResponse
