@@ -1,6 +1,15 @@
 import localFont from "next/font/local";
+import { Manrope } from "next/font/google";
 import "@/project/styles/globals.css";
 import GlobalMiddleware from "@/middleware/GlobalLayout";
+
+// Manrope — крупные цифры/заголовки Mini App (handoff). next/font self-host на билде.
+const manrope = Manrope({
+  subsets: ["latin", "cyrillic"],
+  weight: ["500", "600", "700", "800"],
+  variable: "--font-manrope",
+  display: "swap",
+});
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
@@ -96,7 +105,7 @@ export default function RootLayout({ children }) {
             </noscript>
           </head>
         ) : null}
-        <body className={`${geistSans.variable} ${geistMono.variable} ${mullerFont.variable}`}>
+        <body className={`${geistSans.variable} ${geistMono.variable} ${mullerFont.variable} ${manrope.variable}`}>
           <GlobalMiddleware>
             {children}
           </GlobalMiddleware>

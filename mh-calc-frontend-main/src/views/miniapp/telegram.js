@@ -74,23 +74,31 @@ export function miniAppPalette(theme, scheme) {
     return isDark
         ? {
             isDark: true,
-            bg: '#0E1621', surface: '#17212B', surface2: '#1C2A38',
-            fg: '#F4F6F8', muted: '#92A2B4',
-            accent: '#4F9BEF', accent2: '#62A8F2', onAccent: '#07121F',
-            border: '#243240', success: '#4FC07A', warning: '#E0A93D', error: '#F2686C',
+            bg: '#0E1621', surface: '#18222E', surface2: '#152434',
+            fg: '#EAF0F6', muted: '#93A4B6',
+            // accent — для активных вкладок/ссылок; кнопки primary фиксированы (#2563EB, см. components).
+            accent: '#5AA2F0', accent2: '#7FB3F5', onAccent: '#FFFFFF',
+            tabInactive: '#6F7E8E',
+            border: '#243140', success: '#3FBE84', warning: '#E0B050', error: '#F0635E',
             shadow: '0 2px 10px rgba(0,0,0,.4)', radius: 14,
         }
         : {
             isDark: false,
-            bg: '#EFF1F5', surface: '#FFFFFF', surface2: '#F5F7FA',
-            fg: '#14181F', muted: '#5E6B7B',
-            accent: '#1F6FD4', accent2: '#2B86E8', onAccent: '#FFFFFF',
-            border: '#E4E8ED', success: '#1A9E55', warning: '#B97708', error: '#D23B40',
-            shadow: '0 2px 8px rgba(20,30,55,.06)', radius: 14,
+            bg: '#EEF1F5', surface: '#FFFFFF', surface2: '#F1F6FE',
+            fg: '#14213A', muted: '#6B7785',
+            accent: '#2563EB', accent2: '#2B86E8', onAccent: '#FFFFFF',
+            tabInactive: '#98A2AE',
+            border: '#E7ECF2', success: '#0E9E6E', warning: '#C77700', error: '#D33A36',
+            shadow: '0 1px 3px rgba(0,0,0,.05)', radius: 14,
         };
 }
 
-/** themeParams/colorScheme Telegram → конфиг ConfigProvider antd (алгоритм + токены). */
+// Системный шрифт Telegram для UI; крупные цифры/заголовки — Manrope (next/font, var --font-manrope).
+const UI_FONT = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,system-ui,sans-serif";
+// Кнопки primary: фиксированный #2563EB + белый текст в ОБЕИХ темах (контраст 4.9:1, WCAG AA).
+const PRIMARY_BTN = '#2563EB';
+
+/** themeParams/colorScheme Telegram → конфиг ConfigProvider antd (алгоритм + токены handoff). */
 export function antdThemeFromTelegram(theme, scheme) {
     const p = miniAppPalette(theme, scheme);
     return {
@@ -108,12 +116,15 @@ export function antdThemeFromTelegram(theme, scheme) {
             colorSuccess: p.success,
             colorWarning: p.warning,
             colorError: p.error,
-            borderRadius: p.radius,
-            fontFamily: "'Inter',-apple-system,BlinkMacSystemFont,system-ui,sans-serif",
+            borderRadius: 16,
+            fontFamily: UI_FONT,
         },
         components: {
-            Card: { colorBgContainer: p.surface, colorBorderSecondary: p.border },
+            // Кнопка primary — фиксированный синий с белым текстом в обеих темах (контраст AA).
+            Button: { colorPrimary: PRIMARY_BTN, colorPrimaryHover: '#1D4ED8', colorPrimaryActive: '#1E40AF', borderRadius: 11 },
+            Card: { colorBgContainer: p.surface, colorBorderSecondary: p.border, borderRadiusLG: 16 },
             List: { colorBorder: p.border },
+            Segmented: { borderRadius: 10 },
         },
     };
 }
