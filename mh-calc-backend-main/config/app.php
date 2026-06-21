@@ -17,7 +17,6 @@ return [
     */
 
     'name' => env('APP_NAME', 'Laravel'),
-    'test_route_available' => env('TEST_ROUTE_AVAILABLE', false),
     'transaction_attempts' => 2,
 
     /*

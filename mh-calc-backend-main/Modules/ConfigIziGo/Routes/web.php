@@ -1,19 +1,11 @@
 <?php
 
-use Illuminate\Support\Facades\Route;
-use Modules\ConfigIziGo\Http\Controllers\ConfigIziGoController;
-
 /*
 |--------------------------------------------------------------------------
 | Web Routes
 |--------------------------------------------------------------------------
 |
-| Here is where you can register web routes for your application. These
-| routes are loaded by the RouteServiceProvider within a group which
-| contains the "web" middleware group. Now create something great!
+| Модуль работает только через API (GET /locales). Web-роутов нет —
+| ConfigIziGoController не реализует resource-методы.
 |
 */
-
-Route::group([], function () {
-    Route::resource('configizigo', ConfigIziGoController::class)->names('configizigo');
-});

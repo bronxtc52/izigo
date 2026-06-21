@@ -38,26 +38,17 @@ class BonusLeaderService
                                 int        $level, float $binaryBonusAmount, IBonusListener $listener): void
     {
         if ($this->hasMoreRankInChain($receiver, $binaryBonusReceiver)) {
-            //print "BonusLeaderService {$receiver->name} rank more then {$binaryBonusReceiver->name} rank\n";
             return;
         }
 
-        /* if (($receiver->rank_id ?? 0) - ($binaryBonusReceiver->rank_id ?? 0) <= self::MAX_RANK_DIFF) {
-             //print "BonusLeaderService {$receiver->name} rank more then {$binaryBonusReceiver->name} rank\n";
-             return;
-         }*/
-
         $percent = $this->getPercent($level, $receiver->rank_id, $receiver->package_id);
         if (!$percent) {
-            //print "BonusLeaderService from {$nodeInitiator->name} to {$receiver->name} !percent continue\n";
             return;
         }
 
         $bonusAmount = $percent > 0 ? $binaryBonusAmount / 100 * $percent : 0;
 
         if ($bonusAmount) {
-            //print "BonusLeaderService For: {$receiver->name} percent: {$percent} amount: {$bonusAmount}\n";
-
             $receiver->addLeaderBonus(new BonusDataLeader($nodeInitiator->id, $nodeInitiator->name,
                 $binaryBonusAmount, $level, $percent, $bonusAmount, $currency->currency));
 
@@ -87,11 +78,7 @@ class BonusLeaderService
         while ($chainNode) {
             $difference = ($chainNode->rank_id ?? 0) - ($sponsor->rank_id ?? 0);
 
-            //dump("difference {$difference}, receiver id: {$sponsor->id} rank: " . ($sponsor->rank_id ?? 0) .
-            //    " chain id: {$chainNode->id} rank: " . ($chainNode->rank_id ?? 0));
-
             if ($difference >= self::MAX_RANK_DIFF) {
-                //dump("BonusLeaderService {$sponsor->name} rank more then {$chainNode->name} rank");
                 return true;
             }
             $chainNode = $chainNode->sponsor;

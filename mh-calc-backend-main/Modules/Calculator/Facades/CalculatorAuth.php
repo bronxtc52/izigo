@@ -10,7 +10,6 @@ use Modules\Calculator\Models\CalculatorUserToken;
  * @method static void setToken(CalculatorUserToken $token)
  * @method static CalculatorUserToken|null token()
  * @method static bool check()
- * @method static void logout()
  *
  * @see CalculatorAuthService
  */

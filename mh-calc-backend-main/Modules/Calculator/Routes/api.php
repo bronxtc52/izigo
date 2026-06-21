@@ -53,19 +53,6 @@ Route::group([
             ->where(['structure_token' => '[A-Za-z0-9]+']);
     });
 
-    // Структура на просмотр
-    /*Route::group([
-        'prefix' => 'structure',
-        'as' => 'structure.'
-    ], function () {
-        Route::get('/{structure_token}/details/{node_id}', [CalculatorController::class, 'getNodeDetails'])
-            ->name('node-details')
-            ->where(['structure_token' => '[A-Za-z0-9]+', 'node_id' => '[0-9]+']);
-
-        Route::get('/{structure_token}', [CalculatorController::class, 'getStructure'])->name('index')
-            ->where(['structure_token' => '[A-Za-z0-9]+']);
-    });*/
-
 // Пакеты
     Route::get('/packages', [PackageController::class, 'index'])->name('packages');
 

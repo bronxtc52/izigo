@@ -28,13 +28,4 @@ class CalculatorAuthService
     {
         return $this->currentToken !== null && $this->currentToken->isValid();
     }
-
-    public function logout(): void
-    {
-        if ($this->currentToken)
-        {
-            CalculatorUserToken::query()->where('id', $this->currentToken->id)->delete();
-        }
-        $this->currentToken = null;
-    }
 }
