@@ -1,3 +1,25 @@
+# План: Редизайн Mini App по hi-fi handoff (автономно)
+
+**Handoff:** `docs/design/izigo_handoff/design_handoff_izigo_miniapp/`. Ветка `feat/miniapp-redesign`
+(поверх Фазы 3). Мандат: автономно до прода (merge+deploy). Дизайн = визуал, API из Фаз 1–3 сохраняем.
+
+- [ ] **R1 — Токены/тема/шрифт.** `telegram.js`: `antdThemeFromTelegram` + `miniAppPalette` под значения
+  handoff (light/dark), fix `fontFamily` (битый Inter → системный). Manrope через `next/font/google`
+  (layout.js) → CSS-переменная для цифр/заголовков. `@ant-design/icons` в deps (пин 5.5.1).
+- [ ] **R2 — tint-хелперы.** Палитры бейджей (тип/роль/статус) текст/фон по теме + dot-цвета бонусов.
+- [ ] **R3 — Экраны (MiniAppShell).** 5 вкладок с иконками (УБРАТЬ отдельную «Кошелёк» → влить в «Доход»:
+  hero-сумма + «Доступно к выводу» + кнопка «Вывести» + форма/заявки). Доход / Команда (сводка+фильтр+
+  дерево с tint) / Ранг (трофей+степпер+прогресс) / Профиль (шапка+реф-код+настройки). Логика API/handlers
+  сохранена. Кастомный таб-бар на иконках.
+- [ ] **R4 — Админка.** `AdminWithdrawals` хардкод-цвета → токены; `MiniAppAdmin` под дизайн. Общие вьюхи
+  перекрашиваются через ConfigProvider-токены (не ломаем web-кабинет).
+- [ ] **R5 — Проверки.** `npm run build` exit 0; регресс backend-тестов зелёный.
+- [ ] **R6 — Гейт 4.** reviewer → правки → build.
+- [ ] **R7 — Деплой.** merge `feat/miniapp-redesign` → `main` → CI deploy → verify (ревизии healthy,
+  миграции ledger через start.sh, smoke).
+
+---
+
 # План: Фаза 3 — Финансовое ядро (ledger + e-wallet + выводы)
 
 **ТЗ:** `docs/specs/2026-06-21-phase3-financial-core.md`. (Гейт 2 — план, без кода.)
