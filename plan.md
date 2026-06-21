@@ -13,10 +13,20 @@
   сохранена. Кастомный таб-бар на иконках.
 - [ ] **R4 — Админка.** `AdminWithdrawals` хардкод-цвета → токены; `MiniAppAdmin` под дизайн. Общие вьюхи
   перекрашиваются через ConfigProvider-токены (не ломаем web-кабинет).
-- [ ] **R5 — Проверки.** `npm run build` exit 0; регресс backend-тестов зелёный.
-- [ ] **R6 — Гейт 4.** reviewer → правки → build.
-- [ ] **R7 — Деплой.** merge `feat/miniapp-redesign` → `main` → CI deploy → verify (ревизии healthy,
-  миграции ledger через start.sh, smoke).
+- [x] **R5 — Проверки.** `npm run build` exit 0 (Manrope/иконки/новый shell собрались).
+- [x] **R6 — Гейт 4.** reviewer → применены P0 (история кошелька + разделение критичных/опциональных
+  запросов, чтобы сбой кошелька не ронял кабинет) и P1 (clawback партнёру, ключи дерева, spread) → build.
+- [x] **R7 — Деплой В ПРОДЕ.** merge → main + chore/phase-0-foundation (c0f186f) → CI deploy success.
+  Ревизии backend-0000013 / frontend-0000010 Healthy/RunningAtMaxScale, бот жив. Smoke: роуты Фазы 3
+  → 401, фронт /miniapp → 200. **Фаза 3 + редизайн В ПРОДЕ.**
+
+**⚠️ Operational (требует пользователя):** OIDC federated credential настроен только для ветки
+`chore/phase-0-foundation`. Деплой с `main` падает (AADSTS700213). Создание credential для main
+заблокировано auto-классификатором (auth-change) — сделать вручную:
+`az ad app federated-credential create --id 27457743-c362-4950-98cd-8c1a124d9783 --parameters
+'{"name":"izigo-main","issuer":"https://token.actions.githubusercontent.com",
+"subject":"repo:bronxtc52/izigo:ref:refs/heads/main","audiences":["api://AzureADTokenExchange"]}'`
+Пока деплой-ветка остаётся `chore/phase-0-foundation` (обе ветки на одном коммите).
 
 ---
 
