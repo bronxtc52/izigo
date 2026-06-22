@@ -2,8 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { Table, Button, Space, Tag, Modal, Form, Input, InputNumber, Switch, Result, message, Popconfirm } from 'antd';
 import * as api from '@/views/admin/webApi';
-
-const usd = (cents) => `$${((cents ?? 0) / 100).toLocaleString('ru-RU', { minimumFractionDigits: 2 })}`;
+import { usd } from './format';
 
 /** Управление каталогом: список, создание, редактирование, архивация. owner/support. */
 const Products = () => {

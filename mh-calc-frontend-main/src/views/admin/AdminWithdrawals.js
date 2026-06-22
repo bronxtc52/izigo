@@ -34,7 +34,7 @@ const AdminWithdrawals = ({ creds, api = initDataApi, onUnauthorized }) => {
     const load = async (st = status) => {
         setLoading(true);
         const res = await fetchWithdrawals(creds, st);
-        if (res?.error === 401) { onUnauthorized?.(); return; }
+        if (res?.error === 401) { setLoading(false); onUnauthorized?.(); return; }
         if (isForbidden(res)) { setItems([]); setLoading(false); return; }
         setItems(res?.data ?? []);
         setLoading(false);

@@ -12,19 +12,31 @@ const ROLES_KEY = 'izigo_admin_roles';
 
 export const getToken = () =>
     (typeof window !== 'undefined' ? window.localStorage.getItem(TOKEN_KEY) : null) || '';
-export const setToken = (t) => window.localStorage.setItem(TOKEN_KEY, t);
+export const setToken = (t) => { if (typeof window !== 'undefined') window.localStorage.setItem(TOKEN_KEY, t); };
 export const clearToken = () => {
+    if (typeof window === 'undefined') return;
     window.localStorage.removeItem(TOKEN_KEY);
     window.localStorage.removeItem(ROLES_KEY);
 };
 
-export const setRoles = (roles) => window.localStorage.setItem(ROLES_KEY, JSON.stringify(roles ?? []));
+export const setRoles = (roles) => {
+    if (typeof window !== 'undefined') window.localStorage.setItem(ROLES_KEY, JSON.stringify(roles ?? []));
+};
 export const getRoles = () => {
     if (typeof window === 'undefined') return [];
     try {
         return JSON.parse(window.localStorage.getItem(ROLES_KEY) || '[]');
     } catch (e) {
         return [];
+    }
+};
+
+// Протух/отозван токен (401) → чистим сессию и уводим на логин (без цикла на самой
+// странице логина). Реальная защита — на backend; это закрытие «зомби-сессии» в UI.
+const handleUnauthorized = () => {
+    clearToken();
+    if (typeof window !== 'undefined' && !window.location.pathname.endsWith('/admin/login')) {
+        window.location.assign('/admin/login');
     }
 };
 
@@ -40,6 +52,7 @@ export const req = async (path, token, method = 'GET', body = null) => {
             },
             body: body ? JSON.stringify(body) : undefined,
         });
+        if (res.status === 401) { handleUnauthorized(); return { error: 401 }; }
         if (!res.ok) return { error: res.status };
         return await res.json();
     } catch (e) {

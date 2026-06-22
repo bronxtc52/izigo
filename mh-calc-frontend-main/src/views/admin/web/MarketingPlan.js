@@ -92,7 +92,7 @@ const MarketingPlan = () => {
     // --- Реферальный % [packageSort][level] ---
     const refLevels = Array.from(
         new Set(Object.values(doc.referral_percent).flatMap((lv) => Object.keys(lv))),
-    ).sort();
+    ).sort((a, b) => Number(a) - Number(b));
     const referralTab = (
         <Table rowKey={(r) => r.sort} size="small" pagination={false}
             dataSource={Object.keys(doc.referral_percent).map((sort) => ({ sort }))}

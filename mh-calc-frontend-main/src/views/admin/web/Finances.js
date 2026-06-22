@@ -2,8 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { Table, InputNumber, Button, Space, Row, Col, Card, Statistic, Result, message } from 'antd';
 import * as api from '@/views/admin/webApi';
-
-const usd = (cents) => `$${((cents ?? 0) / 100).toLocaleString('ru-RU', { minimumFractionDigits: 2 })}`;
+import { usd } from './format';
 
 /** Финансы: кошелёк выбранного партнёра + журнал проводок (ledger). owner/finance. */
 const Finances = () => {
@@ -26,7 +25,12 @@ const Finances = () => {
     const loadMember = async () => {
         if (!memberId) { setWallet(null); loadLedger(null); return; }
         const w = await api.fetchMemberWallet(undefined, memberId);
-        if (w?.error) { message.error(w.error === 404 ? 'Партнёр не найден' : 'Ошибка'); return; }
+        if (w?.error) {
+            message.error(w.error === 404 ? 'Партнёр не найден' : 'Ошибка');
+            setWallet(null);
+            setRows([]); // не показываем чужой ledger от прошлого запроса
+            return;
+        }
         setWallet(w?.data ?? null);
         loadLedger(memberId);
     };

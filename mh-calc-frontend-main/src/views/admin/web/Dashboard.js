@@ -2,8 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { Row, Col, Card, Statistic, Spin, Result } from 'antd';
 import * as api from '@/views/admin/webApi';
-
-const usd = (cents) => `$${((cents ?? 0) / 100).toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+import { usd } from './format';
 
 /** Дашборд: KPI по сети и финансам компании. */
 const Dashboard = () => {

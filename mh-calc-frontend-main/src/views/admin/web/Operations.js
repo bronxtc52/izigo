@@ -2,8 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { Tabs, Table, Tag, Result } from 'antd';
 import * as api from '@/views/admin/webApi';
-
-const usd = (cents) => `$${((cents ?? 0) / 100).toLocaleString('ru-RU', { minimumFractionDigits: 2 })}`;
+import { usd } from './format';
 
 const PaymentsTab = () => {
     const [rows, setRows] = useState([]);

@@ -57,7 +57,10 @@ export default function AdminLoginPage() {
         const node = widgetRef.current;
         node?.appendChild(script);
 
-        return () => { node && (node.innerHTML = ''); };
+        return () => {
+            if (node) node.innerHTML = '';
+            delete window.onTelegramAuth;
+        };
     }, [router]);
 
     return (
