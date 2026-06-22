@@ -124,30 +124,55 @@ class AdminController
 
     public function approveWithdrawal(Request $request, int $id): JsonResponse
     {
-        return $this->guarded(fn () => $this->withdrawals->approve($id, $this->viewer($request)));
+        return $this->guarded(function () use ($request, $id) {
+            $result = $this->withdrawals->approve($id, $this->viewer($request));
+            $this->audit->recordSafe($this->viewer($request)->id, 'withdrawal.approve', 'withdrawal', $id, null, null);
+
+            return $result;
+        });
     }
 
     public function rejectWithdrawal(Request $request, int $id): JsonResponse
     {
         $data = $request->validate(['reason' => 'required|string|max:1000']);
 
-        return $this->guarded(fn () => $this->withdrawals->reject($id, $this->viewer($request), $data['reason']));
+        return $this->guarded(function () use ($request, $id, $data) {
+            $result = $this->withdrawals->reject($id, $this->viewer($request), $data['reason']);
+            $this->audit->recordSafe($this->viewer($request)->id, 'withdrawal.reject', 'withdrawal', $id, null, ['reason' => $data['reason']]);
+
+            return $result;
+        });
     }
 
     public function markPaidWithdrawal(Request $request, int $id): JsonResponse
     {
-        return $this->guarded(fn () => $this->withdrawals->markPaid($id));
+        return $this->guarded(function () use ($request, $id) {
+            $result = $this->withdrawals->markPaid($id);
+            $this->audit->recordSafe($this->viewer($request)->id, 'withdrawal.mark_paid', 'withdrawal', $id, null, null);
+
+            return $result;
+        });
     }
 
     /** approved → paid через on-chain выплату USDT (Фаза 4, S7). */
     public function sendWithdrawal(Request $request, int $id): JsonResponse
     {
-        return $this->guarded(fn () => $this->withdrawals->sendOnChain($id));
+        return $this->guarded(function () use ($request, $id) {
+            $result = $this->withdrawals->sendOnChain($id);
+            $this->audit->recordSafe($this->viewer($request)->id, 'withdrawal.send', 'withdrawal', $id, null, null);
+
+            return $result;
+        });
     }
 
     public function cancelWithdrawal(Request $request, int $id): JsonResponse
     {
-        return $this->guarded(fn () => $this->withdrawals->cancel($id, $this->viewer($request)));
+        return $this->guarded(function () use ($request, $id) {
+            $result = $this->withdrawals->cancel($id, $this->viewer($request));
+            $this->audit->recordSafe($this->viewer($request)->id, 'withdrawal.cancel', 'withdrawal', $id, null, null);
+
+            return $result;
+        });
     }
 
     /** Текущий участник-наблюдатель, резолвленный telegram.auth. */

@@ -5,6 +5,7 @@ namespace Modules\Calculator\Http\Controllers;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Modules\Calculator\Models\Member;
+use Modules\Calculator\Services\AuditLogService;
 use Modules\Calculator\Services\KycService;
 use Modules\Calculator\Services\OrderService;
 use Modules\Calculator\Services\ProductAdminService;
@@ -22,6 +23,7 @@ class CommerceAdminController
         private readonly ProductAdminService $products,
         private readonly OrderService $orders,
         private readonly KycService $kyc,
+        private readonly AuditLogService $audit,
     ) {
     }
 
@@ -44,7 +46,12 @@ class CommerceAdminController
             'stock' => 'nullable|integer|min:0',
         ]);
 
-        return $this->guarded(fn () => $this->products->create($data));
+        return $this->guarded(function () use ($request, $data) {
+            $result = $this->products->create($data);
+            $this->audit->recordSafe($this->viewerId($request), 'product.create', 'product', $result['id'] ?? null, null, $result);
+
+            return $result;
+        });
     }
 
     public function updateProduct(Request $request, int $id): JsonResponse
@@ -61,12 +68,22 @@ class CommerceAdminController
             'stock' => 'nullable|integer|min:0',
         ]);
 
-        return $this->guarded(fn () => $this->products->update($id, $data));
+        return $this->guarded(function () use ($request, $id, $data) {
+            $result = $this->products->update($id, $data);
+            $this->audit->recordSafe($this->viewerId($request), 'product.update', 'product', $id, null, $result);
+
+            return $result;
+        });
     }
 
     public function deleteProduct(Request $request, int $id): JsonResponse
     {
-        return $this->guarded(fn () => $this->products->archive($id));
+        return $this->guarded(function () use ($request, $id) {
+            $result = $this->products->archive($id);
+            $this->audit->recordSafe($this->viewerId($request), 'product.archive', 'product', $id, null, $result);
+
+            return $result;
+        });
     }
 
     public function orders(Request $request): JsonResponse
@@ -81,11 +98,15 @@ class CommerceAdminController
             'tracking_no' => 'nullable|string|max:128',
         ]);
 
-        return $this->guarded(fn () => $this->orders->setStatus(
-            $id,
-            (string) $validated['status'],
-            $validated['tracking_no'] ?? null,
-        ));
+        return $this->guarded(function () use ($request, $id, $validated) {
+            $result = $this->orders->setStatus($id, (string) $validated['status'], $validated['tracking_no'] ?? null);
+            $this->audit->recordSafe($this->viewerId($request), 'order.status', 'order', $id, null, [
+                'status' => $validated['status'],
+                'tracking_no' => $validated['tracking_no'] ?? null,
+            ]);
+
+            return $result;
+        });
     }
 
     public function kyc(Request $request): JsonResponse
@@ -103,12 +124,21 @@ class CommerceAdminController
         /** @var Member $viewer */
         $viewer = $request->attributes->get('member');
 
-        return $this->guarded(fn () => $this->kyc->review(
-            $id,
-            $viewer,
-            (bool) $validated['approve'],
-            $validated['reason'] ?? null,
-        ));
+        return $this->guarded(function () use ($viewer, $id, $validated) {
+            $result = $this->kyc->review($id, $viewer, (bool) $validated['approve'], $validated['reason'] ?? null);
+            $this->audit->recordSafe($viewer->id, $validated['approve'] ? 'kyc.approve' : 'kyc.reject', 'kyc', $id, null, [
+                'approve' => (bool) $validated['approve'],
+                'reason' => $validated['reason'] ?? null,
+            ]);
+
+            return $result;
+        });
+    }
+
+    /** Id текущего админа (резолвлен web.admin) для атрибуции аудита. */
+    private function viewerId(Request $request): ?int
+    {
+        return $request->attributes->get('member')?->id;
     }
 
     private function guarded(callable $fn): JsonResponse

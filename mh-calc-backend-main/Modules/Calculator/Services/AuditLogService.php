@@ -2,7 +2,9 @@
 
 namespace Modules\Calculator\Services;
 
+use Illuminate\Support\Facades\Log;
 use Modules\Calculator\Models\AdminAuditLog;
+use Throwable;
 
 /**
  * Аудит-лог админ-действий: запись (кто/что/над чем + before→after) и чтение для
@@ -28,6 +30,26 @@ class AuditLogService
             'after' => $after,
             'created_at' => now(),
         ]);
+    }
+
+    /**
+     * Best-effort запись аудита для операций, уже закоммиченных сервисом (выплаты/продукты/
+     * KYC/заказы): падение лога не должно ронять завершённую операцию (напр. on-chain выплату
+     * нельзя «откатить» из-за ошибки лога). Ошибку глотаем и пишем в Log.
+     */
+    public function recordSafe(
+        ?int $actorMemberId,
+        string $action,
+        string $entityType,
+        ?int $entityId = null,
+        ?array $before = null,
+        ?array $after = null,
+    ): void {
+        try {
+            $this->record($actorMemberId, $action, $entityType, $entityId, $before, $after);
+        } catch (Throwable $e) {
+            Log::warning('audit recordSafe failed', ['action' => $action, 'entity_id' => $entityId, 'error' => $e->getMessage()]);
+        }
     }
 
     /** Лента аудита (новые сверху) с опц. фильтрами по action/entity_type. */
