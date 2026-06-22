@@ -582,7 +582,8 @@ const MiniAppShell = () => {
                                     </Flex>
                                 </Flex>
                                 <Divider style={{ margin: '14px 0' }} />
-                                <Flex justify="space-around">
+                                <Flex justify="space-around" wrap="wrap" gap={8}>
+                                    <Statistic title="Заработано" value={`$${dash?.total ?? '0.00'}`} />
                                     <Statistic title="Приглашено" value={personalCount} />
                                     <Statistic title="В команде" value={teamCount.total} />
                                     <Statistic title="ID" value={me?.id ?? '—'} formatter={(v) => `#${v}`} />
@@ -625,6 +626,18 @@ const MiniAppShell = () => {
                                     );
                                 })()}
                             </Card>
+                            {agreement && (
+                                <Card size="small" title="Соглашение">
+                                    <Flex justify="space-between" align="center">
+                                        <span style={{ fontSize: 13 }}>Статус (версия {agreement.version})</span>
+                                        {agreement.accepted ? (
+                                            <Tag style={{ background: tint('success', isDark).bg, color: tint('success', isDark).color, border: 'none', fontWeight: 600 }}>Принято</Tag>
+                                        ) : (
+                                            <Button type="primary" size="small" loading={agreeBusy} onClick={onAcceptAgreement}>Принять</Button>
+                                        )}
+                                    </Flex>
+                                </Card>
+                            )}
                             <Card size="small" title="Настройки">
                                 <List>
                                     <List.Item>Ранг <span style={{ color: pal.muted }}>{me?.rank?.alias ?? 'нет'} ›</span></List.Item>
