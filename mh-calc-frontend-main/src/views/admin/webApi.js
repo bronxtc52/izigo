@@ -172,3 +172,53 @@ export const previewBroadcast = (token, segmentType, segmentValue = null) =>
 export const sendBroadcast = (token, segmentType, segmentValue, body) =>
     mutate(token, '/api/v1/admin/broadcasts', 'POST', { segment_type: segmentType, segment_value: segmentValue, body });
 // <<< Block C notifications
+
+// >>> Block C exports
+// C5: экспорт участника (JSON/CSV) + PII маска/reveal. Сводка с PII в МАСКЕ —
+// owner,finance,support. Reveal сырых PII — ТОЛЬКО owner (бэкенд = последняя линия,
+// кнопка лишь дублирует). Экспорт для не-owner всегда маскирован (форсится на бэке).
+export const fetchMemberPii = (token, id) => req(`/api/v1/admin/members/${id}/pii`, token);
+export const revealMemberPii = (token, id) =>
+    mutate(token, `/api/v1/admin/members/${id}/pii/reveal`, 'POST', {});
+
+// Экспорт: качаем файл (csv) или объект (json). masked=false (полный) — только owner;
+// бэкенд принудительно маскирует не-owner, даже если masked=0. Возвращает { ok } / { error }.
+export const exportMember = async (token, id, format = 'json', masked = true) => {
+    const bearer = (typeof token === 'string' && token) ? token : getToken();
+    const params = qs({ format, masked: masked ? '1' : '0' });
+    try {
+        const res = await fetch(`${API_SERVER_URL}/api/v1/admin/members/${id}/export${params}`, {
+            headers: { 'X-Requested-With': 'XMLHttpRequest', Authorization: `Bearer ${bearer}` },
+        });
+        if (res.status === 401) { handleUnauthorized(); return { error: 401 }; }
+        if (!res.ok) return { error: res.status };
+
+        if (format === 'csv') {
+            const blob = await res.blob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `member-${id}${masked ? '-masked' : ''}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(url);
+            return { ok: true };
+        }
+
+        const json = await res.json();
+        const blob = new Blob([JSON.stringify(json?.data ?? json, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `member-${id}${masked ? '-masked' : ''}.json`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+        return { ok: true };
+    } catch (e) {
+        return { error: 0 };
+    }
+};
+// <<< Block C exports

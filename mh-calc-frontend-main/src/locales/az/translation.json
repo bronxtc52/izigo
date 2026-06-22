@@ -96,5 +96,22 @@
         "bcConfirmNoPreview": "Сначала рекомендуется проверить охват. Отправить без превью?",
         "bcConfirmOk": "Отправить",
         "bcConfirmCancel": "Отмена"
+    },
+    "exports": {
+        "title": "Персональные данные (PII)",
+        "tgUsername": "Telegram username",
+        "payoutDetails": "Реквизиты выплаты (TON)",
+        "kycStatus": "KYC статус",
+        "reveal": "Показать реальные значения",
+        "revealed": "Раскрыто",
+        "revealedAudit": "PII раскрыто (записано в аудит)",
+        "revealForbidden": "Только владелец может раскрывать PII",
+        "revealFailed": "Не удалось раскрыть PII",
+        "maskedHint": "Данные замаскированы — раскрытие доступно только владельцу",
+        "exportCsv": "Экспорт CSV",
+        "exportJson": "Экспорт JSON",
+        "exportReady": "Экспорт {{format}} готов",
+        "exportForbidden": "Недостаточно прав для экспорта",
+        "exportFailed": "Не удалось экспортировать"
     }
 }

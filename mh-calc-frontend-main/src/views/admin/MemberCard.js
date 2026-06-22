@@ -9,8 +9,12 @@ const Tree = dynamic(() => import('react-d3-tree'), { ssr: false });
 /**
  * Карточка участника + назначение/снятие ролей. Источник авторизации — через пропсы
  * (creds + api), см. MembersList. По умолчанию работает на token-API ./api.
+ *
+ * C5 (Block C): PII-блок (маска по умолчанию + reveal owner-only + экспорт) показывается
+ * ТОЛЬКО в веб-админке — когда передан piiApi (webApi). В Mini App пропа нет → блока нет.
+ * canReveal гейтит кнопку reveal под owner; это лишь UX — реальная защита на бэкенде.
  */
-const MemberCard = ({ id, creds, api = tokenApi, onUnauthorized = () => {} }) => {
+const MemberCard = ({ id, creds, api = tokenApi, onUnauthorized = () => {}, piiApi = null, canReveal = false }) => {
     const { fetchMember, assignRole, revokeRole, isForbidden, isUnauthorized, ROLES } = api;
 
     const [data, setData] = useState(null);
@@ -18,6 +22,46 @@ const MemberCard = ({ id, creds, api = tokenApi, onUnauthorized = () => {} }) =>
     const [forbidden, setForbidden] = useState(false);
     const [role, setRole] = useState('support');
     const [saving, setSaving] = useState(false);
+
+    // --- C5 PII state ---
+    const [pii, setPii] = useState(null);          // маскированная сводка PII
+    const [revealed, setRevealed] = useState(null); // сырые значения после reveal (owner)
+    const [revealing, setRevealing] = useState(false);
+    const [exporting, setExporting] = useState(false);
+
+    const loadPii = async () => {
+        if (!piiApi) return;
+        const res = await piiApi.fetchMemberPii(creds, id);
+        if (piiApi.isUnauthorized(res)) { onUnauthorized(); return; }
+        if (piiApi.isForbidden(res)) { setPii(null); return; }
+        setPii(res?.data ?? null);
+    };
+
+    const onReveal = async () => {
+        setRevealing(true);
+        try {
+            const real = await piiApi.revealMemberPii(creds, id);
+            setRevealed(real);
+            message.success('PII раскрыто (записано в аудит)');
+        } catch (e) {
+            message.error(e?.status === 403 ? 'Только владелец может раскрывать PII' : 'Не удалось раскрыть PII');
+        } finally {
+            setRevealing(false);
+        }
+    };
+
+    const onExport = async (format) => {
+        setExporting(true);
+        try {
+            // canReveal === owner → полный экспорт; иначе бэкенд принудительно маскирует.
+            const res = await piiApi.exportMember(creds, id, format, !canReveal);
+            if (res?.error === 403) { message.error('Недостаточно прав для экспорта'); return; }
+            if (res?.error) { message.error('Не удалось экспортировать'); return; }
+            message.success(`Экспорт ${format.toUpperCase()} готов`);
+        } finally {
+            setExporting(false);
+        }
+    };
 
     const load = async () => {
         setLoading(true);
@@ -29,7 +73,7 @@ const MemberCard = ({ id, creds, api = tokenApi, onUnauthorized = () => {} }) =>
     };
 
     useEffect(() => {
-        if (creds) load();
+        if (creds) { load(); loadPii(); }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [creds, id]);
 
@@ -87,6 +131,36 @@ const MemberCard = ({ id, creds, api = tokenApi, onUnauthorized = () => {} }) =>
                     <Button type="primary" loading={saving} onClick={onAssign}>Назначить</Button>
                 </Space>
             </Card>
+
+            {piiApi ? (
+                <Card title="Персональные данные (PII)" size="small"
+                    extra={(
+                        <Space>
+                            <Button size="small" loading={exporting} onClick={() => onExport('csv')}>Экспорт CSV</Button>
+                            <Button size="small" loading={exporting} onClick={() => onExport('json')}>Экспорт JSON</Button>
+                        </Space>
+                    )}
+                >
+                    <Descriptions column={1} size="small">
+                        <Descriptions.Item label="Telegram username">
+                            {revealed?.telegram_username ?? pii?.telegram_username ?? '—'}
+                        </Descriptions.Item>
+                        <Descriptions.Item label="Реквизиты выплаты (TON)">
+                            {revealed?.payout_details ?? pii?.payout_details ?? '—'}
+                        </Descriptions.Item>
+                        <Descriptions.Item label="KYC статус">
+                            {revealed?.kyc_status ?? pii?.kyc_status ?? '—'}
+                        </Descriptions.Item>
+                    </Descriptions>
+                    {canReveal ? (
+                        <Button type="primary" ghost loading={revealing} disabled={!!revealed} onClick={onReveal}>
+                            {revealed ? 'Раскрыто' : 'Показать реальные значения'}
+                        </Button>
+                    ) : (
+                        <Tag color="default">Данные замаскированы — раскрытие доступно только владельцу</Tag>
+                    )}
+                </Card>
+            ) : null}
 
             <Card title="Ветка участника" bodyStyle={{ height: 460, padding: 0 }}>
                 {branch?.name ? (
