@@ -33,6 +33,23 @@ class AuditLogService
     }
 
     /**
+     * Строгая (fail-on-error) запись аудита для контроль-критичных путей, где аудит — условие
+     * самого действия (напр. reveal сырых PII): если аудит не записался, действие выполнять НЕЛЬЗЯ.
+     * В отличие от recordSafe, исключение НЕ глотается, а пробрасывается вызывающему — тот обязан
+     * откатить транзакцию и НЕ отдавать защищаемые данные (fail-closed).
+     */
+    public function recordOrFail(
+        ?int $actorMemberId,
+        string $action,
+        string $entityType,
+        ?int $entityId = null,
+        ?array $before = null,
+        ?array $after = null,
+    ): void {
+        $this->record($actorMemberId, $action, $entityType, $entityId, $before, $after);
+    }
+
+    /**
      * Best-effort запись аудита для операций, уже закоммиченных сервисом (выплаты/продукты/
      * KYC/заказы): падение лога не должно ронять завершённую операцию (напр. on-chain выплату
      * нельзя «откатить» из-за ошибки лога). Ошибку глотаем и пишем в Log.

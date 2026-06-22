@@ -6,11 +6,13 @@ use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 use Modules\Calculator\Models\Member;
 use Modules\Calculator\Services\AuditLogService;
 use Modules\Calculator\Services\Pii\ExportService;
 use RuntimeException;
+use Throwable;
 
 /**
  * C5 (Block C): экспорт данных участника (JSON/CSV) + PII reveal. Тонкий контроллер.
@@ -42,25 +44,55 @@ class MemberExportController
 
     /**
      * Reveal сырых PII участника — ТОЛЬКО owner (гейтится на маршруте calculator.role:owner).
-     * Пишет pii.reveal в аудит (факт + перечень раскрытых полей, БЕЗ значений).
+     *
+     * FAIL-CLOSED (по ревью fusion): аудит pii.reveal пишется СИНХРОННО и строго внутри
+     * DB::transaction. Если запись/commit аудита упали — PII НЕ отдаём, возвращаем 503
+     * (временная недоступность контроля, не 403). Сырые значения PII формируем и отдаём
+     * ТОЛЬКО после успешного commit аудита. В аудит кладём лишь факт + имена раскрытых полей
+     * (+ ip/user-agent), но НЕ сами значения PII.
      */
     public function reveal(Request $request, int $id): JsonResponse
     {
-        return $this->guarded(function () use ($request, $id) {
+        // Собираем PII ОДИН раз до аудита (детектит отсутствие участника → 404/422). Значения
+        // держим в памяти и отдаём ТОЛЬКО после успешного commit аудита — наружу до коммита не
+        // уходят. Один вызов вместо двух убирает TOCTOU (рассинхрон полей в аудите с ответом) и
+        // лишние запросы к БД.
+        try {
             $pii = $this->exports->revealPii($id);
+        } catch (ModelNotFoundException $e) {
+            return response()->json(['status' => 'error', 'message' => 'Не найдено'], 404);
+        } catch (InvalidArgumentException $e) {
+            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 422);
+        }
 
-            $this->audit->recordSafe(
-                $this->viewer($request)?->id,
-                'pii.reveal',
-                'member',
-                $id,
-                null,
-                // Логируем ТОЛЬКО факт + имена полей. Значения PII в лог НЕ кладём.
-                ['fields' => array_keys($pii)],
-            );
+        // Аудит — условие действия: пишем строго в транзакции. Падение записи/commit ⇒ fail-closed.
+        try {
+            DB::transaction(function () use ($request, $id, $pii) {
+                $this->audit->recordOrFail(
+                    $this->viewer($request)?->id,
+                    'pii.reveal',
+                    'member',
+                    $id,
+                    null,
+                    // Логируем ТОЛЬКО факт + имена полей + контекст. Значения PII в лог НЕ кладём.
+                    [
+                        'fields' => array_keys($pii),
+                        'ip' => $request->ip(),
+                        'user_agent' => substr((string) $request->userAgent(), 0, 255),
+                    ],
+                );
+            });
+        } catch (Throwable $e) {
+            report($e);
 
-            return $pii;
-        });
+            return response()->json([
+                'status' => 'error',
+                'message' => 'PII reveal временно недоступен: сбой аудита',
+            ], 503);
+        }
+
+        // Аудит закоммичен — теперь безопасно отдать сырые значения PII.
+        return response()->json(['status' => 'success', 'data' => $pii]);
     }
 
     /**

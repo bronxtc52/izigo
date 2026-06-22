@@ -6,8 +6,10 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Modules\Calculator\Models\KycRecord;
 use Modules\Calculator\Models\Member;
 use Modules\Calculator\Models\WithdrawalRequest;
+use Modules\Calculator\Services\AuditLogService;
 use Modules\Calculator\Services\Pii\ExportService;
 use Modules\Calculator\Services\Pii\PiiService;
+use RuntimeException;
 use Modules\Calculator\Tests\Feature\Concerns\SignsTelegramInitData;
 use Tests\TestCase;
 
@@ -123,6 +125,31 @@ class MemberExportTest extends TestCase
         $this->assertSame('member', $entry['entity_type']);
         $this->assertSame($id, $entry['entity_id']);
         $this->assertContains('telegram_username', $entry['after']['fields']);
+    }
+
+    /**
+     * FAIL-CLOSED: если строгая запись аудита pii.reveal падает — reveal НЕ отдаёт PII
+     * и возвращает 503 (временная недоступность контроля). Эмулируем сбой аудита моком
+     * AuditLogService, у которого recordOrFail бросает исключение.
+     */
+    public function testRevealFailsClosedWhenAuditWriteFails(): void
+    {
+        $r = $this->bootRoles();
+        $id = $this->targetMemberWithPii($this->memberByTg(800)->ref_code);
+
+        // Подменяем сервис аудита: строгая запись reveal бросает — действие должно отмениться.
+        $mock = $this->createMock(AuditLogService::class);
+        $mock->method('recordOrFail')->willThrowException(new RuntimeException('audit down'));
+        $this->app->instance(AuditLogService::class, $mock);
+
+        $res = $this->postJson("/api/v1/admin/members/{$id}/pii/reveal", [], $this->adminHeaders($r['ownerData']))
+            ->assertStatus(503);
+
+        // PII НЕ должен утечь в теле ответа ни при каком ключе.
+        $raw = $res->getContent();
+        $this->assertStringNotContainsString(self::TG_USERNAME, $raw);
+        $this->assertStringNotContainsString(self::TON_ADDR, $raw);
+        $this->assertNull($res->json('data'));
     }
 
     // --- reveal RBAC negative-cases ---
