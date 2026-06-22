@@ -10,6 +10,7 @@ import MarketingPlan from './MarketingPlan';
 import Finances from './Finances';
 import Operations from './Operations';
 import Products from './Products';
+import Orders from './Orders';
 import Kyc from './Kyc';
 import AuditLog from './AuditLog';
 
@@ -21,6 +22,7 @@ const SECTIONS = [
     { key: 'finances', label: 'Финансы', roles: ['owner', 'finance'], render: () => <Finances /> },
     { key: 'operations', label: 'Операции', roles: ['owner', 'finance', 'support'], render: () => <Operations /> },
     { key: 'products', label: 'Продукты', roles: ['owner', 'support'], render: () => <Products /> },
+    { key: 'orders', label: 'Заказы', roles: ['owner', 'support'], render: () => <Orders /> },
     { key: 'kyc', label: 'KYC', roles: ['owner', 'finance'], render: () => <Kyc /> },
     { key: 'audit', label: 'Аудит', roles: ['owner'], render: () => <AuditLog /> },
 ];

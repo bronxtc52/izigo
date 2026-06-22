@@ -38,10 +38,10 @@ const Kyc = () => {
     const columns = [
         { title: 'ID', dataIndex: 'id' },
         { title: 'Партнёр', dataIndex: 'member_id', render: (v) => `#${v}` },
-        { title: 'Статус', dataIndex: 'review_status', render: (v) => <Tag color={STATUS[v]}>{v}</Tag> },
+        { title: 'Статус', dataIndex: 'status', render: (v) => <Tag color={STATUS[v]}>{v}</Tag> },
         { title: 'Причина', dataIndex: 'reject_reason', render: (v) => v || '' },
         {
-            title: '', render: (_, r) => r.review_status === 'pending' && (
+            title: '', render: (_, r) => r.status === 'pending' && (
                 <Space>
                     <Button size="small" type="primary" onClick={() => review(r.id, true)}>Одобрить</Button>
                     <Button size="small" danger onClick={() => { setRejectId(r.id); setReason(''); }}>Отклонить</Button>

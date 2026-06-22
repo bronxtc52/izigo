@@ -10,8 +10,23 @@ import {
 } from '@ant-design/icons';
 import { useTelegram, antdThemeFromTelegram, miniAppPalette } from './telegram';
 import { tint, bonusTint, statusTint, roleTint, bonusDot, numFont } from './tokens';
-import { mmMe, mmDashboard, mmRank, mmTree, mmWallet, mmWalletTx, mmWithdrawals, mmWithdrawCreate, PACKAGES } from './api';
+import {
+    mmMe, mmDashboard, mmRank, mmTree, mmWallet, mmWalletTx, mmWithdrawals, mmWithdrawCreate,
+    mmTopup, mmKyc, mmKycSubmit, PACKAGES,
+} from './api';
 import MiniAppShop from './MiniAppShop';
+import TonPayCheckout from './TonPayCheckout';
+
+// Базовая проверка user-friendly TON-адреса (48 символов base64url, префикс EQ/UQ/kQ/0Q…).
+// Backend трактует payout_details как TON-адрес получателя USDT (валидации формата на бэке нет).
+const isTonAddress = (s) => /^[EUk0][Qf][A-Za-z0-9_-]{46}$/.test(String(s || '').trim());
+
+const KYC_STATUS = {
+    none: { label: 'не пройдена', kind: 'neutral' },
+    pending: { label: 'на проверке', kind: 'amber' },
+    approved: { label: 'подтверждена', kind: 'green' },
+    rejected: { label: 'отклонена', kind: 'amber' },
+};
 
 const TYPE_LABEL = { binary: 'Бинар', referral: 'Реферал', leader: 'Лидер', rank: 'Ранг' };
 const TX_SOURCE_LABEL = { accrual: 'Начисление', withdrawal: 'Вывод' };
@@ -81,8 +96,16 @@ const MiniAppShell = () => {
     const [serverError, setServerError] = useState(false);
     const [wdOpen, setWdOpen] = useState(false);
     const [wdAmount, setWdAmount] = useState(null);
-    const [wdDetails, setWdDetails] = useState('');
+    const [wdDetails, setWdDetails] = useState(''); // = TON-адрес получателя USDT (payout_details на бэке)
     const [wdSubmitting, setWdSubmitting] = useState(false);
+    // F5: пополнение внутреннего USDT-баланса через тот же TON Pay checkout.
+    const [topupOpen, setTopupOpen] = useState(false);
+    const [topupAmount, setTopupAmount] = useState(null);
+    const [topupSubmitting, setTopupSubmitting] = useState(false);
+    const [topupInvoice, setTopupInvoice] = useState(null);
+    // F6: KYC-статус партнёра.
+    const [kyc, setKyc] = useState(null);
+    const [kycSubmitting, setKycSubmitting] = useState(false);
 
     const themeConfig = useMemo(() => antdThemeFromTelegram(theme, scheme), [theme, scheme]);
     const pal = useMemo(() => miniAppPalette(theme, scheme), [theme, scheme]);
@@ -104,13 +127,14 @@ const MiniAppShell = () => {
         setDash(d?.data ?? null);
         setRank(r?.data ?? null);
         setTree(t?.data ?? null);
-        // Кошелёк/выводы (Фаза 3) — опциональны: их сбой НЕ роняет кабинет, просто пустые секции.
-        const [w, wtx, wd] = await Promise.all([
-            mmWallet(initData), mmWalletTx(initData), mmWithdrawals(initData),
+        // Кошелёк/выводы (Фаза 3) + KYC (Фаза 4) — опциональны: их сбой НЕ роняет кабинет.
+        const [w, wtx, wd, k] = await Promise.all([
+            mmWallet(initData), mmWalletTx(initData), mmWithdrawals(initData), mmKyc(initData),
         ]);
         setWallet(w?.error ? null : (w?.data ?? null));
         setWalletTx(wtx?.error ? [] : (wtx?.data?.items ?? []));
         setWithdrawals(Array.isArray(wd?.data) ? wd.data : []);
+        setKyc(k?.error ? null : (k?.data ?? null));
         setLoading(false);
     };
 
@@ -124,7 +148,7 @@ const MiniAppShell = () => {
     const onWithdraw = async () => {
         const amount = Number(wdAmount);
         if (!amount || amount <= 0) { message.error('Укажите сумму вывода'); return; }
-        if (!wdDetails.trim()) { message.error('Укажите реквизиты'); return; }
+        if (!isTonAddress(wdDetails)) { message.error('Укажите корректный TON-адрес (USDT)'); return; }
         setWdSubmitting(true);
         const res = await mmWithdrawCreate(initData, amount.toFixed(2), wdDetails.trim());
         setWdSubmitting(false);
@@ -135,6 +159,34 @@ const MiniAppShell = () => {
         setWdDetails('');
         setWdOpen(false);
         load();
+    };
+
+    // F5: создать счёт на пополнение → открыть TON Pay checkout (без заказа, только зачисление).
+    const onTopup = async () => {
+        const amount = Number(topupAmount);
+        if (!amount || amount <= 0) { message.error('Укажите сумму пополнения'); return; }
+        setTopupSubmitting(true);
+        const res = await mmTopup(initData, Math.round(amount * 100)); // доллары → центы
+        setTopupSubmitting(false);
+        if (res?.error) { message.error('Не удалось создать счёт на пополнение'); return; }
+        wa?.HapticFeedback?.impactOccurred?.('light');
+        setTopupOpen(false);
+        setTopupAmount(null);
+        setTopupInvoice(res?.data ?? null);
+    };
+
+    const onTopupPaid = () => { setTopupInvoice(null); load(); };
+
+    // F6: подать на верификацию. Реальный сбор документов через Telegram Passport — Фаза 5
+    // (NEEDS-LIVE-VERIFY); здесь intake-заявка переводит KYC в pending для ручного аппрува.
+    const onKycSubmit = async () => {
+        setKycSubmitting(true);
+        const res = await mmKycSubmit(initData, [{ type: 'passport', source: 'mini_app_intake' }]);
+        setKycSubmitting(false);
+        if (res?.error) { message.error('Не удалось отправить заявку на верификацию'); return; }
+        message.success('Заявка на верификацию отправлена');
+        wa?.HapticFeedback?.notificationOccurred?.('success');
+        setKyc(res?.data ?? null);
     };
 
     const onCopyRef = () => {
@@ -200,8 +252,11 @@ const MiniAppShell = () => {
                                             <div style={{ fontSize: 11, color: pal.error }}>к компенсации ${wallet.clawback_debt}</div>
                                         )}
                                     </div>
-                                    <Button type="primary" disabled={Number(wallet?.available ?? 0) <= 0}
-                                        onClick={() => setWdOpen(true)}>Вывести</Button>
+                                    <Flex vertical gap={8}>
+                                        <Button type="primary" disabled={Number(wallet?.available ?? 0) <= 0}
+                                            onClick={() => setWdOpen(true)}>Вывести</Button>
+                                        <Button onClick={() => { setTopupAmount(null); setTopupOpen(true); }}>Пополнить</Button>
+                                    </Flex>
                                 </Flex>
                             </Card>
 
@@ -424,6 +479,33 @@ const MiniAppShell = () => {
                                     )}
                                 </Flex>
                             </Card>
+                            <Card size="small" title="Верификация (KYC)">
+                                {(() => {
+                                    const s = kyc?.status ?? 'none';
+                                    const k = KYC_STATUS[s] ?? KYC_STATUS.none;
+                                    const t = tint(k.kind, isDark);
+                                    return (
+                                        <>
+                                            <Flex justify="space-between" align="center">
+                                                <span style={{ fontSize: 13 }}>Статус</span>
+                                                <Tag style={{ background: t.bg, color: t.color, border: 'none', fontWeight: 600 }}>{k.label}</Tag>
+                                            </Flex>
+                                            {s === 'rejected' && kyc?.reject_reason && (
+                                                <div style={{ fontSize: 11.5, color: pal.error, marginTop: 6 }}>Причина: {kyc.reject_reason}</div>
+                                            )}
+                                            {(s === 'none' || s === 'rejected') && (
+                                                <Button type="primary" block style={{ marginTop: 10 }} loading={kycSubmitting}
+                                                    onClick={onKycSubmit}>Пройти верификацию</Button>
+                                            )}
+                                            {s === 'pending' && (
+                                                <div style={{ fontSize: 11.5, color: pal.muted, marginTop: 8 }}>
+                                                    Заявка на проверке. Дождитесь решения — это требуется для вывода крупных сумм.
+                                                </div>
+                                            )}
+                                        </>
+                                    );
+                                })()}
+                            </Card>
                             <Card size="small" title="Настройки">
                                 <List>
                                     <List.Item>Ранг <span style={{ color: pal.muted }}>{me?.rank?.alias ?? 'нет'} ›</span></List.Item>
@@ -461,15 +543,33 @@ const MiniAppShell = () => {
                     })}
                 </div>
 
-                {/* Модалка вывода средств */}
+                {/* Модалка вывода средств (on-chain USDT в сети TON) */}
                 <Modal title="Вывод средств" open={wdOpen} onOk={onWithdraw} onCancel={() => setWdOpen(false)}
                     okText="Запросить вывод" confirmLoading={wdSubmitting}>
                     <div style={{ fontSize: 12, color: pal.muted, marginBottom: 8 }}>Доступно: ${wallet?.available ?? '0.00'}</div>
                     <InputNumber style={{ width: '100%', marginBottom: 8 }} min={0.01} step={0.01} precision={2}
                         prefix="$" placeholder="Сумма" value={wdAmount} onChange={setWdAmount} />
-                    <Input.TextArea rows={2} maxLength={1000} placeholder="Реквизиты (банк/крипто-кошелёк)"
+                    <Input.TextArea rows={2} maxLength={70} placeholder="TON-адрес для USDT (например EQ…)"
                         value={wdDetails} onChange={(e) => setWdDetails(e.target.value)} />
+                    <div style={{ fontSize: 11, color: pal.muted, marginTop: 6 }}>
+                        Выплата приходит в USDT на указанный TON-адрес. Проверьте адрес — ошибка необратима.
+                    </div>
                 </Modal>
+
+                {/* Модалка пополнения внутреннего USDT-баланса (F5) */}
+                <Modal title="Пополнение баланса" open={topupOpen} onOk={onTopup} onCancel={() => setTopupOpen(false)}
+                    okText="Пополнить" confirmLoading={topupSubmitting}>
+                    <div style={{ fontSize: 12, color: pal.muted, marginBottom: 8 }}>
+                        Пополнение USDT через TON Pay. Баланс используется для автозаказов и покупок.
+                    </div>
+                    <InputNumber style={{ width: '100%' }} min={0.01} max={1000000} step={0.01} precision={2}
+                        prefix="$" placeholder="Сумма" value={topupAmount} onChange={setTopupAmount} />
+                </Modal>
+
+                {/* Checkout пополнения — без заказа (order=null): только зачисление на баланс */}
+                <TonPayCheckout open={!!topupInvoice} invoice={topupInvoice} order={null}
+                    initData={initData} pal={pal} wa={wa}
+                    onClose={() => setTopupInvoice(null)} onPaid={onTopupPaid} />
                 </>
                 )}
             </div>
