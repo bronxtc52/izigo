@@ -83,6 +83,7 @@ class WithdrawalService
     public function listForAdmin(?string $status = null): array
     {
         $items = WithdrawalRequest::query()
+            ->with('payoutTransaction')
             ->when($status !== null && $status !== '', fn ($q) => $q->where('status', $status))
             ->orderByDesc('id')
             ->get();
@@ -97,6 +98,9 @@ class WithdrawalService
 
             return $this->present($w) + [
                 'member_id' => $w->member_id,
+                // On-chain выплата (если уже отправлена) — хэш транзакции и её статус для прозрачности.
+                'tx_hash' => $w->payoutTransaction?->tx_hash,
+                'payout_status' => $w->payoutTransaction?->status,
                 // Баланс партнёра — финансист решает по «протухшей» заявке (held не подлежит clawback).
                 'member_balance' => [
                     'available' => $this->centsToDecimal($wallet->available_cents ?? 0),
