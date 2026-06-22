@@ -249,3 +249,11 @@ export const assignTicket = (token, id, assignedTo = undefined) =>
     req(`/api/v1/admin/tickets/${id}/assign`, token, 'POST',
         assignedTo === undefined ? {} : { assigned_to: assignedTo });
 // <<< Block C helpdesk
+
+// >>> Block C monitoring
+// C7: READ-ONLY мониторинг outbox/планировщика (owner-only). Только чтение — без
+// write-вызовов. Token-first: первый аргумент undefined → токен из localStorage.
+export const fetchMonitoringOutbox = (token) => req('/api/v1/admin/monitoring/outbox', token);
+export const fetchMonitoringProblems = (token, limit = 50) =>
+    req(`/api/v1/admin/monitoring/outbox/problems?limit=${limit}`, token);
+// <<< Block C monitoring
