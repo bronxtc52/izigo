@@ -74,6 +74,15 @@ class CabinetController
         ));
     }
 
+    public function walletStatement(Request $request): JsonResponse
+    {
+        return $this->guarded(fn () => $this->wallet->statement(
+            $this->member($request),
+            $request->query('from'),
+            $request->query('to'),
+        ));
+    }
+
     public function withdrawals(Request $request): JsonResponse
     {
         return $this->guarded(fn () => $this->withdrawals->listForMember($this->member($request)));

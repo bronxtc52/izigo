@@ -31,6 +31,14 @@ export const mmActivate = (i, packageId) =>
 // Кошелёк (Фаза 3): баланс, лента движений, заявки на вывод.
 export const mmWallet = (i) => req('/api/v1/cabinet/wallet', i);
 export const mmWalletTx = (i) => req('/api/v1/cabinet/wallet/transactions', i);
+// A2: выписка за период (from/to — YYYY-MM-DD; пусто = вся история).
+export const mmWalletStatement = (i, from = '', to = '') => {
+    const p = new URLSearchParams();
+    if (from) p.set('from', from);
+    if (to) p.set('to', to);
+    const q = p.toString();
+    return req(`/api/v1/cabinet/wallet/statement${q ? `?${q}` : ''}`, i);
+};
 export const mmWithdrawals = (i) => req('/api/v1/cabinet/withdrawals', i);
 export const mmWithdrawCreate = (i, amount, payoutDetails) =>
     req('/api/v1/cabinet/withdrawals', i, 'POST', { amount, payout_details: payoutDetails });

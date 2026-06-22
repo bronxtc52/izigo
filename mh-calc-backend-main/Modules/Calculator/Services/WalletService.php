@@ -61,6 +61,45 @@ class WalletService
         ];
     }
 
+    /**
+     * Выписка партнёра за период [from,to] (A2): движения доступного баланса по created_at +
+     * сводка (поступления/списания/итог). Источник — тот же ledger (member_available);
+     * каждое начисление привязано к событию-«прогону» (source_id). Тип бонуса ledger не
+     * хранит — разбивка по типам отдаётся снимком в dashboard(). Деньги — USD-центы/decimal.
+     * Примечание: начисления, ушедшие в погашение clawback-долга, в available не попадают —
+     * это выписка по доступному балансу (что партнёр реально может тратить).
+     */
+    public function statement(Member $member, ?string $from, ?string $to): array
+    {
+        $query = LedgerEntry::query()
+            ->where('member_id', $member->id)
+            ->where('account_type', LedgerService::ACC_AVAILABLE)
+            ->when($from, fn ($q) => $q->whereDate('created_at', '>=', $from))
+            ->when($to, fn ($q) => $q->whereDate('created_at', '<=', $to))
+            ->orderByDesc('id')
+            ->get(['id', 'direction', 'amount_cents', 'source_type', 'source_id', 'created_at']);
+
+        $creditedCents = (int) $query->where('direction', LedgerService::CR)->sum('amount_cents');
+        $debitedCents = (int) $query->where('direction', LedgerService::DR)->sum('amount_cents');
+
+        return [
+            'items' => $query->map(fn (LedgerEntry $e) => [
+                'id' => $e->id,
+                'amount' => $this->centsToDecimal(
+                    $e->direction === LedgerService::CR ? $e->amount_cents : -$e->amount_cents,
+                ),
+                'source_type' => $e->source_type, // accrual | withdrawal
+                'source_id' => $e->source_id,
+                'created_at' => $e->created_at?->toIso8601String(),
+            ])->all(),
+            'summary' => [
+                'credited_cents' => $creditedCents,
+                'debited_cents' => $debitedCents,
+                'net_cents' => $creditedCents - $debitedCents,
+            ],
+        ];
+    }
+
     /** Центы → строка decimal "D.CC" без float (знак сохраняется). */
     private function centsToDecimal(int $cents): string
     {

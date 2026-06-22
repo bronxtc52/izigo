@@ -2,7 +2,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
     ConfigProvider, Card, Statistic, Button, Tag, List, Spin, Result, Progress,
-    Input, InputNumber, Modal, Avatar, Divider, Flex, message,
+    Input, InputNumber, Modal, Avatar, Divider, Flex, DatePicker, message,
 } from 'antd';
 import {
     WalletOutlined, TeamOutlined, TrophyOutlined, UserOutlined,
@@ -11,7 +11,7 @@ import {
 import { useTelegram, antdThemeFromTelegram, miniAppPalette } from './telegram';
 import { tint, bonusTint, statusTint, roleTint, bonusDot, numFont } from './tokens';
 import {
-    mmMe, mmDashboard, mmRank, mmTree, mmWallet, mmWalletTx, mmWithdrawals, mmWithdrawCreate,
+    mmMe, mmDashboard, mmRank, mmTree, mmWallet, mmWalletTx, mmWalletStatement, mmWithdrawals, mmWithdrawCreate,
     mmTopup, mmKyc, mmKycSubmit, PACKAGES,
 } from './api';
 import MiniAppShop from './MiniAppShop';
@@ -30,6 +30,28 @@ const KYC_STATUS = {
 
 const TYPE_LABEL = { binary: 'Бинар', referral: 'Реферал', leader: 'Лидер', rank: 'Ранг' };
 const TX_SOURCE_LABEL = { accrual: 'Начисление', withdrawal: 'Вывод' };
+
+// A2: экспорт выписки (массив движений) в CSV-файл, без сторонних либ.
+const exportStatementCsv = (items) => {
+    const esc = (v) => {
+        const s = v == null ? '' : String(v);
+        return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+    const head = 'date,type,amount_usd,source_id';
+    const body = items.map((t) => [
+        esc(t.created_at ?? ''),
+        esc(TX_SOURCE_LABEL[t.source_type] ?? t.source_type),
+        esc(t.amount),
+        esc(t.source_id ?? ''),
+    ].join(',')).join('\n');
+    const blob = new Blob([`${head}\n${body}`], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'statement.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+};
 const WD_STATUS = {
     requested: { label: 'на рассмотрении', kind: 'blue' },
     approved: { label: 'одобрена', kind: 'blue' },
@@ -106,6 +128,11 @@ const MiniAppShell = () => {
     // F6: KYC-статус партнёра.
     const [kyc, setKyc] = useState(null);
     const [kycSubmitting, setKycSubmitting] = useState(false);
+    // A2: выписка партнёра за период.
+    const [stmtOpen, setStmtOpen] = useState(false);
+    const [stmtRange, setStmtRange] = useState(null);
+    const [stmtData, setStmtData] = useState(null);
+    const [stmtLoading, setStmtLoading] = useState(false);
 
     const themeConfig = useMemo(() => antdThemeFromTelegram(theme, scheme), [theme, scheme]);
     const pal = useMemo(() => miniAppPalette(theme, scheme), [theme, scheme]);
@@ -160,6 +187,19 @@ const MiniAppShell = () => {
         setWdOpen(false);
         load();
     };
+
+    // A2: загрузить выписку за выбранный период (пустой период = вся история).
+    const onLoadStatement = async () => {
+        setStmtLoading(true);
+        const from = stmtRange?.[0] ? stmtRange[0].format('YYYY-MM-DD') : '';
+        const to = stmtRange?.[1] ? stmtRange[1].format('YYYY-MM-DD') : '';
+        const res = await mmWalletStatement(initData, from, to);
+        setStmtLoading(false);
+        if (res?.error) { message.error('Не удалось загрузить выписку'); return; }
+        setStmtData(res?.data ?? null);
+    };
+
+    const openStatement = () => { setStmtData(null); setStmtRange(null); setStmtOpen(true); onLoadStatement(); };
 
     // F5: создать счёт на пополнение → открыть TON Pay checkout (без заказа, только зачисление).
     const onTopup = async () => {
@@ -341,7 +381,11 @@ const MiniAppShell = () => {
 
                             {/* История движений по доступному балансу */}
                             {walletTx.length > 0 && (
-                                <Card size="small" title="История операций">
+                                <Card
+                                    size="small"
+                                    title="История операций"
+                                    extra={<Button size="small" type="link" onClick={openStatement}>Выписка</Button>}
+                                >
                                     <List
                                         dataSource={walletTx}
                                         renderItem={(tx) => {
@@ -361,6 +405,67 @@ const MiniAppShell = () => {
                                     />
                                 </Card>
                             )}
+
+                            {/* A2: выписка за период — фильтр, сводка, экспорт CSV */}
+                            <Modal
+                                open={stmtOpen}
+                                onCancel={() => setStmtOpen(false)}
+                                title="Выписка за период"
+                                footer={null}
+                                styles={{ body: { paddingTop: 8 } }}
+                            >
+                                <Flex gap={8} align="center" wrap style={{ marginBottom: 12 }}>
+                                    <DatePicker.RangePicker
+                                        value={stmtRange}
+                                        onChange={setStmtRange}
+                                        size="small"
+                                        allowClear
+                                    />
+                                    <Button size="small" type="primary" loading={stmtLoading} onClick={onLoadStatement}>
+                                        Показать
+                                    </Button>
+                                    <Button
+                                        size="small"
+                                        icon={<ExportOutlined />}
+                                        disabled={!stmtData?.items?.length}
+                                        onClick={() => exportStatementCsv(stmtData.items)}
+                                    >
+                                        CSV
+                                    </Button>
+                                </Flex>
+
+                                {stmtData?.summary && (
+                                    <Flex justify="space-between" style={{ marginBottom: 12 }}>
+                                        <Statistic title="Поступило" value={`$${(stmtData.summary.credited_cents / 100).toFixed(2)}`}
+                                            valueStyle={{ fontSize: 16, color: pal.success }} />
+                                        <Statistic title="Списано" value={`$${(stmtData.summary.debited_cents / 100).toFixed(2)}`}
+                                            valueStyle={{ fontSize: 16, color: pal.muted }} />
+                                        <Statistic title="Итог" value={`$${(stmtData.summary.net_cents / 100).toFixed(2)}`}
+                                            valueStyle={{ fontSize: 16 }} />
+                                    </Flex>
+                                )}
+
+                                <List
+                                    size="small"
+                                    loading={stmtLoading}
+                                    locale={{ emptyText: 'Нет движений за период' }}
+                                    dataSource={stmtData?.items ?? []}
+                                    renderItem={(tx) => {
+                                        const neg = String(tx.amount).startsWith('-');
+                                        return (
+                                            <List.Item>
+                                                <span style={{ color: pal.muted, fontSize: 12 }}>
+                                                    {TX_SOURCE_LABEL[tx.source_type] ?? tx.source_type}
+                                                    {tx.created_at ? ` · ${new Date(tx.created_at).toLocaleDateString()}` : ''}
+                                                </span>
+                                                <span style={{ ...numFont, color: neg ? pal.muted : pal.success, fontWeight: 700 }}>
+                                                    ${tx.amount}
+                                                </span>
+                                            </List.Item>
+                                        );
+                                    }}
+                                />
+                            </Modal>
                         </>
                     )}
 

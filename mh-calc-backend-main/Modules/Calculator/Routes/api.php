@@ -81,6 +81,7 @@ Route::group([
     // Кошелёк (Фаза 3): баланс из кэша + лента движений доступного баланса.
     Route::get('/wallet', [CabinetController::class, 'wallet'])->name('wallet');
     Route::get('/wallet/transactions', [CabinetController::class, 'walletTransactions'])->name('wallet-transactions');
+    Route::get('/wallet/statement', [CabinetController::class, 'walletStatement'])->name('wallet-statement');
     // Заявки на вывод партнёра (Фаза 3): создание с холдом + список своих.
     Route::get('/withdrawals', [CabinetController::class, 'withdrawals'])->name('withdrawals');
     Route::post('/withdrawals', [CabinetController::class, 'createWithdrawal'])->name('withdrawals-create');
