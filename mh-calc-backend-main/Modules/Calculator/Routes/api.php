@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use Modules\Calculator\Http\Controllers\AdminController;
+use Modules\Calculator\Http\Controllers\AdminReportController;
 use Modules\Calculator\Http\Controllers\AuthController;
 use Modules\Calculator\Http\Controllers\CabinetController;
 use Modules\Calculator\Http\Controllers\CalculatorController;
@@ -142,6 +143,18 @@ Route::group([
     // Аудит-лог админ-действий (план/роли/выплаты). Только владелец.
     Route::get('/audit-log', [AdminController::class, 'auditLog'])
         ->middleware('calculator.role:owner')->name('audit-log');
+
+    // Дашборд (KPI) + Финансы (ledger, кошелёк партнёра) + Операции (платежи, autoship).
+    Route::get('/dashboard', [AdminReportController::class, 'dashboard'])
+        ->middleware('calculator.role:owner,finance,support')->name('dashboard');
+    Route::get('/ledger', [AdminReportController::class, 'ledger'])
+        ->middleware('calculator.role:owner,finance')->name('ledger');
+    Route::get('/members/{id}/wallet', [AdminReportController::class, 'memberWallet'])
+        ->middleware('calculator.role:owner,finance,support')->where('id', '[0-9]+')->name('member-wallet');
+    Route::get('/payments', [AdminReportController::class, 'payments'])
+        ->middleware('calculator.role:owner,finance,support')->name('payments');
+    Route::get('/autoship', [AdminReportController::class, 'autoship'])
+        ->middleware('calculator.role:owner,support')->name('admin-autoship');
 
     // Заявки на вывод (Фаза 3): очередь + статус-машина. Только финансист/владелец.
     Route::get('/withdrawals', [AdminController::class, 'withdrawals'])
