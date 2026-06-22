@@ -117,6 +117,40 @@ gh secret set FRONTEND_URL -b "https://<frontend-fqdn>" -R bronxtc52/izigo
 - Azure Monitor алёрты ACA (CPU/RAM/доступность) — см. kb-azure-monitoring.
 - Sentry: smoke-событие, релиз-тег = `github.sha` (best-effort).
 
+## 10. Кастомные домены (временные)
+Фронт `ca-izigo-frontend` привязан к двум поддоменам `adarasoft.com` (зона в RG `dns-rg`):
+- `izigo.adarasoft.com` — основной фронт.
+- `admin.izigo.adarasoft.com` — placeholder под будущую веб-админку; **сейчас отдаёт
+  тот же фронт** (отдельного admin-приложения нет, админка — вкладка `MiniAppAdmin`
+  внутри Mini App).
+
+Оба — поддомены → валидация по CNAME + asuid TXT, managed-сертификат бесплатный.
+`VID` = `customDomainVerificationId` приложения
+(`az containerapp show -n ca-izigo-frontend -g rg-izigo-beta-neu --query properties.customDomainVerificationId -o tsv`).
+```bash
+FQDN=ca-izigo-frontend.livelycoast-2b4dcf83.northeurope.azurecontainerapps.io
+VID=<customDomainVerificationId>
+for SUB in izigo admin.izigo; do
+  # DNS (зона adarasoft.com в dns-rg)
+  az network dns record-set cname set-record -g dns-rg -z adarasoft.com \
+    --record-set-name "$SUB" --cname "$FQDN"
+  az network dns record-set txt add-record -g dns-rg -z adarasoft.com \
+    --record-set-name "asuid.$SUB" --value "$VID"
+  # привязка + managed cert (выпуск до ~20 мин)
+  H="$SUB.adarasoft.com"
+  az containerapp hostname add  -n ca-izigo-frontend -g rg-izigo-beta-neu --hostname "$H"
+  az containerapp hostname bind -n ca-izigo-frontend -g rg-izigo-beta-neu \
+    --hostname "$H" --environment cae-izigo --validation-method CNAME
+done
+```
+Проверка: `az containerapp hostname list -n ca-izigo-frontend -g rg-izigo-beta-neu -o table`
+(оба `SniEnabled`), `curl -sI https://izigo.adarasoft.com` → `HTTP/2 200`.
+
+> ⚠️ Привязка живёт только в ACA (IaC/Bicep нет) — при пересоздании приложения повторить.
+> `NEXT_PUBLIC_SERVER_FRONT_URL` и TonConnect-манифест запечены при build на старый ACA-FQDN
+> (см. §7, secret `FRONTEND_URL`) — при официальном переключении продукта на новый домен
+> нужна **пересборка фронта** с новым build-arg, не только привязка домена.
+
 ## Известные ограничения Фазы 0 (доработать в Фазе 1)
 - Backend на `artisan serve` (не прод) → php-fpm/nginx или Octane.
 - Миграции на старте контейнера (single-replica) → вынести в ACA Job при multi-replica.
