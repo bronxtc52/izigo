@@ -222,3 +222,10 @@ export const exportMember = async (token, id, format = 'json', masked = true) =>
     }
 };
 // <<< Block C exports
+
+// >>> Block C copartners
+// C6: READ-ONLY просмотр со-партнёров/наследников участника (owner,finance,support).
+// Никаких write-вызовов в админке — редактирование доступно только самому партнёру
+// в Mini App (cabinet). Справочные данные, на деньги/дерево не влияют.
+export const fetchMemberCopartners = (token, id) => req(`/api/v1/admin/members/${id}/copartners`, token);
+// <<< Block C copartners

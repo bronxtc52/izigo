@@ -84,3 +84,13 @@ export const mmNotificationsUnread = (i) => req('/api/v1/cabinet/notifications/u
 export const mmNotificationRead = (i, id) => req(`/api/v1/cabinet/notifications/${id}/read`, i, 'POST');
 export const mmNotificationReadAll = (i) => req('/api/v1/cabinet/notifications/read-all', i, 'POST');
 // <<< Block C notifications
+
+// >>> Block C copartners
+// C6: со-партнёры / наследники в профиле (справочные данные). Партнёр CRUD-ит ТОЛЬКО
+// свои записи (бэкенд скоупит по текущему участнику). Несколько записей разрешено,
+// сумма долей не валидируется. payload: { kind: 'copartner'|'heir', full_name, phone?, share_percent?, note? }.
+export const mmCopartners = (i) => req('/api/v1/cabinet/copartners', i);
+export const mmCopartnerCreate = (i, payload) => req('/api/v1/cabinet/copartners', i, 'POST', payload);
+export const mmCopartnerUpdate = (i, id, payload) => req(`/api/v1/cabinet/copartners/${id}`, i, 'PUT', payload);
+export const mmCopartnerDelete = (i, id) => req(`/api/v1/cabinet/copartners/${id}`, i, 'DELETE');
+// <<< Block C copartners

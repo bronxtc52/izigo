@@ -29,6 +29,17 @@ const MemberCard = ({ id, creds, api = tokenApi, onUnauthorized = () => {}, piiA
     const [revealing, setRevealing] = useState(false);
     const [exporting, setExporting] = useState(false);
 
+    // --- C6 со-партнёры/наследники (read-only в админке) ---
+    const [copartners, setCopartners] = useState([]);
+
+    const loadCopartners = async () => {
+        if (!piiApi?.fetchMemberCopartners) return;
+        const res = await piiApi.fetchMemberCopartners(creds, id);
+        if (piiApi.isUnauthorized(res)) { onUnauthorized(); return; }
+        if (piiApi.isForbidden(res)) { setCopartners([]); return; }
+        setCopartners(Array.isArray(res?.data) ? res.data : []);
+    };
+
     const loadPii = async () => {
         if (!piiApi) return;
         const res = await piiApi.fetchMemberPii(creds, id);
@@ -73,7 +84,7 @@ const MemberCard = ({ id, creds, api = tokenApi, onUnauthorized = () => {}, piiA
     };
 
     useEffect(() => {
-        if (creds) { load(); loadPii(); }
+        if (creds) { load(); loadPii(); loadCopartners(); }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [creds, id]);
 
@@ -159,6 +170,37 @@ const MemberCard = ({ id, creds, api = tokenApi, onUnauthorized = () => {}, piiA
                     ) : (
                         <Tag color="default">Данные замаскированы — раскрытие доступно только владельцу</Tag>
                     )}
+                </Card>
+            ) : null}
+
+            {piiApi?.fetchMemberCopartners ? (
+                <Card title="Совладельцы / Наследники" size="small">
+                    {copartners.length ? (
+                        <Descriptions column={1} size="small" bordered>
+                            {copartners.map((c) => (
+                                <Descriptions.Item
+                                    key={c.id}
+                                    label={(
+                                        <Tag color={c.kind === 'heir' ? 'purple' : 'blue'}>
+                                            {c.kind === 'heir' ? 'Наследник' : 'Совладелец'}
+                                        </Tag>
+                                    )}
+                                >
+                                    <Space size={12} wrap>
+                                        <b>{c.full_name}</b>
+                                        {c.phone ? <span>{c.phone}</span> : null}
+                                        {c.share_percent != null ? <span>{c.share_percent}%</span> : null}
+                                        {c.note ? <span style={{ color: '#888' }}>{c.note}</span> : null}
+                                    </Space>
+                                </Descriptions.Item>
+                            ))}
+                        </Descriptions>
+                    ) : (
+                        <span style={{ color: '#888' }}>Записей нет</span>
+                    )}
+                    <div style={{ marginTop: 8 }}>
+                        <Tag color="default">Только просмотр — записи ведёт сам участник в профиле</Tag>
+                    </div>
                 </Card>
             ) : null}
 
