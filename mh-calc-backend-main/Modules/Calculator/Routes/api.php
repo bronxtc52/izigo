@@ -172,6 +172,12 @@ Route::group([
     Route::get('/genealogy', [AdminReportController::class, 'genealogy'])
         ->middleware('calculator.role:owner,finance,support')->name('genealogy');
 
+    // Ручной перенос участника (B2): меняет ВХОД движка → owner-only, обязателен dry-run preview.
+    Route::post('/genealogy/preview-move', [AdminController::class, 'previewMove'])
+        ->middleware('calculator.role:owner')->name('genealogy-preview-move');
+    Route::post('/genealogy/move', [AdminController::class, 'move'])
+        ->middleware('calculator.role:owner')->name('genealogy-move');
+
     // Заявки на вывод (Фаза 3): очередь + статус-машина. Только финансист/владелец.
     Route::get('/withdrawals', [AdminController::class, 'withdrawals'])
         ->middleware('calculator.role:owner,finance')->name('withdrawals');

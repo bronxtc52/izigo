@@ -10,6 +10,7 @@ use InvalidArgumentException;
 use Modules\Calculator\Models\Member;
 use Modules\Calculator\Services\AdminService;
 use Modules\Calculator\Services\AuditLogService;
+use Modules\Calculator\Services\Placement\PlacementAdminService;
 use Modules\Calculator\Services\PlanSettingsService;
 use Modules\Calculator\Services\WithdrawalService;
 use RuntimeException;
@@ -27,7 +28,44 @@ class AdminController
         private readonly WithdrawalService $withdrawals,
         private readonly PlanSettingsService $planSettings,
         private readonly AuditLogService $audit,
+        private readonly PlacementAdminService $placement,
     ) {
+    }
+
+    /**
+     * B2: dry-run превью переноса участника в дереве — БЕЗ изменений. Возвращает valid/причину,
+     * before/after (path) и объём поддерева. owner-only на маршруте.
+     */
+    public function previewMove(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'member_id' => 'required|integer',
+            'parent_id' => 'required|integer',
+            'position' => 'required|in:left,right',
+        ]);
+
+        return $this->guarded(fn () => $this->placement->preview(
+            (int) $data['member_id'],
+            (int) $data['parent_id'],
+            $data['position'],
+        ));
+    }
+
+    /** B2: применить перенос участника (после превью). Транзакция + аудит. owner-only. */
+    public function move(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'member_id' => 'required|integer',
+            'parent_id' => 'required|integer',
+            'position' => 'required|in:left,right',
+        ]);
+
+        return $this->guarded(fn () => $this->placement->move(
+            $this->viewer($request)->id,
+            (int) $data['member_id'],
+            (int) $data['parent_id'],
+            $data['position'],
+        ));
     }
 
     public function members(Request $request): JsonResponse

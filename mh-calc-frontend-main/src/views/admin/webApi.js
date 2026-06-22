@@ -120,6 +120,11 @@ export const fetchReportBonusExpense = (token, params = {}) => req(`/api/v1/admi
 // Генеалогия (B1): бинарное дерево живой сети (read-only).
 export const fetchGenealogy = (token, rootId = null) =>
     req(`/api/v1/admin/genealogy${rootId ? `?root_id=${rootId}` : ''}`, token);
+// Перенос участника (B2, owner-only): dry-run preview (200 + valid) и применение.
+export const previewMovePlacement = (token, body) =>
+    req('/api/v1/admin/genealogy/preview-move', token, 'POST', body);
+export const movePlacement = (token, body) =>
+    mutate(token, '/api/v1/admin/genealogy/move', 'POST', body);
 
 // --- Продукты ---
 export const fetchProducts = (token) => req('/api/v1/admin/products', token);
