@@ -257,3 +257,14 @@ export const fetchMonitoringOutbox = (token) => req('/api/v1/admin/monitoring/ou
 export const fetchMonitoringProblems = (token, limit = 50) =>
     req(`/api/v1/admin/monitoring/outbox/problems?limit=${limit}`, token);
 // <<< Block C monitoring
+
+// >>> Block C i18n
+// C4: редактируемые переводы (DB-оверрайды поверх статики). list/upsert/delete — owner-only.
+// Token-first: первый аргумент undefined → токен из localStorage.
+export const fetchTranslationOverrides = (token, locale = '') =>
+    req(`/api/v1/admin/i18n/overrides${locale ? `?locale=${locale}` : ''}`, token);
+export const upsertTranslationOverride = (token, locale, key, value) =>
+    mutate(token, '/api/v1/admin/i18n/overrides', 'POST', { locale, key, value });
+export const deleteTranslationOverride = (token, locale, key) =>
+    mutate(token, '/api/v1/admin/i18n/overrides', 'DELETE', { locale, key });
+// <<< Block C i18n
