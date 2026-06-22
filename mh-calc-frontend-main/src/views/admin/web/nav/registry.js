@@ -11,11 +11,13 @@
 // чтобы merge-train разрешал конфликты тривиально). Порядок ролей соблюдает RBAC
 // бэка (owner проходит всегда). Пустой массив => меню админки визуально не меняется.
 
+import featureFlagsNav from './feature_flags.nav';
+
 // >>> Block C sections
 export const blockCSections = [
     // C7 monitoring  — import monitoringNav from './monitoring.nav'; → monitoringNav,
     // C5 exports     — import exportsNav   from './exports.nav';     → exportsNav,
-    // C3 featureFlags— import featureFlagsNav from './featureFlags.nav'; → featureFlagsNav,
+    featureFlagsNav, // C3 feature_flags (owner-only)
     // C2 helpdesk    — import helpdeskNav  from './helpdesk.nav';    → helpdeskNav,
     // C1 notifications — рассылки owner+support
     // (раскомментировать импорт сверху файла при добавлении секции)

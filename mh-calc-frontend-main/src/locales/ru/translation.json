@@ -30,17 +30,14 @@
     "structure_link_with_token": "Ссылка на структуру",
     "not_select_packages": "Выберите контракт",
     "without_contract_option": "Без контракта",
-
     "total_profit_structure": "Итоговая прибыль",
     "referral_bonus_short": "Реферал. бонус",
     "trade_turnover_structure": "Товарооборот стр",
     "leadership_bonus_structure": "Лидерский бонус",
     "qualified_reward_structure": "Квалифик. награда",
-
     "how_use_calculator": "Как использовать калькулятор",
     "discount_mh": "Скидка МН",
     "global_bonus": "Глобальный бонус",
-
     "how_use_calculator_modal_title": "Как использовать калькулятор МН",
     "how_use_calculator_modal_deck_1": "Постройте свою бинарную структуру, указывая значения контрактов и спонсоров для пользователей.",
     "how_use_calculator_modal_deck_2": "С помощью калькулятора вы сможете",
@@ -50,19 +47,26 @@
     "how_use_calculator_modal_deck_2_4": "Оценить ваш доход на основе расчетов",
     "how_use_calculator_modal_deck_2_5": "В калькуляторе используется продукт Cardio Marine с заданными значениями PV и BV для расчёта",
     "how_use_calculator_modal_deck_2_6": "Калькулятор выполняет расчёты только до статуса Серебряный Менеджер",
-
     "discount_mh_modal_title": "Что такое «Скидка МН»",
     "discount_mh_modal_desc_1": "Скидка МН - вознаграждение которое зависит исключительно от вашей личной покупки после оформления контракта Elite. С каждой личной покупки 10% будет возвращаться на бонусный счет.",
     "discount_mh_modal_desc_2": "Пример",
     "discount_mh_modal_desc_3": "Вы оформили покупку на сумму 54 000 BV.",
     "discount_mh_modal_desc_4": "Ваш бонус составит:",
-
     "global_bonus_modal_title": "Что такое «Глобальный бонус»",
     "global_bonus_modal_desc_1": "Глобальный бонус — это ваше вознаграждение за достижение статуса «Директора» и выше.",
     "global_bonus_modal_desc_2": "Ежемесячно компания выделяет 3% от глобального бизнес-оборота для выплат участникам, выполнившим квалификацию.",
     "global_bonus_modal_desc_3": "Бонус выплачивается один раз в квартал и его размер зависит от вашего статуса и итоговой суммы выполненных условий.",
-
     "premium_plan": "Премиальный план",
     "personal_account": "Личный кабинет",
-    "copy_defaul_str": "Скопировано в буфер обмена"
+    "copy_defaul_str": "Скопировано в буфер обмена",
+    "featureFlags": {
+        "title": "Фиче-флаги",
+        "colKey": "Ключ",
+        "colDescription": "Описание",
+        "colEnabled": "Включён",
+        "saved": "Сохранено",
+        "saveFailed": "Не удалось сохранить",
+        "ownerOnly": "Переключать может только владелец",
+        "forbidden": "Недостаточно прав"
+    }
 }

@@ -30,17 +30,14 @@
     "structure_link_with_token": "Бүтцийн холбоос",
     "not_select_packages": "Гэрээг сонго",
     "without_contract_option": "Гэрээгүй",
-
     "total_profit_structure": "Нийт ашиг",
     "referral_bonus_short": "Лавлагааны урамшуулал",
     "trade_turnover_structure": "Арилжааны эргэлт",
     "leadership_bonus_structure": "Удирдлагын урамшуулал",
     "qualified_reward_structure": "Чанартай шагнал",
-
     "how_use_calculator": "Тооцоолуурыг хэрхэн ашиглах вэ",
     "discount_mh": "MN хөнгөлөлт",
     "global_bonus": "Глобал урамшуулал",
-
     "how_use_calculator_modal_title": "MN тооцоолуурыг хэрхэн ашиглах вэ",
     "how_use_calculator_modal_deck_1": "Хэрэглэгчдэд зориулж гэрээ, ивээн тэтгэгчийг сонгож бинар бүтэцээ бий болго.",
     "how_use_calculator_modal_deck_2": "Тооцоолуурыг ашигласнаар та",
@@ -50,19 +47,26 @@
     "how_use_calculator_modal_deck_2_4": "Тооцоолол дээр үндэслэн орлогоо үнэлэх боломжтой.",
     "how_use_calculator_modal_deck_2_5": "Тооцоолуурт PV болон BV утгуудтай Cardio Marine бүтээгдэхүүнийг ашигладаг",
     "how_use_calculator_modal_deck_2_6": "Тооцоолуур зөвхөн Мөнгөний менежер хүртэл тооцоо хийдэг",
-
     "discount_mh_modal_title": "«MN хөнгөлөлт» гэж юу вэ",
     "discount_mh_modal_desc_1": "MN хөнгөлөлт бол Elite гэрээ байгуулсны дараах хувийн худалдан авалтад урамшуулал юм. Хувийн худалдан авалтын 10% урамшууллын дансанд буцаж ирнэ.",
     "discount_mh_modal_desc_2": "Жишээ",
     "discount_mh_modal_desc_3": "Та 54,000 BV-тэй бараа авсан.",
     "discount_mh_modal_desc_4": "Таны урамшуулал:",
-
     "global_bonus_modal_title": "«Глобал урамшуулал» гэж юу вэ",
     "global_bonus_modal_desc_1": "Глобал урамшуулал бол «Захирал» болон түүнээс дээш зэрэглэлд хүрсэн таны урамшуулал юм.",
     "global_bonus_modal_desc_2": "Компани сар бүр дэлхийн бизнесийн эргэлтийн 3%-ийг урамшуулал болгон өгдөг.",
     "global_bonus_modal_desc_3": "Урамшууллыг улиралд нэг удаа төлдөг бөгөөд хэмжээ нь таны статус болон хангасан нөхцлийн нийт дүнгээс хамаарна.",
-
     "premium_plan": "Дээд зэрэглэлийн төлөвлөгөө",
     "personal_account": "Хувийн данс",
-    "copy_defaul_str": "Түр санах ой руу хуулсан"
+    "copy_defaul_str": "Түр санах ой руу хуулсан",
+    "featureFlags": {
+        "title": "Фиче-флаги",
+        "colKey": "Ключ",
+        "colDescription": "Описание",
+        "colEnabled": "Включён",
+        "saved": "Сохранено",
+        "saveFailed": "Не удалось сохранить",
+        "ownerOnly": "Переключать может только владелец",
+        "forbidden": "Недостаточно прав"
+    }
 }

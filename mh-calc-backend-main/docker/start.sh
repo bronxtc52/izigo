@@ -12,6 +12,10 @@ php artisan migrate --force || true
 # поэтому безопасно при каждом старте; без этого «Магазин» пуст.
 php artisan db:seed --class="Modules\\Calculator\\Database\\Seeders\\ProductSeeder" --force || true
 
+# Block C (C3): начальный набор фиче-флагов, все выключены (deny-by-default).
+# Идемпотентно (firstOrCreate) — не перетирает выставленное администратором значение.
+php artisan db:seed --class="Modules\\Calculator\\Database\\Seeders\\FeatureFlagSeeder" --force || true
+
 # Планировщик Laravel (single-replica). schedule:work раз в минуту вызывает schedule:run,
 # который и дёргает commerce:tonpay-poll (приём ждёт подтверждения сети), commerce:autoship-run
 # и commerce:payouts-poll. Без него эти команды на ACA не срабатывают. Фоном, рядом с serve;

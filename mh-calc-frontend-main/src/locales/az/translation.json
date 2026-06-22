@@ -30,17 +30,14 @@
     "structure_link_with_token": "Struktura keçid",
     "not_select_packages": "Müqaviləni seç",
     "without_contract_option": "Müqaviləsiz",
-
     "total_profit_structure": "Yekun mənfəət",
     "referral_bonus_short": "İstinad bonusu",
     "trade_turnover_structure": "Ticarət dövriyyəsi",
     "leadership_bonus_structure": "Liderlik bonusu",
     "qualified_reward_structure": "Kvalifikasiya mükafatı",
-
     "how_use_calculator": "Kalkulyatoru necə istifadə etməli",
     "discount_mh": "MN endirim",
     "global_bonus": "Qlobal bonus",
-
     "how_use_calculator_modal_title": "MN kalkulyatorundan necə istifadə etməli",
     "how_use_calculator_modal_deck_1": "İstifadəçilər üçün müqavilə və sponsorları göstərərək öz binar strukturunuzu qurun.",
     "how_use_calculator_modal_deck_2": "Kalkulyator vasitəsilə siz",
@@ -50,19 +47,26 @@
     "how_use_calculator_modal_deck_2_4": "Hesablamalar əsasında gəlirinizi qiymətləndirə bilərsiniz",
     "how_use_calculator_modal_deck_2_5": "Kalkulyatorda PV və BV dəyərləri ilə Cardio Marine məhsulu istifadə olunur",
     "how_use_calculator_modal_deck_2_6": "Kalkulyator yalnız Gümüş Menecer statusuna qədər hesablamalar aparır",
-
     "discount_mh_modal_title": "«MN endirim» nədir",
     "discount_mh_modal_desc_1": "MN endirim - Elite müqaviləsi bağladıqdan sonra şəxsi alışınıza görə mükafatdır. Hər bir şəxsi alışdan 10% bonus hesabına geri qaytarılacaq.",
     "discount_mh_modal_desc_2": "Misal",
     "discount_mh_modal_desc_3": "Siz 54 000 BV dəyərində alış etmisiniz.",
     "discount_mh_modal_desc_4": "Bonusunuz olacaq:",
-
     "global_bonus_modal_title": "«Qlobal bonus» nədir",
     "global_bonus_modal_desc_1": "Qlobal bonus — «Direktor» və daha yüksək statusa çatmağınıza görə mükafatdır.",
     "global_bonus_modal_desc_2": "Şirkət hər ay qlobal iş dövriyyəsindən 3%-ni kvalifikasiyadan keçən iştirakçılara ayırır.",
     "global_bonus_modal_desc_3": "Bonus rübdə bir dəfə ödənilir və onun ölçüsü statusunuzdan və yerinə yetirilən şərtlərin ümumi məbləğindən asılıdır.",
-
     "premium_plan": "Premium plan",
     "personal_account": "Şəxsi hesab",
-    "copy_defaul_str": "Buferə kopyalandı"
+    "copy_defaul_str": "Buferə kopyalandı",
+    "featureFlags": {
+        "title": "Фиче-флаги",
+        "colKey": "Ключ",
+        "colDescription": "Описание",
+        "colEnabled": "Включён",
+        "saved": "Сохранено",
+        "saveFailed": "Не удалось сохранить",
+        "ownerOnly": "Переключать может только владелец",
+        "forbidden": "Недостаточно прав"
+    }
 }

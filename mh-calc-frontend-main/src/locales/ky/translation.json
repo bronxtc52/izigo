@@ -30,17 +30,14 @@
     "structure_link_with_token": "Структурага шилтеме",
     "not_select_packages": "Келишимди тандаңыз",
     "without_contract_option": "Келишимсиз",
-
     "total_profit_structure": "Жалпы киреше",
     "referral_bonus_short": "Рефералдык бонус",
     "trade_turnover_structure": "Соода жүгүртүү",
     "leadership_bonus_structure": "Лидерлик бонус",
     "qualified_reward_structure": "Квалификациялык сыйлык",
-
     "how_use_calculator": "Калькуляторду кантип колдонуу керек",
     "discount_mh": "MN арзандатуу",
     "global_bonus": "Глобалдык бонус",
-
     "how_use_calculator_modal_title": "MN калькуляторун кантип колдонуу керек",
     "how_use_calculator_modal_deck_1": "Колдонуучулар үчүн келишимдерди жана спонсорлорду көрсөтүү менен өз бинардык структураңызды түзүңүз.",
     "how_use_calculator_modal_deck_2": "Калькулятор аркылуу сиз",
@@ -50,19 +47,26 @@
     "how_use_calculator_modal_deck_2_4": "Эсептөөлөргө жараша кирешеңизди баалай аласыз.",
     "how_use_calculator_modal_deck_2_5": "Калькулятордо PV жана BV маанилери менен Cardio Marine продуктусу колдонулат",
     "how_use_calculator_modal_deck_2_6": "Калькулятор күмүш менеджер статусуна чейин гана эсептөө жүргүзөт",
-
     "discount_mh_modal_title": "«MN арзандатуу» деген эмне",
     "discount_mh_modal_desc_1": "MN арзандатуу - Elite келишимин түзгөндөн кийинки жеке сатып алууңузга байланыштуу сыйлык. Ар бир жеке сатып алуудан 10% бонустук эсебиңизге кайтарылат.",
     "discount_mh_modal_desc_2": "Мисалы",
     "discount_mh_modal_desc_3": "Сиз 54 000 BV үчүн сатып алдыңыз.",
     "discount_mh_modal_desc_4": "Сиздин бонус:",
-
     "global_bonus_modal_title": "«Глобалдык бонус» деген эмне",
     "global_bonus_modal_desc_1": "Глобалдык бонус - бул «Директор» жана андан жогору статусуна жеткениңиз үчүн сыйлык.",
     "global_bonus_modal_desc_2": "Компания ай сайын глобалдык бизнес жүгүртүүдөн 3% бөлүп, талаптарды аткаргандарга берет.",
     "global_bonus_modal_desc_3": "Бонус кварталына бир жолу төлөнөт жана анын өлчөмү сиздин статусуңузга жана аткарылган шарттардын жалпы суммасына жараша болот.",
-
     "premium_plan": "Премиум план",
     "personal_account": "Жеке эсеп",
-    "copy_defaul_str": "Алмашуу буферине көчүрүлдү"
+    "copy_defaul_str": "Алмашуу буферине көчүрүлдү",
+    "featureFlags": {
+        "title": "Фиче-флаги",
+        "colKey": "Ключ",
+        "colDescription": "Описание",
+        "colEnabled": "Включён",
+        "saved": "Сохранено",
+        "saveFailed": "Не удалось сохранить",
+        "ownerOnly": "Переключать может только владелец",
+        "forbidden": "Недостаточно прав"
+    }
 }

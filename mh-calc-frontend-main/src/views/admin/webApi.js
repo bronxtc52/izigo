@@ -157,3 +157,10 @@ export const ROLES = [
 
 export const isForbidden = (res) => res?.error === 403 || res?.status === 403;
 export const isUnauthorized = (res) => res?.error === 401 || res?.status === 401;
+
+// >>> Block C feature_flags
+// C3: рантайм фиче-флаги (owner-only). Список с описанием + переключение.
+export const fetchFeatureFlags = (token) => req('/api/v1/admin/feature-flags', token);
+export const setFeatureFlag = (token, key, enabled) =>
+    mutate(token, '/api/v1/admin/feature-flags', 'POST', { key, enabled });
+// <<< Block C feature_flags

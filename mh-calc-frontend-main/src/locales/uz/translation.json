@@ -30,17 +30,14 @@
     "structure_link_with_token": "Tuzilma havolasi",
     "not_select_packages": "Shartnomani tanlang",
     "without_contract_option": "Shartnomasiz",
-
     "total_profit_structure": "Umumiy foyda",
     "referral_bonus_short": "Tavsiya bonusi",
     "trade_turnover_structure": "Savdo aylanmasi",
     "leadership_bonus_structure": "Liderlik bonusi",
     "qualified_reward_structure": "Malakali mukofot",
-
     "how_use_calculator": "Kalkulyatorni qanday ishlatish kerak",
     "discount_mh": "MN chegirma",
     "global_bonus": "Global bonus",
-
     "how_use_calculator_modal_title": "MN kalkulyatoridan qanday foydalaniladi",
     "how_use_calculator_modal_deck_1": "Foydalanuvchilar uchun shartnoma va homiylarni tanlash orqali ikkilik tuzilmangizni yarating.",
     "how_use_calculator_modal_deck_2": "Kalkulyator yordamida siz",
@@ -50,19 +47,26 @@
     "how_use_calculator_modal_deck_2_4": "Hisob-kitoblarga ko'ra daromadingizni baholashingiz mumkin.",
     "how_use_calculator_modal_deck_2_5": "Kalkulyator Cardio Marine mahsulotini PV va BV qiymatlari bilan hisoblaydi.",
     "how_use_calculator_modal_deck_2_6": "Kalkulyator faqat Kumush Menejer statusiga qadar hisob-kitob qiladi.",
-
     "discount_mh_modal_title": "«MN chegirma» nima",
     "discount_mh_modal_desc_1": "MN chegirma - bu Elite shartnomasini tuzganingizdan so'ng shaxsiy xaridingiz uchun mukofot. Har bir shaxsiy xariddan 10% bonus hisobiga qaytariladi.",
     "discount_mh_modal_desc_2": "Misol",
     "discount_mh_modal_desc_3": "Siz 54 000 BV uchun xarid qildingiz.",
     "discount_mh_modal_desc_4": "Bonus miqdoringiz:",
-
     "global_bonus_modal_title": "«Global bonus» nima",
     "global_bonus_modal_desc_1": "Global bonus - «Direktor» va undan yuqori darajasiga yetganingiz uchun mukofotdir.",
     "global_bonus_modal_desc_2": "Kompaniya har oyda global biznes aylanmasining 3 foizini malakaga erishganlarga taqsimlaydi.",
     "global_bonus_modal_desc_3": "Bonus har chorakda bir marta to'lanadi va uning miqdori sizning maqomingizga va bajarilgan shartlarning umumiy miqdoriga bog'liq.",
-
     "premium_plan": "Premium tarif rejasi",
     "personal_account": "Shaxsiy kabinet",
-    "copy_defaul_str": "Buferga nusxalandi"
+    "copy_defaul_str": "Buferga nusxalandi",
+    "featureFlags": {
+        "title": "Фиче-флаги",
+        "colKey": "Ключ",
+        "colDescription": "Описание",
+        "colEnabled": "Включён",
+        "saved": "Сохранено",
+        "saveFailed": "Не удалось сохранить",
+        "ownerOnly": "Переключать может только владелец",
+        "forbidden": "Недостаточно прав"
+    }
 }
