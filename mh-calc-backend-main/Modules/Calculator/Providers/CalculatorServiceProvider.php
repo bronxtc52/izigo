@@ -142,9 +142,12 @@ class CalculatorServiceProvider extends ServiceProvider
             /** @var Schedule $schedule */
             $schedule = $this->app->make(Schedule::class);
             $schedule->command('calculator:remove-old-empty')->daily();
-            $schedule->command('commerce:autoship-run')->dailyAt('03:00');
-            $schedule->command('commerce:payouts-poll')->everyThirtyMinutes();
-            $schedule->command('commerce:tonpay-poll')->everyMinute(); // приём ждёт подтверждения сети
+            $schedule->command('commerce:autoship-run')->dailyAt('03:00')->withoutOverlapping(60);
+            $schedule->command('commerce:payouts-poll')->everyThirtyMinutes()->withoutOverlapping(25);
+            // приём ждёт подтверждения сети; withoutOverlapping — чтобы зависший toncenter-запрос
+            // не наложился на следующий тик (schedule:work запускает schedule:run ежеминутно).
+            // Явный TTL мьютекса (мин), чтобы упавший процесс не заблокировал полл надолго.
+            $schedule->command('commerce:tonpay-poll')->everyMinute()->withoutOverlapping(5);
         });
     }
 
