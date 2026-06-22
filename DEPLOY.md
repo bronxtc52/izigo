@@ -151,6 +151,26 @@ done
 > (см. §7, secret `FRONTEND_URL`) — при официальном переключении продукта на новый домен
 > нужна **пересборка фронта** с новым build-arg, не только привязка домена.
 
+## 11. Веб-админка (admin.izigo.adarasoft.com)
+Веб-админка живёт в том же фронт-аппе (роутинг по хосту, `src/middleware.js`); вход —
+Telegram Login Widget → Sanctum-токен. Чек-лист выката:
+
+1. **Build-arg фронта** — уже в CI: `NEXT_PUBLIC_TG_BOT_USERNAME=Izigopro_mlm_bot`
+   (`deploy.yml` + `Dockerfile`). Публичный параметр (имя бота, не токен). В коде есть fallback.
+2. **BotFather `/setdomain`** (ОБЯЗАТЕЛЬНО, иначе виджет не отрисуется): в @BotFather →
+   `/setdomain` → выбрать `@Izigopro_mlm_bot` → отправить `admin.izigo.adarasoft.com`.
+   Это настройка BotFather, **не** метод Bot API.
+3. **Backend env** — без изменений: Login Widget валидируется тем же `TELEGRAM_BOT_TOKEN`,
+   что и initData; owner-бутстрап — из `OWNER_TELEGRAM_IDS` (оба уже заданы для Mini App).
+   Проверить, что владельцы перечислены в `OWNER_TELEGRAM_IDS`, иначе вход вернёт 403 `not_admin`.
+4. **Миграции** — прогонятся на деплое (`docker/start.sh` → `migrate --force`):
+   `admin_audit_log` + Sanctum `personal_access_tokens` (vendor, грузится самим Sanctum).
+5. **TTL токена** (опц.) — env `WEB_ADMIN_TOKEN_TTL_MINUTES` (дефолт 720). Можно сузить для безопасности.
+6. **Домен на ACA** — уже привязан (§10), cert green. Админка отдаётся на admin.izigo.* тем же фронтом.
+
+> Смена бренд-домена izigo.* (миграция самого продукта на adarasoft) — отдельное решение;
+> для админки достаточно поддомена admin.* (host-routing работает на любом хосте).
+
 ## Известные ограничения Фазы 0 (доработать в Фазе 1)
 - Backend на `artisan serve` (не прод) → php-fpm/nginx или Octane.
 - Миграции на старте контейнера (single-replica) → вынести в ACA Job при multi-replica.

@@ -17,6 +17,8 @@ ARG NEXT_PUBLIC_TON_NETWORK
 ARG NEXT_PUBLIC_TON_RPC
 ARG NEXT_PUBLIC_USDT_JETTON_MASTER
 ARG NEXT_PUBLIC_TWA_RETURN_URL
+# Имя бота для Telegram Login Widget веб-админки (публичный параметр, не секрет).
+ARG NEXT_PUBLIC_TG_BOT_USERNAME
 RUN npm run build
 
 FROM node:20-alpine AS runner
