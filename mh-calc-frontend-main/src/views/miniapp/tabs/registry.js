@@ -18,11 +18,13 @@
 // вкладками (см. blockCTabRender). Пустой массив => таб-бар визуально не меняется.
 
 import notificationsTab from './notifications.tab'; // C1 notifications — inbox
+import helpdeskTab from './helpdesk.tab'; // C2 helpdesk — tickets
 
 // >>> Block C tabs
 export const blockCTabs = [
     notificationsTab, // C1 notifications — inbox (колокольчик)
-    // C2 helpdesk — tickets; C6 copartners — profile-extra
+    helpdeskTab, // C2 helpdesk — поддержка (тикеты + чат)
+    // C6 copartners — profile-extra
 ];
 // <<< Block C tabs
 

@@ -229,3 +229,23 @@ export const exportMember = async (token, id, format = 'json', masked = true) =>
 // в Mini App (cabinet). Справочные данные, на деньги/дерево не влияют.
 export const fetchMemberCopartners = (token, id) => req(`/api/v1/admin/members/${id}/copartners`, token);
 // <<< Block C copartners
+
+// >>> Block C helpdesk
+// C2: очередь тикетов + чат оператора (owner,support). Token-first (Bearer Sanctum):
+// первый аргумент — undefined, чтобы взять токен из localStorage (см. req()).
+export const fetchTickets = (token, status = '', assigned = '') => {
+    const qs = new URLSearchParams();
+    if (status) qs.set('status', status);
+    if (assigned) qs.set('assigned', assigned);
+    const suffix = qs.toString() ? `?${qs.toString()}` : '';
+    return req(`/api/v1/admin/tickets${suffix}`, token);
+};
+export const fetchTicket = (token, id) => req(`/api/v1/admin/tickets/${id}`, token);
+export const replyTicket = (token, id, body) =>
+    req(`/api/v1/admin/tickets/${id}/reply`, token, 'POST', { body });
+export const setTicketStatus = (token, id, status) =>
+    req(`/api/v1/admin/tickets/${id}/status`, token, 'POST', { status });
+export const assignTicket = (token, id, assignedTo = undefined) =>
+    req(`/api/v1/admin/tickets/${id}/assign`, token, 'POST',
+        assignedTo === undefined ? {} : { assigned_to: assignedTo });
+// <<< Block C helpdesk

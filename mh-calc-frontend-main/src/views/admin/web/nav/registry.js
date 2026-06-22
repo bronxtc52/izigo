@@ -13,13 +13,14 @@
 
 import featureFlagsNav from './feature_flags.nav';
 import notificationsNav from './notifications.nav';
+import helpdeskNav from './helpdesk.nav';
 
 // >>> Block C sections
 export const blockCSections = [
     // C7 monitoring  — import monitoringNav from './monitoring.nav'; → monitoringNav,
     // C5 exports     — import exportsNav   from './exports.nav';     → exportsNav,
     featureFlagsNav, // C3 feature_flags (owner-only)
-    // C2 helpdesk    — import helpdeskNav  from './helpdesk.nav';    → helpdeskNav,
+    helpdeskNav, // C2 helpdesk — тикеты поддержки (owner+support)
     notificationsNav, // C1 notifications — рассылки (owner+support)
 ];
 // <<< Block C sections

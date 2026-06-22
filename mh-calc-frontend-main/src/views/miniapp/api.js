@@ -94,3 +94,16 @@ export const mmCopartnerCreate = (i, payload) => req('/api/v1/cabinet/copartners
 export const mmCopartnerUpdate = (i, id, payload) => req(`/api/v1/cabinet/copartners/${id}`, i, 'PUT', payload);
 export const mmCopartnerDelete = (i, id) => req(`/api/v1/cabinet/copartners/${id}`, i, 'DELETE');
 // <<< Block C copartners
+
+// >>> Block C helpdesk
+// C2: тикеты поддержки партнёра (cabinet). Бэкенд скоупит по текущему участнику —
+// видны/доступны ТОЛЬКО свои тикеты. Чтение треда — polling по since-курсору (5–8с).
+export const mmTickets = (i) => req('/api/v1/cabinet/tickets', i);
+export const mmTicketCreate = (i, subject, body) =>
+    req('/api/v1/cabinet/tickets', i, 'POST', { subject, body });
+export const mmTicket = (i, id) => req(`/api/v1/cabinet/tickets/${id}`, i);
+export const mmTicketMessage = (i, id, body) =>
+    req(`/api/v1/cabinet/tickets/${id}/messages`, i, 'POST', { body });
+export const mmTicketPoll = (i, id, since = 0) =>
+    req(`/api/v1/cabinet/tickets/${id}/poll?since=${since}`, i);
+// <<< Block C helpdesk
