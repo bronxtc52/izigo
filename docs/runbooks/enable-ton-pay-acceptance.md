@@ -122,16 +122,37 @@ az keyvault secret set --vault-name kv-bronxtc-dev \
 
 ---
 
+## ✅ Приём сверен на mainnet — 2026-06-22 (контрольный платёж `pay:13`, 1 USDT)
+
+Контрольный платёж прошёл end-to-end: перевод USDT → распознан опросом → заказ `paid` →
+активация → уведомление бота. По ходу вскрыты и устранены **две вещи**:
+
+1. **Планировщик на ACA не запускался.** `docker/start.sh` поднимал только `artisan serve`,
+   без `schedule:run`/cron → `commerce:tonpay-poll` (и autoship/payouts-poll) **никогда не тикали**;
+   подтверждение держалось только на on-demand поллинге фронта (~90с окно). Фикс: `php artisan
+   schedule:work &` в `start.sh` + `withoutOverlapping(TTL)` у поллов. Проверено по Log Analytics
+   (ежеминутные тики). _(коммит «запустить планировщик на ACA»)_
+2. **Парсер не распознавал реальный `forward_payload`.** toncenter v3 отдаёт его сериализованным
+   **BoC** (base64, magic `b5ee9c72`), а `commentEquals` ждал сырую ячейку с опкодом `0x00000000` →
+   memo не извлекалось, платёж завис бы в `pending` навсегда (деньги целы на merchant-кошельке).
+   Фикс: матч по готовому `decoded_forward_payload.comment` из toncenter v3 (приоритет), `commentEquals`
+   — fallback. Регресс на захваченном payload `pay:13`. _(коммит «приём матчит реальный BoC forward_payload»)_
+
 ## Чек-лист «приём готов к prod»
 
-- [ ] `amountMatches()` + jetton-парсинг реализованы и проверены на testnet (снят NEEDS-LIVE-VERIFY).
-- [ ] `forward_ton_amount`/газ на фронте выверены на testnet.
-- [ ] KV: `izigo--prod--TON-MERCHANT-ADDRESS`, `izigo--prod--TON-API-KEY` заведены и привязаны к ACA.
-- [ ] env бэка: `PAYMENT_GATEWAY=ton_pay`, `TON_API_BASE_URL`=mainnet, `COMMERCE_CURRENCY=USDT`.
-- [ ] env фронта: `NEXT_PUBLIC_TON_NETWORK=mainnet`, `NEXT_PUBLIC_USDT_JETTON_MASTER`(mainnet USDT),
-      `NEXT_PUBLIC_TON_RPC`(keyless), `NEXT_PUBLIC_SERVER_FRONT_URL`(прод-домен).
+- [x] jetton-парсинг реализован и **сверен на mainnet** (NEEDS-LIVE-VERIFY снят; форма `forward_payload`
+      = BoC, матч по `decoded_forward_payload.comment`).
+- [x] `forward_ton_amount`/газ на фронте — реальный платёж прошёл с текущими значениями (gas 0.1 TON, fwd 0.02).
+- [~] KV: на beta привязаны `izigo--beta--TON-MERCHANT-ADDRESS`/`--TON-API-KEY` (mainnet-кошелёк/ключ).
+      Для отдельного prod-окружения — завести `izigo--prod--*`.
+- [x] env бэка: `PAYMENT_GATEWAY` дефолт `ton_pay`, `TON_API_V3_BASE_URL`=mainnet, `TON_USDT_JETTON_MASTER`=mainnet USDT.
+- [x] env фронта: `NEXT_PUBLIC_TON_NETWORK=mainnet`, `NEXT_PUBLIC_USDT_JETTON_MASTER`(mainnet), `NEXT_PUBLIC_TON_RPC`(keyless), запечены в образ.
 - [ ] `public/tonconnect-icon.png` (180×180) на месте, манифест отдаётся по https.
-- [ ] Контрольный платёж малой суммой на mainnet прошёл end-to-end.
+- [x] **Контрольный платёж малой суммой на mainnet прошёл end-to-end** (`pay:13`, 2026-06-22).
+
+**Остаётся (не блокирует приём):** TTL-экспирация зависших `pending` (отдельный TODO); выравнивание
+имён тарифов (активация шлёт легаси `Package.name` «Bronze», каталог — «Start»); on-chain **выплаты**
+(`UsdtTonPayoutGateway::send` — заглушка).
 
 Связано: `docs/specs/2026-06-21-phase4-commerce-payments.md`, `plan.md` (раздел K), память
 `izigo-phase4-progress`, `izigo-prod-map`. Секреты/KV — kb-secrets-keyvault; ACA-инжект — kb-azure-aca.
