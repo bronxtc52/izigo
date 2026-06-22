@@ -13,6 +13,7 @@ const notificationsTab = {
     key: 'inbox',
     label: 'Уведомления',
     icon: <BellOutlined />,
+    flag: 'c1_notifications', // показ гейтится фиче-флагом (deny-by-default)
     render: (ctx) => (
         <NotificationInbox
             initData={ctx.initData}

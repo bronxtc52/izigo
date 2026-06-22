@@ -29,12 +29,24 @@ export const blockCTabs = [
 // <<< Block C tabs
 
 /**
- * Контент активной вкладки Блока C по её ключу, либо null если ключ не из Блока C.
- * MiniAppShell вызывает это для активного таба, не входящего в базовый switch.
+ * Видимые вкладки Блока C по карте фиче-флагов (deny-by-default). Вкладка показывается,
+ * только если у неё нет поля `flag` ИЛИ флаг явно включён (flags[flag] === true).
+ * Пустая/отсутствующая карта => все флаговые вкладки скрыты; базовый таб-бар Mini App
+ * (income/shop/team/rank/profile) от флагов НЕ зависит.
+ * @param {object} flags — карта ключ→true активных флагов кабинета
+ */
+export const visibleBlockCTabs = (flags = {}) =>
+    blockCTabs.filter((t) => !t.flag || flags?.[t.flag] === true);
+
+/**
+ * Контент активной вкладки Блока C по её ключу, либо null если ключ не из Блока C
+ * или вкладка скрыта флагом. MiniAppShell вызывает это для активного таба, не входящего
+ * в базовый switch.
  * @param {string} key — активный tab key
  * @param {object} ctx — контекст шелла, прокидываемый в render
+ * @param {object} flags — карта активных флагов (для гейтинга показа)
  */
-export const blockCTabRender = (key, ctx) => {
-    const tab = blockCTabs.find((t) => t.key === key);
+export const blockCTabRender = (key, ctx, flags = {}) => {
+    const tab = visibleBlockCTabs(flags).find((t) => t.key === key);
     return tab ? tab.render(ctx) : null;
 };

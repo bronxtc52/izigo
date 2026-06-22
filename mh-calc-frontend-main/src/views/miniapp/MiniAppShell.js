@@ -15,10 +15,11 @@ import {
     mmMe, mmDashboard, mmRank, mmTree, mmWallet, mmWalletTx, mmWalletStatement, mmWithdrawals, mmWithdrawCreate,
     mmTopup, mmKyc, mmKycSubmit, mmAgreement, mmAgreementAccept, PACKAGES,
     mmCopartners, mmCopartnerCreate, mmCopartnerUpdate, mmCopartnerDelete,
+    mmFeatureFlags,
 } from './api';
 import MiniAppShop from './MiniAppShop';
 import TonPayCheckout from './TonPayCheckout';
-import { blockCTabs, blockCTabRender } from './tabs/registry';
+import { visibleBlockCTabs, blockCTabRender } from './tabs/registry';
 
 // Базовая проверка user-friendly TON-адреса (48 символов base64url, префикс EQ/UQ/kQ/0Q…).
 // Backend трактует payout_details как TON-адрес получателя USDT (валидации формата на бэке нет).
@@ -145,6 +146,10 @@ const MiniAppShell = () => {
     const [cpEditId, setCpEditId] = useState(null); // null = создание новой записи
     const [cpForm, setCpForm] = useState({ kind: 'copartner', full_name: '', phone: '', share_percent: null, note: '' });
     const [cpSaving, setCpSaving] = useState(false);
+    // C3: карта активных фиче-флагов кабинета {key: true}. Deny-by-default — пустой
+    // объект, пока не загрузилась (или при сбое) => все blockC-фичи скрыты. Базовый
+    // интерфейс (income/shop/team/rank/profile) от флагов НЕ зависит.
+    const [flags, setFlags] = useState({});
 
     const themeConfig = useMemo(() => antdThemeFromTelegram(theme, scheme), [theme, scheme]);
     const pal = useMemo(() => miniAppPalette(theme, scheme), [theme, scheme]);
@@ -166,10 +171,10 @@ const MiniAppShell = () => {
         setDash(d?.data ?? null);
         setRank(r?.data ?? null);
         setTree(t?.data ?? null);
-        // Кошелёк/выводы (Фаза 3) + KYC (Фаза 4) + соглашение (B3) — опциональны: их сбой НЕ роняет кабинет.
-        const [w, wtx, wd, k, ag, cp] = await Promise.all([
+        // Кошелёк/выводы (Фаза 3) + KYC (Фаза 4) + соглашение (B3) + флаги (C3) — опциональны: их сбой НЕ роняет кабинет.
+        const [w, wtx, wd, k, ag, cp, ff] = await Promise.all([
             mmWallet(initData), mmWalletTx(initData), mmWithdrawals(initData), mmKyc(initData), mmAgreement(initData),
-            mmCopartners(initData),
+            mmCopartners(initData), mmFeatureFlags(initData),
         ]);
         setWallet(w?.error ? null : (w?.data ?? null));
         setWalletTx(wtx?.error ? [] : (wtx?.data?.items ?? []));
@@ -177,6 +182,8 @@ const MiniAppShell = () => {
         setKyc(k?.error ? null : (k?.data ?? null));
         setAgreement(ag?.error ? null : (ag?.data ?? null));
         setCopartners(Array.isArray(cp?.data) ? cp.data : []);
+        // Deny-by-default: сбой/невалидный ответ (или не-объект/массив) => пустая карта => blockC-фичи скрыты.
+        setFlags(ff?.error || !ff?.data || typeof ff.data !== 'object' || Array.isArray(ff.data) ? {} : ff.data);
         setLoading(false);
     };
 
@@ -323,8 +330,9 @@ const MiniAppShell = () => {
         { key: 'profile', label: 'Профиль', icon: <UserOutlined /> },
     ];
     // Админка вынесена в веб (admin.izigo.adarasoft.com) — в Mini App её больше нет.
-    // Block C: вкладки фич подмешиваются из registry (пустой => таб-бар не меняется).
-    const tabs = [...TABS, ...blockCTabs];
+    // Block C: вкладки фич подмешиваются из registry, отфильтрованные по фиче-флагам
+    // (deny-by-default: пустая карта flags => флаговые вкладки скрыты, базовый таб-бар цел).
+    const tabs = [...TABS, ...visibleBlockCTabs(flags)];
     // Block C: контекст шелла для render вкладок фич (чтобы не дублировать загрузку данных).
     const blockCCtx = { initData, pal, isDark, wa, me, dash, rank, tree, wallet, reload: load };
 
@@ -702,6 +710,8 @@ const MiniAppShell = () => {
                                     </Flex>
                                 </Card>
                             )}
+                            {/* C6: совладельцы/наследники — показ гейтится фиче-флагом (deny-by-default) */}
+                            {flags?.c6_copartners === true && (
                             <Card
                                 size="small"
                                 title="Совладельцы / Наследники"
@@ -739,6 +749,7 @@ const MiniAppShell = () => {
                                     Справочная информация. Не влияет на начисления, выплаты и структуру.
                                 </div>
                             </Card>
+                            )}
 
                             <Card size="small" title="Настройки">
                                 <List>
@@ -752,8 +763,8 @@ const MiniAppShell = () => {
                         </>
                     )}
 
-                    {/* Block C: контент вкладок фич блока (по key из registry). */}
-                    {blockCTabRender(tab, blockCCtx)}
+                    {/* Block C: контент вкладок фич блока (по key из registry, гейт по флагам). */}
+                    {blockCTabRender(tab, blockCCtx, flags)}
 
                 </div>
 

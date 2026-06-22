@@ -6,6 +6,7 @@ const i18nNav = {
     key: 'translations',
     label: 'Переводы',
     roles: ['owner'],
+    flag: 'c4_i18n_admin', // показ гейтится фиче-флагом (deny-by-default)
     render: () => <Translations />,
 };
 

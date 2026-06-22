@@ -6,6 +6,7 @@ const helpdeskNav = {
     key: 'helpdesk',
     label: 'Поддержка',
     roles: ['owner', 'support'],
+    flag: 'c2_helpdesk', // показ гейтится фиче-флагом (deny-by-default)
     render: () => <Helpdesk />,
 };
 

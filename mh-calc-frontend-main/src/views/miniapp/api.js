@@ -21,6 +21,10 @@ export const req = async (path, initData, method = 'GET', body = null) => {
     }
 };
 
+// C3: активные фиче-флаги кабинета (карта ключ→true; есть только включённые).
+// Гейтит ПОКАЗ blockC-фич в Mini App (deny-by-default — сбой/отсутствие = всё скрыто).
+export const mmFeatureFlags = (i) => req('/api/v1/cabinet/feature-flags', i);
+
 export const mmMe = (i) => req('/api/v1/cabinet/me', i);
 export const mmDashboard = (i) => req('/api/v1/cabinet/dashboard', i);
 export const mmRank = (i) => req('/api/v1/cabinet/rank-progress', i);

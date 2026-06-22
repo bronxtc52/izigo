@@ -11,6 +11,7 @@ const helpdeskTab = {
     key: 'helpdesk',
     label: 'Поддержка',
     icon: <CustomerServiceOutlined />,
+    flag: 'c2_helpdesk', // показ гейтится фиче-флагом (deny-by-default)
     render: (ctx) => (
         <Helpdesk
             initData={ctx.initData}

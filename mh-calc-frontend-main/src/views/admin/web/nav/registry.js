@@ -27,3 +27,11 @@ export const blockCSections = [
     i18nNav, // C4 i18n — редактируемые переводы (owner-only)
 ];
 // <<< Block C sections
+
+// Фильтр blockC-секций по карте фиче-флагов (deny-by-default). Секция показывается,
+// только если у неё нет поля `flag` (напр. C3 «Фиче-флаги» — owner всегда) ИЛИ флаг
+// явно включён (flags[flag] === true). Пустая/отсутствующая карта => все флаговые
+// секции скрыты — базовое (до-Block-C) меню при этом не затрагивается (фильтруется
+// только blockCSections, а не общий SECTIONS).
+export const visibleBlockCSections = (flags = {}) =>
+    blockCSections.filter((s) => !s.flag || flags?.[s.flag] === true);

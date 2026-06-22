@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { Card, Descriptions, Tag, Select, Button, Space, Spin, Result, message } from 'antd';
 import * as tokenApi from './api';
+import { useFeatureFlag } from './featureFlags';
 
 const Tree = dynamic(() => import('react-d3-tree'), { ssr: false });
 
@@ -16,6 +17,14 @@ const Tree = dynamic(() => import('react-d3-tree'), { ssr: false });
  */
 const MemberCard = ({ id, creds, api = tokenApi, onUnauthorized = () => {}, piiApi = null, canReveal = false }) => {
     const { fetchMember, assignRole, revokeRole, isForbidden, isUnauthorized, ROLES } = api;
+
+    // Block C — гейтирование ПОКАЗА по фиче-флагам (deny-by-default из контекста шелла).
+    // Реальная защита — на бэкенде (RBAC); это только видимость блоков в UI.
+    // C5 PII/reveal/экспорт — только при c5_pii_export; C6 совладельцы — при c6_copartners.
+    const piiEnabled = useFeatureFlag('c5_pii_export');
+    const copartnersEnabled = useFeatureFlag('c6_copartners');
+    const showPii = !!piiApi && piiEnabled;
+    const showCopartners = !!piiApi?.fetchMemberCopartners && copartnersEnabled;
 
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -33,7 +42,7 @@ const MemberCard = ({ id, creds, api = tokenApi, onUnauthorized = () => {}, piiA
     const [copartners, setCopartners] = useState([]);
 
     const loadCopartners = async () => {
-        if (!piiApi?.fetchMemberCopartners) return;
+        if (!showCopartners) return;
         const res = await piiApi.fetchMemberCopartners(creds, id);
         if (piiApi.isUnauthorized(res)) { onUnauthorized(); return; }
         if (piiApi.isForbidden(res)) { setCopartners([]); return; }
@@ -41,7 +50,7 @@ const MemberCard = ({ id, creds, api = tokenApi, onUnauthorized = () => {}, piiA
     };
 
     const loadPii = async () => {
-        if (!piiApi) return;
+        if (!showPii) return;
         const res = await piiApi.fetchMemberPii(creds, id);
         if (piiApi.isUnauthorized(res)) { onUnauthorized(); return; }
         if (piiApi.isForbidden(res)) { setPii(null); return; }
@@ -84,9 +93,16 @@ const MemberCard = ({ id, creds, api = tokenApi, onUnauthorized = () => {}, piiA
     };
 
     useEffect(() => {
+        // Сброс PII/совладельцев при смене участника: инстанс MemberCard переиспользуется
+        // (key не задан), без сброса между сменой id и приходом ответа видны данные/раскрытые
+        // PII предыдущего участника. Чистим до загрузки.
+        setPii(null);
+        setRevealed(null);
+        setCopartners([]);
         if (creds) { load(); loadPii(); loadCopartners(); }
+        // showPii/showCopartners в deps: если флаги пришли после маунта — дозагрузить блоки.
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [creds, id]);
+    }, [creds, id, showPii, showCopartners]);
 
     const onAssign = async () => {
         setSaving(true);
@@ -143,7 +159,7 @@ const MemberCard = ({ id, creds, api = tokenApi, onUnauthorized = () => {}, piiA
                 </Space>
             </Card>
 
-            {piiApi ? (
+            {showPii ? (
                 <Card title="Персональные данные (PII)" size="small"
                     extra={(
                         <Space>
@@ -173,7 +189,7 @@ const MemberCard = ({ id, creds, api = tokenApi, onUnauthorized = () => {}, piiA
                 </Card>
             ) : null}
 
-            {piiApi?.fetchMemberCopartners ? (
+            {showCopartners ? (
                 <Card title="Совладельцы / Наследники" size="small">
                     {copartners.length ? (
                         <Descriptions column={1} size="small" bordered>

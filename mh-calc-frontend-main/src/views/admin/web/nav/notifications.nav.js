@@ -6,6 +6,7 @@ const notificationsNav = {
     key: 'broadcasts',
     label: 'Рассылки',
     roles: ['owner', 'support'],
+    flag: 'c1_notifications', // показ гейтится фиче-флагом (deny-by-default)
     render: () => <Broadcasts />,
 };
 
