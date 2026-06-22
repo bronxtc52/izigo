@@ -5,6 +5,7 @@ namespace Modules\Calculator\Http\Controllers;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Modules\Calculator\Models\Member;
+use Modules\Calculator\Services\AgreementService;
 use Modules\Calculator\Services\CabinetService;
 use Modules\Calculator\Services\WalletService;
 use Modules\Calculator\Services\WithdrawalService;
@@ -22,6 +23,7 @@ class CabinetController
         private readonly CabinetService $service,
         private readonly WalletService $wallet,
         private readonly WithdrawalService $withdrawals,
+        private readonly AgreementService $agreement,
     ) {
     }
 
@@ -100,6 +102,18 @@ class CabinetController
             (string) $validated['amount'],
             (string) $validated['payout_details'],
         ));
+    }
+
+    /** B3: статус пользовательского соглашения для участника (версия/текст + принял ли). */
+    public function agreement(Request $request): JsonResponse
+    {
+        return $this->guarded(fn () => $this->agreement->statusFor($this->member($request)));
+    }
+
+    /** B3: принять текущую версию соглашения (онбординг). */
+    public function acceptAgreement(Request $request): JsonResponse
+    {
+        return $this->guarded(fn () => $this->agreement->accept($this->member($request)));
     }
 
     /** Текущий участник, резолвленный telegram.auth. */

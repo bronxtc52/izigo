@@ -12,7 +12,7 @@ import { useTelegram, antdThemeFromTelegram, miniAppPalette } from './telegram';
 import { tint, bonusTint, statusTint, roleTint, bonusDot, numFont } from './tokens';
 import {
     mmMe, mmDashboard, mmRank, mmTree, mmWallet, mmWalletTx, mmWalletStatement, mmWithdrawals, mmWithdrawCreate,
-    mmTopup, mmKyc, mmKycSubmit, PACKAGES,
+    mmTopup, mmKyc, mmKycSubmit, mmAgreement, mmAgreementAccept, PACKAGES,
 } from './api';
 import MiniAppShop from './MiniAppShop';
 import TonPayCheckout from './TonPayCheckout';
@@ -128,6 +128,9 @@ const MiniAppShell = () => {
     // F6: KYC-статус партнёра.
     const [kyc, setKyc] = useState(null);
     const [kycSubmitting, setKycSubmitting] = useState(false);
+    // B3: онбординг — пользовательское соглашение.
+    const [agreement, setAgreement] = useState(null);
+    const [agreeBusy, setAgreeBusy] = useState(false);
     // A2: выписка партнёра за период.
     const [stmtOpen, setStmtOpen] = useState(false);
     const [stmtRange, setStmtRange] = useState(null);
@@ -154,14 +157,15 @@ const MiniAppShell = () => {
         setDash(d?.data ?? null);
         setRank(r?.data ?? null);
         setTree(t?.data ?? null);
-        // Кошелёк/выводы (Фаза 3) + KYC (Фаза 4) — опциональны: их сбой НЕ роняет кабинет.
-        const [w, wtx, wd, k] = await Promise.all([
-            mmWallet(initData), mmWalletTx(initData), mmWithdrawals(initData), mmKyc(initData),
+        // Кошелёк/выводы (Фаза 3) + KYC (Фаза 4) + соглашение (B3) — опциональны: их сбой НЕ роняет кабинет.
+        const [w, wtx, wd, k, ag] = await Promise.all([
+            mmWallet(initData), mmWalletTx(initData), mmWithdrawals(initData), mmKyc(initData), mmAgreement(initData),
         ]);
         setWallet(w?.error ? null : (w?.data ?? null));
         setWalletTx(wtx?.error ? [] : (wtx?.data?.items ?? []));
         setWithdrawals(Array.isArray(wd?.data) ? wd.data : []);
         setKyc(k?.error ? null : (k?.data ?? null));
+        setAgreement(ag?.error ? null : (ag?.data ?? null));
         setLoading(false);
     };
 
@@ -200,6 +204,16 @@ const MiniAppShell = () => {
     };
 
     const openStatement = () => { setStmtData(null); setStmtRange(null); setStmtOpen(true); onLoadStatement(); };
+
+    // B3: принять соглашение (онбординг-гейт). До акцепта кабинет заблокирован.
+    const onAcceptAgreement = async () => {
+        setAgreeBusy(true);
+        const res = await mmAgreementAccept(initData);
+        setAgreeBusy(false);
+        if (res?.error) { message.error('Не удалось принять соглашение'); return; }
+        setAgreement(res?.data ?? null);
+        wa?.HapticFeedback?.notificationOccurred?.('success');
+    };
 
     // F5: создать счёт на пополнение → открыть TON Pay checkout (без заказа, только зачисление).
     const onTopup = async () => {
@@ -675,6 +689,24 @@ const MiniAppShell = () => {
                 <TonPayCheckout open={!!topupInvoice} invoice={topupInvoice} order={null}
                     initData={initData} pal={pal} wa={wa}
                     onClose={() => setTopupInvoice(null)} onPaid={onTopupPaid} />
+
+                {/* B3: онбординг-гейт — пока соглашение не принято, кабинет заблокирован */}
+                <Modal
+                    title="Пользовательское соглашение"
+                    open={!!agreement && agreement.accepted === false}
+                    closable={false}
+                    maskClosable={false}
+                    keyboard={false}
+                    footer={[
+                        <Button key="accept" type="primary" loading={agreeBusy} onClick={onAcceptAgreement}>
+                            Принимаю
+                        </Button>,
+                    ]}
+                >
+                    <div style={{ maxHeight: '50vh', overflowY: 'auto', whiteSpace: 'pre-wrap', fontSize: 13, color: pal.muted }}>
+                        {agreement?.text}
+                    </div>
+                </Modal>
                 </>
                 )}
             </div>

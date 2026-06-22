@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 use Modules\Calculator\Models\Member;
 use Modules\Calculator\Services\AdminService;
+use Modules\Calculator\Services\AgreementService;
 use Modules\Calculator\Services\AuditLogService;
 use Modules\Calculator\Services\Placement\PlacementAdminService;
 use Modules\Calculator\Services\PlanSettingsService;
@@ -29,7 +30,29 @@ class AdminController
         private readonly PlanSettingsService $planSettings,
         private readonly AuditLogService $audit,
         private readonly PlacementAdminService $placement,
+        private readonly AgreementService $agreement,
     ) {
+    }
+
+    /** B3: текущий текст/версия соглашения + сколько участников приняли актуальную версию. */
+    public function agreement(): JsonResponse
+    {
+        return $this->guarded(fn () => $this->agreement->adminSummary());
+    }
+
+    /** B3: обновить текст соглашения (инкремент версии). owner-only. Пишется в аудит. */
+    public function updateAgreement(Request $request): JsonResponse
+    {
+        $data = $request->validate(['text' => 'required|string|max:20000']);
+
+        return $this->guarded(fn () => DB::transaction(function () use ($request, $data) {
+            $result = $this->agreement->updateContent($data['text']);
+            $this->audit->record($this->viewer($request)->id, 'agreement.update', 'plan_setting', null, null, [
+                'version' => $result['version'],
+            ]);
+
+            return $result;
+        }));
     }
 
     /**

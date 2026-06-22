@@ -39,6 +39,9 @@ export const mmWalletStatement = (i, from = '', to = '') => {
     const q = p.toString();
     return req(`/api/v1/cabinet/wallet/statement${q ? `?${q}` : ''}`, i);
 };
+// B3: пользовательское соглашение (онбординг-акцепт).
+export const mmAgreement = (i) => req('/api/v1/cabinet/agreement', i);
+export const mmAgreementAccept = (i) => req('/api/v1/cabinet/agreement/accept', i, 'POST');
 export const mmWithdrawals = (i) => req('/api/v1/cabinet/withdrawals', i);
 export const mmWithdrawCreate = (i, amount, payoutDetails) =>
     req('/api/v1/cabinet/withdrawals', i, 'POST', { amount, payout_details: payoutDetails });

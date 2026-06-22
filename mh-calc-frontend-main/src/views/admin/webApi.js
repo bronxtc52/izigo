@@ -126,6 +126,10 @@ export const previewMovePlacement = (token, body) =>
 export const movePlacement = (token, body) =>
     mutate(token, '/api/v1/admin/genealogy/move', 'POST', body);
 
+// Пользовательское соглашение (B3): просмотр (owner,support) / правка текста (owner).
+export const fetchAgreement = (token) => req('/api/v1/admin/agreement', token);
+export const updateAgreement = (token, text) => mutate(token, '/api/v1/admin/agreement', 'PUT', { text });
+
 // --- Продукты ---
 export const fetchProducts = (token) => req('/api/v1/admin/products', token);
 export const createProduct = (token, data) => mutate(token, '/api/v1/admin/products', 'POST', data);

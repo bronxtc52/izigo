@@ -15,6 +15,7 @@ import Products from './Products';
 import Orders from './Orders';
 import Kyc from './Kyc';
 import AuditLog from './AuditLog';
+import AgreementAdmin from './AgreementAdmin';
 
 const SECTIONS = [
     { key: 'dashboard', label: 'Дашборд', roles: ['owner', 'finance', 'support'], render: () => <Dashboard /> },
@@ -28,6 +29,7 @@ const SECTIONS = [
     { key: 'products', label: 'Продукты', roles: ['owner', 'support'], render: () => <Products /> },
     { key: 'orders', label: 'Заказы', roles: ['owner', 'support'], render: () => <Orders /> },
     { key: 'kyc', label: 'KYC', roles: ['owner', 'finance'], render: () => <Kyc /> },
+    { key: 'agreement', label: 'Соглашение', roles: ['owner', 'support'], render: () => <AgreementAdmin /> },
     { key: 'audit', label: 'Аудит', roles: ['owner'], render: () => <AuditLog /> },
 ];
 

@@ -82,6 +82,10 @@ Route::group([
     Route::get('/wallet', [CabinetController::class, 'wallet'])->name('wallet');
     Route::get('/wallet/transactions', [CabinetController::class, 'walletTransactions'])->name('wallet-transactions');
     Route::get('/wallet/statement', [CabinetController::class, 'walletStatement'])->name('wallet-statement');
+
+    // B3: пользовательское соглашение (онбординг). Auth остаётся Telegram-only.
+    Route::get('/agreement', [CabinetController::class, 'agreement'])->name('agreement');
+    Route::post('/agreement/accept', [CabinetController::class, 'acceptAgreement'])->name('agreement-accept');
     // Заявки на вывод партнёра (Фаза 3): создание с холдом + список своих.
     Route::get('/withdrawals', [CabinetController::class, 'withdrawals'])->name('withdrawals');
     Route::post('/withdrawals', [CabinetController::class, 'createWithdrawal'])->name('withdrawals-create');
@@ -171,6 +175,12 @@ Route::group([
     // Генеалогия (B1): read-only бинарное дерево живой сети. Структуру не меняем.
     Route::get('/genealogy', [AdminReportController::class, 'genealogy'])
         ->middleware('calculator.role:owner,finance,support')->name('genealogy');
+
+    // B3: текст пользовательского соглашения — просмотр (owner,support), правка (owner).
+    Route::get('/agreement', [AdminController::class, 'agreement'])
+        ->middleware('calculator.role:owner,support')->name('agreement');
+    Route::put('/agreement', [AdminController::class, 'updateAgreement'])
+        ->middleware('calculator.role:owner')->name('agreement-update');
 
     // Ручной перенос участника (B2): меняет ВХОД движка → owner-only, обязателен dry-run preview.
     Route::post('/genealogy/preview-move', [AdminController::class, 'previewMove'])
