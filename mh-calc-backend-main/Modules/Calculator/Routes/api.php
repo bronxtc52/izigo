@@ -168,6 +168,10 @@ Route::group([
     Route::get('/reports/bonus-expense', [AdminReportController::class, 'reportBonusExpense'])
         ->middleware('calculator.role:owner,finance')->name('reports-bonus-expense');
 
+    // Генеалогия (B1): read-only бинарное дерево живой сети. Структуру не меняем.
+    Route::get('/genealogy', [AdminReportController::class, 'genealogy'])
+        ->middleware('calculator.role:owner,finance,support')->name('genealogy');
+
     // Заявки на вывод (Фаза 3): очередь + статус-машина. Только финансист/владелец.
     Route::get('/withdrawals', [AdminController::class, 'withdrawals'])
         ->middleware('calculator.role:owner,finance')->name('withdrawals');

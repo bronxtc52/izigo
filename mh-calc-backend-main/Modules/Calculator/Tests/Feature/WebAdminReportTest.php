@@ -189,4 +189,42 @@ class WebAdminReportTest extends TestCase
 
         $this->getJson('/api/v1/admin/reports/users', $this->adminHeaders($partnerData))->assertStatus(403);
     }
+
+    // --- B1: генеалогия (read-only view) ---
+
+    public function testGenealogyReturnsBinaryTreeFromNetworkTop(): void
+    {
+        [$ownerData, $ownerId] = $this->scenarioWithMoney();
+
+        $res = $this->getJson('/api/v1/admin/genealogy', $this->adminHeaders($ownerData))->assertOk();
+
+        // Вершина сети (parent_id IS NULL) = owner; ребёнок 701 — в его поддереве.
+        $this->assertSame($ownerId, $res->json('data.tree.id'));
+        $childIds = collect($res->json('data.tree.children'))->pluck('id');
+        $this->assertSame($this->memberByTg(701)->id, $childIds->first());
+        $this->assertContains($res->json('data.tree.children.0.position'), ['left', 'right']);
+    }
+
+    public function testGenealogyFromGivenRoot(): void
+    {
+        [$ownerData] = $this->scenarioWithMoney();
+        $childId = $this->memberByTg(701)->id;
+
+        $res = $this->getJson("/api/v1/admin/genealogy?root_id={$childId}", $this->adminHeaders($ownerData))->assertOk();
+
+        $this->assertSame($childId, $res->json('data.tree.id'));
+        $this->assertSame([], $res->json('data.tree.children'));
+    }
+
+    public function testGenealogyAccessibleToSupportNotRoleless(): void
+    {
+        [$ownerData, $ownerRef] = $this->registerTg(730, name: 'Owner');
+        $this->grantRole(730, 'owner');
+        [$supportData] = $this->registerTg(731, $ownerRef, 'Support');
+        $this->grantRole(731, 'support');
+        [$partnerData] = $this->registerTg(732, $ownerRef, 'Partner');
+
+        $this->getJson('/api/v1/admin/genealogy', $this->adminHeaders($supportData))->assertOk();
+        $this->getJson('/api/v1/admin/genealogy', $this->adminHeaders($partnerData))->assertStatus(403);
+    }
 }

@@ -19,6 +19,9 @@ use Modules\Calculator\Models\WithdrawalRequest;
  */
 class AdminReportService
 {
+    /** Лимит глубины генеалогии (B1) — ограничивает размер ответа на больших сетях. */
+    private const GENEALOGY_MAX_DEPTH = 6;
+
     /** KPI на главном экране админки. */
     public function dashboard(): array
     {
@@ -246,6 +249,50 @@ class AdminReportService
             'total_expense_cents' => $totalCents,
             'by_type_snapshot' => $byTypeSnapshot,
         ];
+    }
+
+    /**
+     * Генеалогия (B1, read-only view): бинарное дерево живой сети (placement parent/position)
+     * от заданного корня или от вершины сети (parent_id IS NULL). Глубина ограничена
+     * GENEALOGY_MAX_DEPTH; на обрезанных узлах ставится truncated=true. Структуру НЕ меняем.
+     */
+    public function genealogy(?int $rootId): array
+    {
+        $root = $rootId
+            ? Member::query()->find($rootId)
+            : Member::query()->whereNull('parent_id')->orderBy('id')->first();
+
+        return ['tree' => $root ? $this->genealogyNode($root, 0) : null];
+    }
+
+    /** Узел генеалогии + рекурсивный спуск по детям (left раньше right). */
+    private function genealogyNode(Member $m, int $depth): array
+    {
+        $node = [
+            'id' => $m->id,
+            'name' => $m->name ?? "#{$m->id}",
+            'status' => $m->status,
+            'position' => $m->position,
+            'package_id' => $m->package_id,
+            'children' => [],
+        ];
+
+        if ($depth >= self::GENEALOGY_MAX_DEPTH) {
+            $node['truncated'] = Member::query()->where('parent_id', $m->id)->exists();
+
+            return $node;
+        }
+
+        $children = Member::query()
+            ->where('parent_id', $m->id)
+            ->orderByRaw("CASE position WHEN 'left' THEN 0 ELSE 1 END")
+            ->get(['id', 'name', 'status', 'position', 'package_id', 'parent_id']);
+
+        foreach ($children as $child) {
+            $node['children'][] = $this->genealogyNode($child, $depth + 1);
+        }
+
+        return $node;
     }
 
     /** Фильтр по периоду [from,to] (включительно по дню) на указанной колонке. */

@@ -68,6 +68,13 @@ class AdminReportController
         return $this->guarded(fn () => $this->reports->reportBonusExpense($request->only(['from', 'to'])));
     }
 
+    public function genealogy(Request $request): JsonResponse
+    {
+        $rootId = $request->query('root_id');
+
+        return $this->guarded(fn () => $this->reports->genealogy($rootId !== null ? (int) $rootId : null));
+    }
+
     private function guarded(callable $fn): JsonResponse
     {
         try {

@@ -6,6 +6,7 @@ import * as webApi from '@/views/admin/webApi';
 import AdminWithdrawals from '@/views/admin/AdminWithdrawals';
 import Dashboard from './Dashboard';
 import Users from './Users';
+import Genealogy from './Genealogy';
 import MarketingPlan from './MarketingPlan';
 import Finances from './Finances';
 import Reports from './Reports';
@@ -18,6 +19,7 @@ import AuditLog from './AuditLog';
 const SECTIONS = [
     { key: 'dashboard', label: 'Дашборд', roles: ['owner', 'finance', 'support'], render: () => <Dashboard /> },
     { key: 'users', label: 'Пользователи', roles: ['owner', 'finance', 'support', 'leader'], render: () => <Users /> },
+    { key: 'genealogy', label: 'Генеалогия', roles: ['owner', 'finance', 'support'], render: () => <Genealogy /> },
     { key: 'plan', label: 'Маркетинг-план', roles: ['owner', 'finance', 'support'], render: () => <MarketingPlan /> },
     { key: 'withdrawals', label: 'Выплаты', roles: ['owner', 'finance'], render: () => <AdminWithdrawals creds={webApi.getToken()} api={webApi} /> },
     { key: 'finances', label: 'Финансы', roles: ['owner', 'finance'], render: () => <Finances /> },

@@ -117,6 +117,9 @@ export const fetchReportBalances = (token) => req('/api/v1/admin/reports/balance
 export const fetchReportUsers = (token, params = {}) => req(`/api/v1/admin/reports/users${qs(params)}`, token);
 export const fetchReportSales = (token, params = {}) => req(`/api/v1/admin/reports/sales${qs(params)}`, token);
 export const fetchReportBonusExpense = (token, params = {}) => req(`/api/v1/admin/reports/bonus-expense${qs(params)}`, token);
+// Генеалогия (B1): бинарное дерево живой сети (read-only).
+export const fetchGenealogy = (token, rootId = null) =>
+    req(`/api/v1/admin/genealogy${rootId ? `?root_id=${rootId}` : ''}`, token);
 
 // --- Продукты ---
 export const fetchProducts = (token) => req('/api/v1/admin/products', token);
