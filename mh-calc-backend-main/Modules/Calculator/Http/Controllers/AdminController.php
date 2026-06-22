@@ -5,9 +5,12 @@ namespace Modules\Calculator\Http\Controllers;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 use Modules\Calculator\Models\Member;
 use Modules\Calculator\Services\AdminService;
+use Modules\Calculator\Services\AuditLogService;
+use Modules\Calculator\Services\PlanSettingsService;
 use Modules\Calculator\Services\WithdrawalService;
 use RuntimeException;
 
@@ -22,6 +25,8 @@ class AdminController
     public function __construct(
         private readonly AdminService $service,
         private readonly WithdrawalService $withdrawals,
+        private readonly PlanSettingsService $planSettings,
+        private readonly AuditLogService $audit,
     ) {
     }
 
@@ -46,18 +51,31 @@ class AdminController
             'leader_scope_member_id' => 'required_if:role,leader|nullable|integer|exists:members,id',
         ]);
 
-        return $this->guarded(fn () => $this->service->assignRole(
-            $id,
-            $data['role'],
-            $data['leader_scope_member_id'] ?? null,
-        ));
+        return $this->guarded(fn () => DB::transaction(function () use ($request, $id, $data) {
+            $result = $this->service->assignRole($id, $data['role'], $data['leader_scope_member_id'] ?? null);
+            $this->audit->record($this->viewer($request)->id, 'role.assign', 'member', $id, null, [
+                'role' => $data['role'],
+                'leader_scope_member_id' => $data['leader_scope_member_id'] ?? null,
+                'roles' => $result['roles'],
+            ]);
+
+            return $result;
+        }));
     }
 
     public function revokeRole(Request $request, int $id): JsonResponse
     {
         $data = $request->validate(['role' => 'required|in:owner,finance,leader,support']);
 
-        return $this->guarded(fn () => $this->service->revokeRole($id, $data['role']));
+        return $this->guarded(fn () => DB::transaction(function () use ($request, $id, $data) {
+            $result = $this->service->revokeRole($id, $data['role']);
+            $this->audit->record($this->viewer($request)->id, 'role.revoke', 'member', $id, null, [
+                'role' => $data['role'],
+                'roles' => $result['roles'],
+            ]);
+
+            return $result;
+        }));
     }
 
     public function planSettings(): JsonResponse
@@ -75,6 +93,26 @@ class AdminController
         ]);
 
         return $this->guarded(fn () => $this->service->updatePlanSettings($data));
+    }
+
+    // --- Маркетинг-план (полный документ): боевые проценты/ранги/пакеты ---
+
+    /** Полный текущий документ плана (дефолты + оверрайды) для редактирования. */
+    public function plan(): JsonResponse
+    {
+        return $this->guarded(fn () => $this->planSettings->current());
+    }
+
+    /** Заменить документ плана (только owner). Forward-only + аудит. */
+    public function updatePlan(Request $request): JsonResponse
+    {
+        return $this->guarded(fn () => $this->planSettings->update($request->all(), $this->viewer($request)->id));
+    }
+
+    /** Лента аудита админ-действий (только owner). */
+    public function auditLog(Request $request): JsonResponse
+    {
+        return $this->guarded(fn () => $this->audit->list($request->only(['action', 'entity_type', 'per_page'])));
     }
 
     // --- Заявки на вывод (финансист): очередь + статус-машина ---

@@ -133,6 +133,16 @@ Route::group([
     Route::put('/plan-settings', [AdminController::class, 'updatePlanSettings'])
         ->middleware('calculator.role:owner')->name('update-plan-settings');
 
+    // Маркетинг-план (полный документ: проценты/ранги/пакеты боевого ядра).
+    Route::get('/plan', [AdminController::class, 'plan'])
+        ->middleware('calculator.role:owner,finance,support')->name('plan');
+    Route::put('/plan', [AdminController::class, 'updatePlan'])
+        ->middleware('calculator.role:owner')->name('plan-update');
+
+    // Аудит-лог админ-действий (план/роли/выплаты). Только владелец.
+    Route::get('/audit-log', [AdminController::class, 'auditLog'])
+        ->middleware('calculator.role:owner')->name('audit-log');
+
     // Заявки на вывод (Фаза 3): очередь + статус-машина. Только финансист/владелец.
     Route::get('/withdrawals', [AdminController::class, 'withdrawals'])
         ->middleware('calculator.role:owner,finance')->name('withdrawals');
