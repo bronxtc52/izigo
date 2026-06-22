@@ -16,6 +16,7 @@ import Orders from './Orders';
 import Kyc from './Kyc';
 import AuditLog from './AuditLog';
 import AgreementAdmin from './AgreementAdmin';
+import { blockCSections } from './nav/registry';
 
 const SECTIONS = [
     { key: 'dashboard', label: 'Дашборд', roles: ['owner', 'finance', 'support'], render: () => <Dashboard /> },
@@ -31,6 +32,8 @@ const SECTIONS = [
     { key: 'kyc', label: 'KYC', roles: ['owner', 'finance'], render: () => <Kyc /> },
     { key: 'agreement', label: 'Соглашение', roles: ['owner', 'support'], render: () => <AgreementAdmin /> },
     { key: 'audit', label: 'Аудит', roles: ['owner'], render: () => <AuditLog /> },
+    // Block C — секции фич блока подмешиваются из registry (пустой => меню не меняется).
+    ...blockCSections,
 ];
 
 /** Каркас веб-админки: сайдбар (по ролям), хедер с выходом, активная секция. */

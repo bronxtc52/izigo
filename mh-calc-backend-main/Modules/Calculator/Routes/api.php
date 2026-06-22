@@ -226,6 +226,19 @@ Route::group([
         ->middleware('calculator.role:owner,finance')->where('id', '[0-9]+')->name('kyc-review');
 });
 
+// Block C — разводка роутов по фичам (см. docs/block-c-migration-ledger.md,
+// docs/specs/2026-06-22-block-c-gate-a.md). Каждый стаб определяет свои роуты в
+// собственном файле в том же глобальном контексте (фасад Route), чтобы 7 фич
+// кодились параллельно без конфликтов в этом файле. Пока стабы пустые — новых
+// роутов не добавляют.
+require __DIR__ . '/api/notifications.php';   // C1
+require __DIR__ . '/api/helpdesk.php';        // C2
+require __DIR__ . '/api/feature_flags.php';   // C3
+require __DIR__ . '/api/i18n.php';            // C4
+require __DIR__ . '/api/exports.php';         // C5
+require __DIR__ . '/api/copartners.php';      // C6
+require __DIR__ . '/api/monitoring.php';      // C7
+
 
 
 

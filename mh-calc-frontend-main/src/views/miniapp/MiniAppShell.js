@@ -16,6 +16,7 @@ import {
 } from './api';
 import MiniAppShop from './MiniAppShop';
 import TonPayCheckout from './TonPayCheckout';
+import { blockCTabs, blockCTabRender } from './tabs/registry';
 
 // Базовая проверка user-friendly TON-адреса (48 символов base64url, префикс EQ/UQ/kQ/0Q…).
 // Backend трактует payout_details как TON-адрес получателя USDT (валидации формата на бэке нет).
@@ -262,7 +263,10 @@ const MiniAppShell = () => {
         { key: 'profile', label: 'Профиль', icon: <UserOutlined /> },
     ];
     // Админка вынесена в веб (admin.izigo.adarasoft.com) — в Mini App её больше нет.
-    const tabs = TABS;
+    // Block C: вкладки фич подмешиваются из registry (пустой => таб-бар не меняется).
+    const tabs = [...TABS, ...blockCTabs];
+    // Block C: контекст шелла для render вкладок фич (чтобы не дублировать загрузку данных).
+    const blockCCtx = { initData, pal, isDark, wa, me, dash, rank, tree, wallet, reload: load };
 
     const stateScreen = loading
         ? <Spin size="large" style={{ display: 'block', margin: '80px auto' }} />
@@ -649,6 +653,9 @@ const MiniAppShell = () => {
                             </Card>
                         </>
                     )}
+
+                    {/* Block C: контент вкладок фич блока (по key из registry). */}
+                    {blockCTabRender(tab, blockCCtx)}
 
                 </div>
 
