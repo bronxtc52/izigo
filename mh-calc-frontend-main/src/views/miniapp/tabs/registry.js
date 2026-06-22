@@ -17,10 +17,12 @@
 // рендерит контент таба из registry, когда активный key не совпал с базовыми
 // вкладками (см. blockCTabRender). Пустой массив => таб-бар визуально не меняется.
 
+import notificationsTab from './notifications.tab'; // C1 notifications — inbox
+
 // >>> Block C tabs
 export const blockCTabs = [
-    // C1 notifications — inbox; C2 helpdesk — tickets; C6 copartners — profile-extra
-    // import inboxTab from './notifications.tab'; → inboxTab,
+    notificationsTab, // C1 notifications — inbox (колокольчик)
+    // C2 helpdesk — tickets; C6 copartners — profile-extra
 ];
 // <<< Block C tabs
 

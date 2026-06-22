@@ -8,9 +8,12 @@ use Modules\Calculator\Models\Member;
 use Modules\Calculator\Models\MemberWallet;
 use Modules\Calculator\Models\PayoutTransaction;
 use Modules\Calculator\Models\WithdrawalRequest;
+use Modules\Calculator\Services\Notification\NotificationService;
 use Modules\Calculator\Services\Payout\PayoutGateway;
 use Modules\Calculator\Services\Payout\PayoutResult;
+use Modules\Calculator\Services\Telegram\TelegramNotifications;
 use RuntimeException;
+use Throwable;
 
 /**
  * Заявки на вывод средств (Фаза 3 + Фаза 4 on-chain). Создание партнёром — с холдом
@@ -26,7 +29,42 @@ class WithdrawalService
         private readonly LedgerService $ledger,
         private readonly PayoutGateway $payout,
         private readonly KycService $kyc,
+        private readonly NotificationService $notifications,
     ) {
+    }
+
+    /**
+     * C1 (Block C): best-effort уведомление партнёра о смене статуса выплаты. Вызывается
+     * ПОСЛЕ commit'а транзакции выплаты, обёрнуто в try/catch — НЕ влияет на бизнес-логику
+     * выплаты (нельзя «откатить» on-chain из-за уведомления). Идемпотентно по dedup_key
+     * (wd:<id>:<status>): повторный вызов того же перехода не задвоит уведомление.
+     *
+     * @param array<string,mixed> $presented результат present() (id/amount/status/reject_reason)
+     */
+    private function notifyPayoutStatus(int $memberId, array $presented): void
+    {
+        try {
+            $status = (string) ($presented['status'] ?? '');
+            $id = (int) ($presented['id'] ?? 0);
+            if ($id <= 0 || $status === '') {
+                return;
+            }
+            $html = TelegramNotifications::payoutStatus(
+                $status,
+                (string) ($presented['amount'] ?? '0.00'),
+                $presented['reject_reason'] ?? null,
+            );
+            $this->notifications->enqueueToMember(
+                $memberId,
+                'payout.status',
+                $html,
+                'Статус выплаты',
+                "payout.status:wd:{$id}:{$status}",
+                ['withdrawal_id' => $id, 'status' => $status],
+            );
+        } catch (Throwable $e) {
+            // Best-effort: уведомление не критично для выплаты. Токен бота не логируем.
+        }
     }
 
     /** Список заявок партнёра (новые сверху). */
@@ -114,18 +152,21 @@ class WithdrawalService
     /** requested → approved (средства остаются в холде до выплаты). */
     public function approve(int $id, Member $finance): array
     {
-        return $this->transition($id, [WithdrawalRequest::STATUS_REQUESTED], function (WithdrawalRequest $w) use ($finance) {
+        [$result, $memberId] = $this->transitionWithMember($id, [WithdrawalRequest::STATUS_REQUESTED], function (WithdrawalRequest $w) use ($finance) {
             $w->status = WithdrawalRequest::STATUS_APPROVED;
             $w->decided_by = $finance->id;
             $w->decided_at = now();
             $w->save();
         });
+        $this->notifyPayoutStatus($memberId, $result); // best-effort, после commit
+
+        return $result;
     }
 
     /** requested → rejected (возврат холда в доступный баланс). */
     public function reject(int $id, Member $finance, string $reason): array
     {
-        return $this->transition($id, [WithdrawalRequest::STATUS_REQUESTED], function (WithdrawalRequest $w) use ($finance, $reason) {
+        [$result, $memberId] = $this->transitionWithMember($id, [WithdrawalRequest::STATUS_REQUESTED], function (WithdrawalRequest $w) use ($finance, $reason) {
             $this->ledger->releaseHold($w);
             $w->status = WithdrawalRequest::STATUS_REJECTED;
             $w->decided_by = $finance->id;
@@ -133,17 +174,23 @@ class WithdrawalService
             $w->reject_reason = $reason;
             $w->save();
         });
+        $this->notifyPayoutStatus($memberId, $result); // best-effort, после commit
+
+        return $result;
     }
 
     /** approved → paid (фиксация ручной выплаты: held → выплачено). */
     public function markPaid(int $id): array
     {
-        return $this->transition($id, [WithdrawalRequest::STATUS_APPROVED], function (WithdrawalRequest $w) {
+        [$result, $memberId] = $this->transitionWithMember($id, [WithdrawalRequest::STATUS_APPROVED], function (WithdrawalRequest $w) {
             $this->ledger->markPaid($w);
             $w->status = WithdrawalRequest::STATUS_PAID;
             $w->paid_at = now();
             $w->save();
         });
+        $this->notifyPayoutStatus($memberId, $result); // best-effort, после commit
+
+        return $result;
     }
 
     /**
@@ -206,11 +253,23 @@ class WithdrawalService
             return ['ok' => true, 'data' => $this->present($w) + [
                 'tx_hash' => $result->txHash,
                 'payout_status' => $result->status,
-            ]];
+            ], 'member_id' => (int) $w->member_id];
         });
 
         if (!$outcome['ok']) {
+            // Заявка отменена возвратом холда — уведомим best-effort после commit.
+            // member_id не вернулся в провальной ветке; достаём отдельным lookup-ом.
+            $wId = $id;
+            $w = WithdrawalRequest::query()->find($wId);
+            if ($w !== null) {
+                $this->notifyPayoutStatus((int) $w->member_id, $this->present($w));
+            }
             throw new RuntimeException('Выплата on-chain не удалась: ' . $outcome['error']);
+        }
+
+        // best-effort, после commit; уведомляем только если заявка финализирована (paid).
+        if (($outcome['data']['status'] ?? null) === WithdrawalRequest::STATUS_PAID) {
+            $this->notifyPayoutStatus($outcome['member_id'], $outcome['data']);
         }
 
         return $outcome['data'];
@@ -223,10 +282,12 @@ class WithdrawalService
      */
     public function reconcilePayout(int $payoutTxId, string $chainStatus): void
     {
-        DB::transaction(function () use ($payoutTxId, $chainStatus) {
+        // Возвращаем [memberId, presented] для финализированных заявок, чтобы уведомить
+        // партнёра best-effort ПОСЛЕ commit'а (не внутри транзакции). null = нет перехода.
+        $notify = DB::transaction(function () use ($payoutTxId, $chainStatus) {
             $tx = PayoutTransaction::query()->where('id', $payoutTxId)->lockForUpdate()->first();
             if ($tx === null || $tx->status !== PayoutTransaction::STATUS_BROADCAST) {
-                return;
+                return null;
             }
             $w = WithdrawalRequest::query()->where('id', $tx->withdrawal_request_id)->lockForUpdate()->first();
 
@@ -238,6 +299,8 @@ class WithdrawalService
                     $w->status = WithdrawalRequest::STATUS_PAID;
                     $w->paid_at = now();
                     $w->save();
+
+                    return [(int) $w->member_id, $this->present($w)];
                 }
             } elseif ($chainStatus === PayoutResult::FAILED) {
                 $tx->status = PayoutTransaction::STATUS_FAILED;
@@ -249,21 +312,32 @@ class WithdrawalService
                     $w->reject_reason = 'on-chain failed (poll)';
                     $w->decided_at = now();
                     $w->save();
+
+                    return [(int) $w->member_id, $this->present($w)];
                 }
             }
+
+            return null;
         });
+
+        if ($notify !== null) {
+            $this->notifyPayoutStatus($notify[0], $notify[1]); // best-effort, после commit
+        }
     }
 
     /** approved → cancelled (выплата не состоялась: возврат холда). */
     public function cancel(int $id, Member $finance): array
     {
-        return $this->transition($id, [WithdrawalRequest::STATUS_APPROVED], function (WithdrawalRequest $w) use ($finance) {
+        [$result, $memberId] = $this->transitionWithMember($id, [WithdrawalRequest::STATUS_APPROVED], function (WithdrawalRequest $w) use ($finance) {
             $this->ledger->releaseHold($w);
             $w->status = WithdrawalRequest::STATUS_CANCELLED;
             $w->decided_by = $finance->id;
             $w->decided_at = now();
             $w->save();
         });
+        $this->notifyPayoutStatus($memberId, $result); // best-effort, после commit
+
+        return $result;
     }
 
     /**
@@ -274,6 +348,18 @@ class WithdrawalService
      */
     private function transition(int $id, array $allowedFrom, callable $apply): array
     {
+        return $this->transitionWithMember($id, $allowedFrom, $apply)[0];
+    }
+
+    /**
+     * Как transition(), но также возвращает member_id (для best-effort уведомления после
+     * commit'а). Возврат: [presented, memberId].
+     *
+     * @param array<int,string> $allowedFrom
+     * @return array{0:array<string,mixed>,1:int}
+     */
+    private function transitionWithMember(int $id, array $allowedFrom, callable $apply): array
+    {
         return DB::transaction(function () use ($id, $allowedFrom, $apply) {
             $w = WithdrawalRequest::query()->where('id', $id)->lockForUpdate()->firstOrFail();
             if (!in_array($w->status, $allowedFrom, true)) {
@@ -281,7 +367,7 @@ class WithdrawalService
             }
             $apply($w);
 
-            return $this->present($w);
+            return [$this->present($w), (int) $w->member_id];
         });
     }
 

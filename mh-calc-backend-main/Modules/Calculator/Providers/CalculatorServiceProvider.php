@@ -6,6 +6,7 @@ use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\ServiceProvider;
 use Modules\Calculator\Console\AutoshipRunCommand;
+use Modules\Calculator\Console\OutboxDispatchCommand;
 use Modules\Calculator\Console\PayoutsPollCommand;
 use Modules\Calculator\Console\RemoveOldEmptyStructuresCommand;
 use Modules\Calculator\Console\TonPayPollCommand;
@@ -130,6 +131,7 @@ class CalculatorServiceProvider extends ServiceProvider
             AutoshipRunCommand::class,
             PayoutsPollCommand::class,
             TonPayPollCommand::class,
+            OutboxDispatchCommand::class,
         ]);
     }
 
@@ -148,6 +150,9 @@ class CalculatorServiceProvider extends ServiceProvider
             // не наложился на следующий тик (schedule:work запускает schedule:run ежеминутно).
             // Явный TTL мьютекса (мин), чтобы упавший процесс не заблокировал полл надолго.
             $schedule->command('commerce:tonpay-poll')->everyMinute()->withoutOverlapping(5);
+            // C1 (Block C): диспетчер outbox уведомлений — фон проекта = планировщик,
+            // НЕ Laravel queue. TTL мьютекса 5 мин, чтобы зависший тик не блокировал.
+            $schedule->command('notifications:outbox-dispatch')->everyMinute()->withoutOverlapping(5);
         });
     }
 

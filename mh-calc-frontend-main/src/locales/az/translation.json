@@ -68,5 +68,33 @@
         "saveFailed": "Не удалось сохранить",
         "ownerOnly": "Переключать может только владелец",
         "forbidden": "Недостаточно прав"
+    },
+    "notifications": {
+        "title": "Уведомления",
+        "empty": "Уведомлений пока нет",
+        "markAll": "Прочитать всё",
+        "bcTitle": "Рассылка уведомлений",
+        "segAll": "Все участники",
+        "segByStatus": "По статусу",
+        "segByRank": "По рангу",
+        "segStatusPlaceholder": "Выберите статус",
+        "segRankPlaceholder": "ID ранга",
+        "statusActive": "Активные",
+        "statusRegistered": "Зарегистрированные",
+        "bcPreview": "Превью охвата",
+        "bcReach": "Охват: {{count}} участников",
+        "bcBodyHint": "Текст (поддерживается markdown: **жирный**, *курсив*, списки)",
+        "bcBodyPlaceholder": "Введите текст рассылки…",
+        "bcSend": "Отправить",
+        "bcSent": "Рассылка отправлена: {{count}} получателей",
+        "bcBodyRequired": "Введите текст рассылки",
+        "bcPreviewFailed": "Не удалось получить охват",
+        "bcSendFailed": "Не удалось отправить рассылку",
+        "bcForbidden": "Недостаточно прав (только владелец и саппорт)",
+        "bcConfirmTitle": "Отправить рассылку?",
+        "bcConfirmDesc": "Уведомление получат {{count}} участников. Действие необратимо.",
+        "bcConfirmNoPreview": "Сначала рекомендуется проверить охват. Отправить без превью?",
+        "bcConfirmOk": "Отправить",
+        "bcConfirmCancel": "Отмена"
     }
 }

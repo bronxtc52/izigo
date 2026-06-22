@@ -12,6 +12,7 @@
 // бэка (owner проходит всегда). Пустой массив => меню админки визуально не меняется.
 
 import featureFlagsNav from './feature_flags.nav';
+import notificationsNav from './notifications.nav';
 
 // >>> Block C sections
 export const blockCSections = [
@@ -19,7 +20,6 @@ export const blockCSections = [
     // C5 exports     — import exportsNav   from './exports.nav';     → exportsNav,
     featureFlagsNav, // C3 feature_flags (owner-only)
     // C2 helpdesk    — import helpdeskNav  from './helpdesk.nav';    → helpdeskNav,
-    // C1 notifications — рассылки owner+support
-    // (раскомментировать импорт сверху файла при добавлении секции)
+    notificationsNav, // C1 notifications — рассылки (owner+support)
 ];
 // <<< Block C sections

@@ -164,3 +164,11 @@ export const fetchFeatureFlags = (token) => req('/api/v1/admin/feature-flags', t
 export const setFeatureFlag = (token, key, enabled) =>
     mutate(token, '/api/v1/admin/feature-flags', 'POST', { key, enabled });
 // <<< Block C feature_flags
+
+// >>> Block C notifications
+// C1: рассылки (owner,support). preview — dry-run охвата; send — постановка в outbox.
+export const previewBroadcast = (token, segmentType, segmentValue = null) =>
+    mutate(token, '/api/v1/admin/broadcasts/preview', 'POST', { segment_type: segmentType, segment_value: segmentValue });
+export const sendBroadcast = (token, segmentType, segmentValue, body) =>
+    mutate(token, '/api/v1/admin/broadcasts', 'POST', { segment_type: segmentType, segment_value: segmentValue, body });
+// <<< Block C notifications

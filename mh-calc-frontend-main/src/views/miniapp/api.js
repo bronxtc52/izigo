@@ -76,3 +76,11 @@ export const PACKAGES = [
     { id: 2, name: 'Silver', pv: 180, price: 200 },
     { id: 3, name: 'Gold', pv: 540, price: 600 },
 ];
+
+// >>> Block C notifications
+// C1: inbox партнёра (свои уведомления + отметка прочтения).
+export const mmNotifications = (i) => req('/api/v1/cabinet/notifications', i);
+export const mmNotificationsUnread = (i) => req('/api/v1/cabinet/notifications/unread-count', i);
+export const mmNotificationRead = (i, id) => req(`/api/v1/cabinet/notifications/${id}/read`, i, 'POST');
+export const mmNotificationReadAll = (i) => req('/api/v1/cabinet/notifications/read-all', i, 'POST');
+// <<< Block C notifications
