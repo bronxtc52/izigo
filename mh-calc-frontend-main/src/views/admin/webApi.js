@@ -43,12 +43,15 @@ const handleUnauthorized = () => {
 // req(path, token, method, body): token — Bearer (первый «creds» аргумент, как initData).
 export const req = async (path, token, method = 'GET', body = null) => {
     try {
+        // Токен берём только если это непустая строка — иначе из localStorage. Защита от
+        // случайной передачи params в слот токена (иначе `Bearer [object Object]` → 401).
+        const bearer = (typeof token === 'string' && token) ? token : getToken();
         const res = await fetch(`${API_SERVER_URL}${path}`, {
             method,
             headers: {
                 'X-Requested-With': 'XMLHttpRequest',
                 'Content-Type': 'application/json;charset=UTF-8',
-                Authorization: `Bearer ${token || getToken()}`,
+                Authorization: `Bearer ${bearer}`,
             },
             body: body ? JSON.stringify(body) : undefined,
         });

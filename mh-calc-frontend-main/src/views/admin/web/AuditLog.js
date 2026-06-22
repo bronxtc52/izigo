@@ -12,7 +12,7 @@ const AuditLog = () => {
 
     const load = async (a = action) => {
         setLoading(true);
-        const res = await api.fetchAuditLog({ action: a });
+        const res = await api.fetchAuditLog(undefined, { action: a });
         if (api.isForbidden(res)) { setForbidden(true); setLoading(false); return; }
         setRows(res?.data?.data ?? []);
         setLoading(false);

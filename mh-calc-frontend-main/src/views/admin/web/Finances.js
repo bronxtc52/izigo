@@ -14,7 +14,7 @@ const Finances = () => {
 
     const loadLedger = async (mid) => {
         setLoading(true);
-        const res = await api.fetchLedger(mid ? { member_id: mid } : {});
+        const res = await api.fetchLedger(undefined, mid ? { member_id: mid } : {});
         if (api.isForbidden(res)) { setForbidden(true); setLoading(false); return; }
         setRows(res?.data?.data ?? []);
         setLoading(false);
