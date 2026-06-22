@@ -1,10 +1,7 @@
 'use client';
 import React, { useEffect, useState } from 'react';
 import { Segmented, List, Tag, Button, Space, Spin, Modal, Input, message, theme } from 'antd';
-import {
-    fetchWithdrawals, approveWithdrawal, rejectWithdrawal,
-    markPaidWithdrawal, cancelWithdrawal, isForbidden,
-} from './initDataApi';
+import * as initDataApi from './initDataApi';
 
 const STATUS = {
     requested: { label: 'на рассмотрении', color: 'blue' },
@@ -20,11 +17,12 @@ const FILTERS = [
 ];
 
 /**
- * Очередь заявок на вывод для финансиста (Telegram Mini App). Действия по статусу:
- * requested → одобрить/отклонить; approved → выплачено/отменить. Доступ — owner/finance
- * (403 на backend → onUnauthorized не дёргаем, просто показываем пусто).
+ * Очередь заявок на вывод для финансиста. Действия по статусу: requested → одобрить/
+ * отклонить; approved → выплачено/отменить. Источник API задаётся пропом `api`
+ * (web-токен или initData). Доступ — owner/finance (403 на backend → показываем пусто).
  */
-const AdminWithdrawals = ({ creds, onUnauthorized }) => {
+const AdminWithdrawals = ({ creds, api = initDataApi, onUnauthorized }) => {
+    const { fetchWithdrawals, approveWithdrawal, rejectWithdrawal, markPaidWithdrawal, cancelWithdrawal, isForbidden } = api;
     const { token } = theme.useToken();
     const [status, setStatus] = useState('requested');
     const [items, setItems] = useState([]);

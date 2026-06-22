@@ -5,13 +5,12 @@ import {
     Input, InputNumber, Modal, Avatar, Divider, Flex, message,
 } from 'antd';
 import {
-    WalletOutlined, TeamOutlined, TrophyOutlined, UserOutlined, SafetyOutlined,
+    WalletOutlined, TeamOutlined, TrophyOutlined, UserOutlined,
     ExportOutlined, CopyOutlined, ShoppingOutlined,
 } from '@ant-design/icons';
 import { useTelegram, antdThemeFromTelegram, miniAppPalette } from './telegram';
 import { tint, bonusTint, statusTint, roleTint, bonusDot, numFont } from './tokens';
 import { mmMe, mmDashboard, mmRank, mmTree, mmWallet, mmWalletTx, mmWithdrawals, mmWithdrawCreate, PACKAGES } from './api';
-import MiniAppAdmin from './MiniAppAdmin';
 import MiniAppShop from './MiniAppShop';
 
 const TYPE_LABEL = { binary: 'Бинар', referral: 'Реферал', leader: 'Лидер', rank: 'Ранг' };
@@ -146,7 +145,6 @@ const MiniAppShell = () => {
     };
 
     const byType = dash?.by_type ?? {};
-    const isAdmin = (me?.roles ?? []).length > 0;
     const teamCount = useMemo(() => (tree ? countTeam(tree) : { total: 0, active: 0 }), [tree]);
     const personalCount = (tree?.children ?? []).length;
 
@@ -157,7 +155,8 @@ const MiniAppShell = () => {
         { key: 'rank', label: 'Ранг', icon: <TrophyOutlined /> },
         { key: 'profile', label: 'Профиль', icon: <UserOutlined /> },
     ];
-    const tabs = isAdmin ? [...TABS, { key: 'admin', label: 'Админ', icon: <SafetyOutlined /> }] : TABS;
+    // Админка вынесена в веб (admin.izigo.adarasoft.com) — в Mini App её больше нет.
+    const tabs = TABS;
 
     const stateScreen = loading
         ? <Spin size="large" style={{ display: 'block', margin: '80px auto' }} />
@@ -437,9 +436,6 @@ const MiniAppShell = () => {
                         </>
                     )}
 
-                    {tab === 'admin' && isAdmin && (
-                        <MiniAppAdmin initData={initData} onUnauthorized={() => setAuthError(true)} />
-                    )}
                 </div>
 
                 {/* Нижний таб-бар с иконками */}
