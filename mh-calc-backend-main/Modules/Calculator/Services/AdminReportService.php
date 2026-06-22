@@ -5,8 +5,12 @@ namespace Modules\Calculator\Services;
 use Modules\Calculator\Models\AutoshipSubscription;
 use Modules\Calculator\Models\LedgerEntry;
 use Modules\Calculator\Models\Member;
+use Modules\Calculator\Models\MemberBonusLine;
 use Modules\Calculator\Models\MemberWallet;
+use Modules\Calculator\Models\Order;
+use Modules\Calculator\Models\Package;
 use Modules\Calculator\Models\Payment;
+use Modules\Calculator\Models\Rank;
 use Modules\Calculator\Models\WithdrawalRequest;
 
 /**
@@ -125,6 +129,134 @@ class AdminReportService
             'status' => $a->status,
             'retry_stage' => $a->retry_stage,
         ]);
+    }
+
+    /**
+     * Отчёт «Балансы»: партнёры с остатками кошелька + сводные итоги по сети.
+     * Снимок текущего состояния (без периода). USD. owner/finance.
+     */
+    public function reportBalances(): array
+    {
+        $wallets = MemberWallet::query()->get()->keyBy('member_id');
+
+        $rows = Member::query()->orderBy('id')->get(['id', 'name', 'status'])
+            ->map(function (Member $m) use ($wallets) {
+                $w = $wallets->get($m->id);
+
+                return [
+                    'member_id' => $m->id,
+                    'name' => $m->name,
+                    'status' => $m->status,
+                    'available_cents' => (int) ($w->available_cents ?? 0),
+                    'held_cents' => (int) ($w->held_cents ?? 0),
+                    'clawback_debt_cents' => (int) ($w->clawback_debt_cents ?? 0),
+                ];
+            })->all();
+
+        return [
+            'data' => $rows,
+            'totals' => [
+                'available_cents' => (int) $wallets->sum('available_cents'),
+                'held_cents' => (int) $wallets->sum('held_cents'),
+                'clawback_debt_cents' => (int) $wallets->sum('clawback_debt_cents'),
+            ],
+        ];
+    }
+
+    /**
+     * Отчёт «Пользователи»: партнёры с рангом/пакетом/статусом + счётчики по статусу.
+     * Фильтры: status, период регистрации from/to. owner/finance/support.
+     */
+    public function reportUsers(array $filters): array
+    {
+        $rankAlias = Rank::query()->pluck('alias', 'id');
+        $packageName = Package::query()->get()->mapWithKeys(fn (Package $p) => [$p->id => $p->name]);
+
+        $query = Member::query()->orderByDesc('id');
+        $this->applyDateRange($query, 'created_at', $filters);
+        if (!empty($filters['status'])) {
+            $query->where('status', $filters['status']);
+        }
+
+        $data = $query->get(['id', 'name', 'status', 'rank_id', 'package_id', 'created_at'])
+            ->map(fn (Member $m) => [
+                'member_id' => $m->id,
+                'name' => $m->name,
+                'status' => $m->status,
+                'rank' => $m->rank_id ? ($rankAlias[$m->rank_id] ?? "#{$m->rank_id}") : null,
+                'package' => $m->package_id ? ($packageName[$m->package_id] ?? "#{$m->package_id}") : null,
+                'created_at' => $m->created_at?->toIso8601String(),
+            ])->all();
+
+        // Счётчики — по периоду, но без status-фильтра (стабильная сводка по сети).
+        $counts = Member::query();
+        $this->applyDateRange($counts, 'created_at', $filters);
+
+        return [
+            'data' => $data,
+            'counts' => [
+                'total' => (clone $counts)->count(),
+                'active' => (clone $counts)->where('status', 'active')->count(),
+                'registered' => (clone $counts)->where('status', 'registered')->count(),
+            ],
+        ];
+    }
+
+    /** Отчёт «Продажи»: оплаченные заказы за период — выручка (центы USD), PV, число. */
+    public function reportSales(array $filters): array
+    {
+        $query = Order::query()->where('status', Order::STATUS_PAID);
+        $this->applyDateRange($query, 'created_at', $filters);
+
+        return [
+            'orders' => (int) (clone $query)->count(),
+            'revenue_cents' => (int) (clone $query)->sum('total_usdt_cents'),
+            'pv' => (int) (clone $query)->sum('total_pv'),
+        ];
+    }
+
+    /**
+     * Отчёт «Расход на бонусы». Авторитетный ИТОГ — из ledger (счёт расхода компании,
+     * центы, по периоду created_at). Разбивка ПО ТИПАМ — из снимка начислений
+     * MemberBonusLine (это текущее состояние сети, НЕ исторический период): даёт структуру
+     * расхода, поэтому помечена *_snapshot и периодом не фильтруется. Движок не трогаем — читаем.
+     */
+    public function reportBonusExpense(array $filters): array
+    {
+        $expense = LedgerEntry::query()
+            ->where('account_type', LedgerService::ACC_COMMISSION_EXPENSE)
+            ->whereNull('member_id');
+        $this->applyDateRange($expense, 'created_at', $filters);
+
+        $totalCents = (int) $expense
+            ->selectRaw("COALESCE(SUM(CASE WHEN direction = 'debit' THEN amount_cents ELSE -amount_cents END), 0) AS net")
+            ->value('net');
+
+        $byType = MemberBonusLine::query()
+            ->selectRaw('type, COALESCE(SUM(amount), 0) AS amount')
+            ->groupBy('type')
+            ->pluck('amount', 'type');
+
+        $byTypeSnapshot = collect(['binary', 'referral', 'leader', 'rank'])->map(fn (string $t) => [
+            'type' => $t,
+            'amount_cents' => (int) round(((float) ($byType[$t] ?? 0)) * 100),
+        ])->all();
+
+        return [
+            'total_expense_cents' => $totalCents,
+            'by_type_snapshot' => $byTypeSnapshot,
+        ];
+    }
+
+    /** Фильтр по периоду [from,to] (включительно по дню) на указанной колонке. */
+    private function applyDateRange($query, string $column, array $filters): void
+    {
+        if (!empty($filters['from'])) {
+            $query->whereDate($column, '>=', $filters['from']);
+        }
+        if (!empty($filters['to'])) {
+            $query->whereDate($column, '<=', $filters['to']);
+        }
     }
 
     /**

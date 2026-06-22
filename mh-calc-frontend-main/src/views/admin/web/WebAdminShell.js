@@ -8,6 +8,7 @@ import Dashboard from './Dashboard';
 import Users from './Users';
 import MarketingPlan from './MarketingPlan';
 import Finances from './Finances';
+import Reports from './Reports';
 import Operations from './Operations';
 import Products from './Products';
 import Orders from './Orders';
@@ -20,6 +21,7 @@ const SECTIONS = [
     { key: 'plan', label: 'Маркетинг-план', roles: ['owner', 'finance', 'support'], render: () => <MarketingPlan /> },
     { key: 'withdrawals', label: 'Выплаты', roles: ['owner', 'finance'], render: () => <AdminWithdrawals creds={webApi.getToken()} api={webApi} /> },
     { key: 'finances', label: 'Финансы', roles: ['owner', 'finance'], render: () => <Finances /> },
+    { key: 'reports', label: 'Отчёты', roles: ['owner', 'finance', 'support'], render: () => <Reports /> },
     { key: 'operations', label: 'Операции', roles: ['owner', 'finance', 'support'], render: () => <Operations /> },
     { key: 'products', label: 'Продукты', roles: ['owner', 'support'], render: () => <Products /> },
     { key: 'orders', label: 'Заказы', roles: ['owner', 'support'], render: () => <Orders /> },

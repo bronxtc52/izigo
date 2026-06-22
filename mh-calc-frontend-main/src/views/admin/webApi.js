@@ -112,6 +112,12 @@ export const fetchPayments = (token, params = {}) => req(`/api/v1/admin/payments
 export const fetchAutoship = (token, params = {}) => req(`/api/v1/admin/autoship${qs(params)}`, token);
 export const fetchAuditLog = (token, params = {}) => req(`/api/v1/admin/audit-log${qs(params)}`, token);
 
+// --- Отчёты/аналитика (A1): read-only сводки поверх выходов движка ---
+export const fetchReportBalances = (token) => req('/api/v1/admin/reports/balances', token);
+export const fetchReportUsers = (token, params = {}) => req(`/api/v1/admin/reports/users${qs(params)}`, token);
+export const fetchReportSales = (token, params = {}) => req(`/api/v1/admin/reports/sales${qs(params)}`, token);
+export const fetchReportBonusExpense = (token, params = {}) => req(`/api/v1/admin/reports/bonus-expense${qs(params)}`, token);
+
 // --- Продукты ---
 export const fetchProducts = (token) => req('/api/v1/admin/products', token);
 export const createProduct = (token, data) => mutate(token, '/api/v1/admin/products', 'POST', data);

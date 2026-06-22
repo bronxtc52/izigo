@@ -105,4 +105,88 @@ class WebAdminReportTest extends TestCase
 
         $this->getJson('/api/v1/admin/dashboard', $this->adminHeaders($partnerData))->assertStatus(403);
     }
+
+    // --- A1: отчёты/аналитика ---
+
+    public function testReportBalancesTotalsMatchWallets(): void
+    {
+        [$ownerData] = $this->scenarioWithMoney();
+
+        $res = $this->getJson('/api/v1/admin/reports/balances', $this->adminHeaders($ownerData))->assertOk();
+
+        // Только owner с деньгами: $9 реферал − $5 в холде → доступно 400, холд 500; долга нет.
+        $this->assertSame(400, $res->json('data.totals.available_cents'));
+        $this->assertSame(500, $res->json('data.totals.held_cents'));
+        $this->assertSame(0, $res->json('data.totals.clawback_debt_cents'));
+        $this->assertGreaterThanOrEqual(2, count($res->json('data.data')));
+    }
+
+    public function testReportUsersListsMembersWithCounts(): void
+    {
+        [$ownerData] = $this->scenarioWithMoney();
+
+        $res = $this->getJson('/api/v1/admin/reports/users', $this->adminHeaders($ownerData))->assertOk();
+
+        $this->assertSame(2, $res->json('data.counts.total'));
+        $this->assertSame(2, $res->json('data.counts.active'));
+        $this->assertCount(2, $res->json('data.data'));
+    }
+
+    public function testReportUsersFilteredByStatus(): void
+    {
+        [$ownerData] = $this->scenarioWithMoney();
+        // Новый партнёр без активации — статус registered.
+        $this->registerTg(713, $this->memberByTg(700)->ref_code, 'Fresh');
+
+        $res = $this->getJson('/api/v1/admin/reports/users?status=registered', $this->adminHeaders($ownerData))->assertOk();
+        $this->assertNotEmpty($res->json('data.data'));
+
+        foreach ($res->json('data.data') as $row) {
+            $this->assertSame('registered', $row['status']);
+        }
+    }
+
+    public function testReportSalesReturnsAggregates(): void
+    {
+        [$ownerData] = $this->scenarioWithMoney();
+
+        $res = $this->getJson('/api/v1/admin/reports/sales', $this->adminHeaders($ownerData))->assertOk();
+
+        $res->assertJsonStructure(['data' => ['orders', 'revenue_cents', 'pv']]);
+        $this->assertIsInt($res->json('data.revenue_cents'));
+        $this->assertGreaterThanOrEqual(0, $res->json('data.orders'));
+    }
+
+    public function testReportBonusExpenseTotalAndTypeBreakdown(): void
+    {
+        [$ownerData] = $this->scenarioWithMoney();
+
+        $res = $this->getJson('/api/v1/admin/reports/bonus-expense', $this->adminHeaders($ownerData))->assertOk();
+
+        // Реферальный бонус owner'у ($9) → расход компании > 0 и referral в снимке > 0.
+        $this->assertGreaterThan(0, $res->json('data.total_expense_cents'));
+        $byType = collect($res->json('data.by_type_snapshot'))->keyBy('type');
+        $this->assertSame(900, $byType['referral']['amount_cents']);
+    }
+
+    public function testSupportCannotAccessFinancialReports(): void
+    {
+        [$ownerData, $ownerRef] = $this->registerTg(720, name: 'Owner');
+        $this->grantRole(720, 'owner');
+        [$supportData] = $this->registerTg(721, $ownerRef, 'Support');
+        $this->grantRole(721, 'support');
+
+        // Пользователи/продажи support видит; балансы/расход (owner,finance) — нет.
+        $this->getJson('/api/v1/admin/reports/users', $this->adminHeaders($supportData))->assertOk();
+        $this->getJson('/api/v1/admin/reports/sales', $this->adminHeaders($supportData))->assertOk();
+        $this->getJson('/api/v1/admin/reports/balances', $this->adminHeaders($supportData))->assertStatus(403);
+        $this->getJson('/api/v1/admin/reports/bonus-expense', $this->adminHeaders($supportData))->assertStatus(403);
+    }
+
+    public function testRolelessCannotAccessReports(): void
+    {
+        [$partnerData] = $this->registerTg(722, name: 'Partner');
+
+        $this->getJson('/api/v1/admin/reports/users', $this->adminHeaders($partnerData))->assertStatus(403);
+    }
 }

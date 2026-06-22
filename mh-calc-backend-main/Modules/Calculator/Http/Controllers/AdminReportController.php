@@ -48,6 +48,26 @@ class AdminReportController
         return $this->guarded(fn () => $this->reports->autoship($request->only(['status', 'per_page'])));
     }
 
+    public function reportBalances(): JsonResponse
+    {
+        return $this->guarded(fn () => $this->reports->reportBalances());
+    }
+
+    public function reportUsers(Request $request): JsonResponse
+    {
+        return $this->guarded(fn () => $this->reports->reportUsers($request->only(['status', 'from', 'to'])));
+    }
+
+    public function reportSales(Request $request): JsonResponse
+    {
+        return $this->guarded(fn () => $this->reports->reportSales($request->only(['from', 'to'])));
+    }
+
+    public function reportBonusExpense(Request $request): JsonResponse
+    {
+        return $this->guarded(fn () => $this->reports->reportBonusExpense($request->only(['from', 'to'])));
+    }
+
     private function guarded(callable $fn): JsonResponse
     {
         try {

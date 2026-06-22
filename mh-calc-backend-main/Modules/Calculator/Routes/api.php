@@ -156,6 +156,17 @@ Route::group([
     Route::get('/autoship', [AdminReportController::class, 'autoship'])
         ->middleware('calculator.role:owner,support')->name('admin-autoship');
 
+    // Отчёты/аналитика (A1 роадмапа): read-only сводки поверх выходов движка. USD-only,
+    // математику бонусов не трогаем. Балансы/расход — финансовые (owner,finance).
+    Route::get('/reports/balances', [AdminReportController::class, 'reportBalances'])
+        ->middleware('calculator.role:owner,finance')->name('reports-balances');
+    Route::get('/reports/users', [AdminReportController::class, 'reportUsers'])
+        ->middleware('calculator.role:owner,finance,support')->name('reports-users');
+    Route::get('/reports/sales', [AdminReportController::class, 'reportSales'])
+        ->middleware('calculator.role:owner,finance,support')->name('reports-sales');
+    Route::get('/reports/bonus-expense', [AdminReportController::class, 'reportBonusExpense'])
+        ->middleware('calculator.role:owner,finance')->name('reports-bonus-expense');
+
     // Заявки на вывод (Фаза 3): очередь + статус-машина. Только финансист/владелец.
     Route::get('/withdrawals', [AdminController::class, 'withdrawals'])
         ->middleware('calculator.role:owner,finance')->name('withdrawals');
