@@ -44,6 +44,22 @@ export const mmCreateOrder = (i, productId, qty = 1) =>
 export const mmPayOrder = (i, id) => req(`/api/v1/cabinet/orders/${id}/pay`, i, 'POST');
 export const mmCheckPayment = (i, id) => req(`/api/v1/cabinet/payments/${id}/check`, i, 'POST');
 
+// Autoship (F4): подписки на автоповтор покупки. interval_days — целое 1..365.
+export const mmAutoship = (i) => req('/api/v1/cabinet/autoship', i);
+export const mmAutoshipCreate = (i, productId, intervalDays) =>
+    req('/api/v1/cabinet/autoship', i, 'POST', { product_id: productId, interval_days: intervalDays });
+export const mmAutoshipAction = (i, id, action) =>
+    req(`/api/v1/cabinet/autoship/${id}`, i, 'PATCH', { action }); // action: pause|resume|cancel
+
+// Пополнение внутреннего USDT-баланса (F5): тот же checkout-флоу, что и заказ. amount — в центах.
+export const mmTopup = (i, amountCents) =>
+    req('/api/v1/cabinet/wallet/topup', i, 'POST', { amount_cents: amountCents });
+
+// KYC (F6): статус (none|pending|approved|rejected) + подача документов (Passport-intake).
+export const mmKyc = (i) => req('/api/v1/cabinet/kyc', i);
+export const mmKycSubmit = (i, documents) =>
+    req('/api/v1/cabinet/kyc/passport', i, 'POST', { documents });
+
 export const PACKAGES = [
     { id: 1, name: 'Bronze', pv: 90, price: 100 },
     { id: 2, name: 'Silver', pv: 180, price: 200 },

@@ -1,6 +1,6 @@
 'use client';
 import React, { useEffect, useState } from 'react';
-import { Segmented, List, Tag, Button, Space, Spin, Modal, Input, message, theme } from 'antd';
+import { Segmented, List, Tag, Button, Space, Spin, Modal, Input, Popconfirm, message, theme } from 'antd';
 import * as initDataApi from './initDataApi';
 
 const STATUS = {
@@ -22,7 +22,7 @@ const FILTERS = [
  * (web-токен или initData). Доступ — owner/finance (403 на backend → показываем пусто).
  */
 const AdminWithdrawals = ({ creds, api = initDataApi, onUnauthorized }) => {
-    const { fetchWithdrawals, approveWithdrawal, rejectWithdrawal, markPaidWithdrawal, cancelWithdrawal, isForbidden } = api;
+    const { fetchWithdrawals, approveWithdrawal, rejectWithdrawal, markPaidWithdrawal, cancelWithdrawal, sendWithdrawal, isForbidden } = api;
     const { token } = theme.useToken();
     const [status, setStatus] = useState('requested');
     const [items, setItems] = useState([]);
@@ -96,6 +96,11 @@ const AdminWithdrawals = ({ creds, api = initDataApi, onUnauthorized }) => {
                         {w.reject_reason && (
                             <div style={{ fontSize: 12, color: token.colorError }}>Причина: {w.reject_reason}</div>
                         )}
+                        {w.tx_hash && (
+                            <div style={{ fontSize: 12, opacity: 0.75 }}>
+                                tx: <code>{w.tx_hash}</code>{w.payout_status ? ` · ${w.payout_status}` : ''}
+                            </div>
+                        )}
                         <Space style={{ marginTop: 6 }}>
                             {w.status === 'requested' && (
                                 <>
@@ -111,9 +116,21 @@ const AdminWithdrawals = ({ creds, api = initDataApi, onUnauthorized }) => {
                             )}
                             {w.status === 'approved' && (
                                 <>
-                                    <Button size="small" type="primary" loading={busyId === w.id}
+                                    {sendWithdrawal && (
+                                        <Popconfirm
+                                            title="Отправить USDT on-chain?"
+                                            description="Перевод в сети TON необратим. Проверьте адрес и сумму."
+                                            okText="Отправить" cancelText="Отмена"
+                                            onConfirm={() => act(() => sendWithdrawal(creds, w.id), w.id, 'Отправлено on-chain')}
+                                        >
+                                            <Button size="small" type="primary" loading={busyId === w.id}>
+                                                Отправить on-chain
+                                            </Button>
+                                        </Popconfirm>
+                                    )}
+                                    <Button size="small" disabled={busyId === w.id}
                                         onClick={() => act(() => markPaidWithdrawal(creds, w.id), w.id, 'Отмечено выплаченным')}>
-                                        Выплачено
+                                        Выплачено вручную
                                     </Button>
                                     <Button size="small" disabled={busyId === w.id}
                                         onClick={() => act(() => cancelWithdrawal(creds, w.id), w.id, 'Отменено')}>

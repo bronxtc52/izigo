@@ -4,6 +4,7 @@ namespace Modules\Calculator\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 /**
  * Заявка на вывод средств. Сумма — целые центы.
@@ -50,5 +51,11 @@ class WithdrawalRequest extends Model
     public function member(): BelongsTo
     {
         return $this->belongsTo(Member::class);
+    }
+
+    /** Последняя on-chain выплата по этой заявке (для показа tx_hash в админке). */
+    public function payoutTransaction(): HasOne
+    {
+        return $this->hasOne(PayoutTransaction::class)->latestOfMany();
     }
 }
