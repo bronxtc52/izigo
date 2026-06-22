@@ -49,11 +49,47 @@ class TonPayParsingTest extends TestCase
         return ['forward_payload' => $payload, 'amount' => $amount, 'transaction_aborted' => $aborted];
     }
 
+    /**
+     * Реальная форма toncenter v3: forward_payload = сериализованный BoC (base64), плюс готовый
+     * decoded_forward_payload.comment. Матч идёт по decoded-комментарию (см. memoMatches).
+     */
+    private function realTransfer(string $boc, string $comment, string $amount, bool $aborted = false): array
+    {
+        return [
+            'forward_payload' => $boc,
+            'decoded_forward_payload' => ['@type' => 'text_comment', 'comment' => $comment, 'type' => 'text_comment'],
+            'amount' => $amount,
+            'transaction_aborted' => $aborted,
+        ];
+    }
+
     public function testPaidWhenMemoAndAmountMatch(): void
     {
         $this->fakeTransfers([$this->transfer($this->hexComment('pay:5'), self::UNITS)]);
 
         $this->assertSame('paid', $this->gateway()->pollStatus('pay:5', self::CENTS));
+    }
+
+    public function testPaidOnRealToncenterBocPayload(): void
+    {
+        // Реальный захват с mainnet (контрольный платёж pay:13, 1 USDT): forward_payload — BoC base64
+        // (magic b5ee9c72), из которого commentEquals memo НЕ достаёт; матч по decoded_forward_payload.
+        // Регресс на баг NEEDS-LIVE-VERIFY: до фикса этот перевод не распознавался → платёж висел pending.
+        $this->fakeTransfers([
+            $this->realTransfer('te6cckEBAQEADAAAFAAAAABwYXk6MTMsMiYB', 'pay:13', '1000000'),
+        ]);
+
+        $this->assertSame('paid', $this->gateway()->pollStatus('pay:13', 100));
+    }
+
+    public function testDecodedCommentNoMemoCollision(): void
+    {
+        // Точный матч и на decoded-пути: comment "pay:55" не подтверждает заказ "pay:5".
+        $this->fakeTransfers([
+            $this->realTransfer('te6cckEBAQEADAAAFAAAAABwYXk6NTUsMiYB', 'pay:55', self::UNITS),
+        ]);
+
+        $this->assertSame('pending', $this->gateway()->pollStatus('pay:5', self::CENTS));
     }
 
     public function testPaidOnOverpayment(): void

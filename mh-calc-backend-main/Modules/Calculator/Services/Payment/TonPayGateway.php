@@ -21,8 +21,9 @@ use Illuminate\Support\Facades\Http;
  *   перевода висит в pending бессрочно — авто-экспирация (TTL) пока НЕ реализована (отдельный TODO).
  * - переплату принимаем (amount >= ожидаемого), чтобы не терять реально пришедшие деньги.
  *
- * ⚠️ NEEDS-LIVE-VERIFY (сужено): реальная форма forward_payload (hex/base64/структура) и глубина
- * подтверждений — сверить на тестнете с живым USDT-джеттоном (docs/runbooks/enable-ton-pay-acceptance.md).
+ * Форма forward_payload сверена на mainnet (контрольный платёж 2026-06-22, pay:13): toncenter v3
+ * отдаёт его сериализованным BoC (base64) + готовый decoded_forward_payload.comment — матчим по
+ * последнему (см. memoMatches). Остаётся открытым: глубина подтверждений и авто-экспирация pending (TTL).
  */
 class TonPayGateway implements PaymentGateway
 {
@@ -79,8 +80,7 @@ class TonPayGateway implements PaymentGateway
             if (($tx['transaction_aborted'] ?? false) === true) {
                 continue;
             }
-            $payload = $tx['forward_payload'] ?? null;
-            if (!is_string($payload) || !$this->commentEquals($payload, $externalRef)) {
+            if (!$this->memoMatches($tx, $externalRef)) {
                 continue; // не наш memo (точное совпадение, без подстрок)
             }
             if ($this->amountSufficient((string) ($tx['amount'] ?? ''), $expectedUnits)) {
@@ -90,6 +90,29 @@ class TonPayGateway implements PaymentGateway
         }
 
         return 'pending'; // подходящий перевод пока не найден
+    }
+
+    /**
+     * Точное совпадение memo перевода с external_ref. Приоритет — готовый текст-комментарий из
+     * toncenter v3 (decoded_forward_payload.comment): на mainnet реальный forward_payload приходит
+     * сериализованным BoC (base64, magic b5ee9c72 → "te6cck…"), из которого commentEquals memo НЕ
+     * достаёт (ждал опкод 0x00000000 у сырой ячейки, а тут конверт BoC). commentEquals оставлен
+     * fallback'ом для альтернативных форм индексатора (готовый текст / hex / base64 сырой ячейки).
+     * Подтверждено контрольным платежом на mainnet 2026-06-22 (pay:13).
+     */
+    private function memoMatches(array $tx, string $externalRef): bool
+    {
+        $decoded = $tx['decoded_forward_payload'] ?? null;
+        if (is_array($decoded)
+            && isset($decoded['comment'])
+            && is_string($decoded['comment'])
+            && $decoded['comment'] === $externalRef) {
+            return true;
+        }
+
+        $payload = $tx['forward_payload'] ?? null;
+
+        return is_string($payload) && $this->commentEquals($payload, $externalRef);
     }
 
     /**
