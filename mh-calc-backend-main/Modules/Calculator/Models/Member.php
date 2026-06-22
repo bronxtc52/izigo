@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Laravel\Sanctum\HasApiTokens;
 
 /**
  * Реальный участник сети. placement (parent/position/path) — бинар; sponsor — ЛП.
@@ -28,6 +29,9 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  */
 class Member extends Model
 {
+    /** Веб-админка: Sanctum personal access tokens (вход через Telegram Login Widget). */
+    use HasApiTokens;
+
     protected $fillable = [
         'sponsor_id',
         'parent_id',

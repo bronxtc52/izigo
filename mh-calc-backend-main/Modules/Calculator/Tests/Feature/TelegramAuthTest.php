@@ -114,7 +114,7 @@ class TelegramAuthTest extends TestCase
         $this->assertContains('owner', $me->json('data.member.roles'));
 
         // Owner проходит RBAC-гейт админки.
-        $this->getJson('/api/v1/admin/members', $this->tgHeaders($initData))->assertOk();
+        $this->getJson('/api/v1/admin/members', $this->adminHeaders($initData))->assertOk();
     }
 
     public function testNonOwnerDoesNotGetOwnerRole(): void
@@ -124,6 +124,6 @@ class TelegramAuthTest extends TestCase
 
         $me = $this->getJson('/api/v1/cabinet/me', $this->tgHeaders($initData))->assertOk();
         $this->assertSame([], $me->json('data.member.roles'));
-        $this->getJson('/api/v1/admin/members', $this->tgHeaders($initData))->assertStatus(403);
+        $this->getJson('/api/v1/admin/members', $this->adminHeaders($initData))->assertStatus(403);
     }
 }

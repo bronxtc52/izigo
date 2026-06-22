@@ -13,6 +13,7 @@ use Modules\Calculator\Http\Middleware\SetCalculatorUserMiddleware;
 use Modules\Calculator\Http\Middleware\CheckUserTokenMiddleware;
 use Modules\Calculator\Http\Middleware\ResolveTelegramMember;
 use Modules\Calculator\Http\Middleware\RoleMiddleware;
+use Modules\Calculator\Http\Middleware\WebAdminAuth;
 use Modules\Calculator\Services\CalculatorAuthService;
 use Modules\Calculator\Services\Payment\FakeGateway;
 use Modules\Calculator\Services\Payment\FakeTonPayGateway;
@@ -56,6 +57,7 @@ class CalculatorServiceProvider extends ServiceProvider
 
         $router->aliasMiddleware('calculator.validate.token', CheckUserTokenMiddleware::class);
         $router->aliasMiddleware('telegram.auth', ResolveTelegramMember::class);
+        $router->aliasMiddleware('web.admin', WebAdminAuth::class);
         $router->aliasMiddleware('calculator.role', RoleMiddleware::class);
     }
 

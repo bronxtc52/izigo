@@ -83,7 +83,7 @@ class KycTest extends TestCase
 
         // Финансист одобряет.
         $this->patchJson("/api/v1/admin/kyc/{$kycId}",
-            ['approve' => true], $this->tgHeaders($financeData))
+            ['approve' => true], $this->adminHeaders($financeData))
             ->assertOk()->assertJsonPath('data.status', KycRecord::STATUS_APPROVED);
 
         // Теперь вывод проходит.
@@ -98,6 +98,6 @@ class KycTest extends TestCase
 
         // User не финансист/owner → 403.
         $this->patchJson("/api/v1/admin/kyc/{$kycId}",
-            ['approve' => true], $this->tgHeaders($userData))->assertStatus(403);
+            ['approve' => true], $this->adminHeaders($userData))->assertStatus(403);
     }
 }

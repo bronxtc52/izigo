@@ -24,7 +24,7 @@ class AdminTest extends TestCase
     public function testPartnerCannotAccessAdmin(): void
     {
         [$initData] = $this->registerTg(100, name: 'Partner');
-        $this->getJson('/api/v1/admin/members', $this->tgHeaders($initData))->assertStatus(403);
+        $this->getJson('/api/v1/admin/members', $this->adminHeaders($initData))->assertStatus(403);
     }
 
     public function testOwnerListsAndSearchesMembers(): void
@@ -33,10 +33,10 @@ class AdminTest extends TestCase
         $this->grantRole(110, 'owner');
         $this->registerTg(111, $ownerRef, 'Alice');
 
-        $list = $this->getJson('/api/v1/admin/members', $this->tgHeaders($ownerData))->assertOk();
+        $list = $this->getJson('/api/v1/admin/members', $this->adminHeaders($ownerData))->assertOk();
         $this->assertGreaterThanOrEqual(2, $list->json('data.total'));
 
-        $found = $this->getJson('/api/v1/admin/members?search=Alice', $this->tgHeaders($ownerData))->assertOk();
+        $found = $this->getJson('/api/v1/admin/members?search=Alice', $this->adminHeaders($ownerData))->assertOk();
         $this->assertSame(1, $found->json('data.total'));
     }
 
@@ -48,15 +48,15 @@ class AdminTest extends TestCase
         $supportMemberId = $this->memberByTg(121)->id;
 
         // До назначения роли — нет доступа.
-        $this->getJson('/api/v1/admin/members', $this->tgHeaders($supportData))->assertStatus(403);
+        $this->getJson('/api/v1/admin/members', $this->adminHeaders($supportData))->assertStatus(403);
 
         // Owner назначает роль support.
-        $this->postJson("/api/v1/admin/members/{$supportMemberId}/role", ['role' => 'support'], $this->tgHeaders($ownerData))
+        $this->postJson("/api/v1/admin/members/{$supportMemberId}/role", ['role' => 'support'], $this->adminHeaders($ownerData))
             ->assertOk()->assertJsonPath('data.roles.0', 'support');
 
         // Теперь support видит участников, но не может назначать роли.
-        $this->getJson('/api/v1/admin/members', $this->tgHeaders($supportData))->assertOk();
-        $this->postJson("/api/v1/admin/members/{$supportMemberId}/role", ['role' => 'owner'], $this->tgHeaders($supportData))
+        $this->getJson('/api/v1/admin/members', $this->adminHeaders($supportData))->assertOk();
+        $this->postJson("/api/v1/admin/members/{$supportMemberId}/role", ['role' => 'owner'], $this->adminHeaders($supportData))
             ->assertStatus(403);
     }
 
@@ -68,13 +68,13 @@ class AdminTest extends TestCase
         $this->grantRole(131, 'finance');
 
         // Owner меняет режим размещения.
-        $this->putJson('/api/v1/admin/plan-settings', ['placement_mode' => 'manual'], $this->tgHeaders($ownerData))
+        $this->putJson('/api/v1/admin/plan-settings', ['placement_mode' => 'manual'], $this->adminHeaders($ownerData))
             ->assertOk()->assertJsonPath('data.placement_mode', 'manual');
 
         // Finance видит, но не может менять.
-        $this->getJson('/api/v1/admin/plan-settings', $this->tgHeaders($financeData))
+        $this->getJson('/api/v1/admin/plan-settings', $this->adminHeaders($financeData))
             ->assertOk()->assertJsonPath('data.placement_mode', 'manual');
-        $this->putJson('/api/v1/admin/plan-settings', ['placement_mode' => 'auto'], $this->tgHeaders($financeData))
+        $this->putJson('/api/v1/admin/plan-settings', ['placement_mode' => 'auto'], $this->adminHeaders($financeData))
             ->assertStatus(403);
     }
 
@@ -89,7 +89,7 @@ class AdminTest extends TestCase
 
         $this->grantRole(141, 'leader', $this->memberByTg(141)->id);
 
-        $list = $this->getJson('/api/v1/admin/members', $this->tgHeaders($leaderData))->assertOk();
+        $list = $this->getJson('/api/v1/admin/members', $this->adminHeaders($leaderData))->assertOk();
         $names = collect($list->json('data.data'))->pluck('name')->all();
 
         $this->assertContains('Leader', $names);
@@ -113,7 +113,7 @@ class AdminTest extends TestCase
         $this->grantRole(151, 'leader', $this->memberByTg(151)->id);
 
         $names = collect(
-            $this->getJson('/api/v1/admin/members', $this->tgHeaders($leaderData))->assertOk()->json('data.data')
+            $this->getJson('/api/v1/admin/members', $this->adminHeaders($leaderData))->assertOk()->json('data.data')
         )->pluck('name')->all();
 
         $this->assertContains('SLeader', $names);

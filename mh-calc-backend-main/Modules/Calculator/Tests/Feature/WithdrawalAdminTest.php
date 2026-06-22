@@ -53,10 +53,10 @@ class WithdrawalAdminTest extends TestCase
     {
         [$rootData, $financeData, $id] = $this->scenario(200);
 
-        $queue = $this->getJson('/api/v1/admin/withdrawals?status=requested', $this->tgHeaders($financeData))->assertOk();
+        $queue = $this->getJson('/api/v1/admin/withdrawals?status=requested', $this->adminHeaders($financeData))->assertOk();
         $this->assertSame($id, $queue->json('data.0.id'));
 
-        $this->postJson("/api/v1/admin/withdrawals/{$id}/approve", [], $this->tgHeaders($financeData))
+        $this->postJson("/api/v1/admin/withdrawals/{$id}/approve", [], $this->adminHeaders($financeData))
             ->assertOk()->assertJsonPath('data.status', 'approved');
 
         // Средства остаются в холде (доступно 4).
@@ -67,7 +67,7 @@ class WithdrawalAdminTest extends TestCase
     {
         [$rootData, $financeData, $id] = $this->scenario(210);
 
-        $this->postJson("/api/v1/admin/withdrawals/{$id}/reject", ['reason' => 'нет реквизитов'], $this->tgHeaders($financeData))
+        $this->postJson("/api/v1/admin/withdrawals/{$id}/reject", ['reason' => 'нет реквизитов'], $this->adminHeaders($financeData))
             ->assertOk()->assertJsonPath('data.status', 'rejected');
 
         // Холд возвращён в доступный баланс ($9 снова доступно).
@@ -78,8 +78,8 @@ class WithdrawalAdminTest extends TestCase
     {
         [$rootData, $financeData, $id] = $this->scenario(220);
 
-        $this->postJson("/api/v1/admin/withdrawals/{$id}/approve", [], $this->tgHeaders($financeData))->assertOk();
-        $this->postJson("/api/v1/admin/withdrawals/{$id}/mark-paid", [], $this->tgHeaders($financeData))
+        $this->postJson("/api/v1/admin/withdrawals/{$id}/approve", [], $this->adminHeaders($financeData))->assertOk();
+        $this->postJson("/api/v1/admin/withdrawals/{$id}/mark-paid", [], $this->adminHeaders($financeData))
             ->assertOk()->assertJsonPath('data.status', 'paid');
 
         // Выплачено: held списан, доступно осталось 4 (не возвращается).
@@ -90,8 +90,8 @@ class WithdrawalAdminTest extends TestCase
     {
         [$rootData, $financeData, $id] = $this->scenario(230);
 
-        $this->postJson("/api/v1/admin/withdrawals/{$id}/approve", [], $this->tgHeaders($financeData))->assertOk();
-        $this->postJson("/api/v1/admin/withdrawals/{$id}/cancel", [], $this->tgHeaders($financeData))
+        $this->postJson("/api/v1/admin/withdrawals/{$id}/approve", [], $this->adminHeaders($financeData))->assertOk();
+        $this->postJson("/api/v1/admin/withdrawals/{$id}/cancel", [], $this->adminHeaders($financeData))
             ->assertOk()->assertJsonPath('data.status', 'cancelled');
 
         $this->assertSame('9.00', $this->available($rootData));
@@ -102,7 +102,7 @@ class WithdrawalAdminTest extends TestCase
         [, $financeData, $id] = $this->scenario(240);
 
         // mark-paid из requested (минуя approve) — недопустимый переход (422).
-        $this->postJson("/api/v1/admin/withdrawals/{$id}/mark-paid", [], $this->tgHeaders($financeData))
+        $this->postJson("/api/v1/admin/withdrawals/{$id}/mark-paid", [], $this->adminHeaders($financeData))
             ->assertStatus(422);
     }
 
@@ -111,6 +111,6 @@ class WithdrawalAdminTest extends TestCase
         [, , , $partnerData] = $this->scenario(250);
 
         // Партнёр без роли finance/owner — 403.
-        $this->getJson('/api/v1/admin/withdrawals', $this->tgHeaders($partnerData))->assertStatus(403);
+        $this->getJson('/api/v1/admin/withdrawals', $this->adminHeaders($partnerData))->assertStatus(403);
     }
 }

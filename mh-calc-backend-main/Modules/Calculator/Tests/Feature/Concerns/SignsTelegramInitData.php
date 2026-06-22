@@ -58,6 +58,21 @@ trait SignsTelegramInitData
     }
 
     /**
+     * Заголовки ВЕБ-админки: участник, опознанный по initData, получает Sanctum-токен
+     * (как после входа через Telegram Login Widget). Админ-эндпоинты теперь под web.admin,
+     * не initData. Участник должен уже существовать (предварительный registerTg/cabinet me).
+     */
+    protected function adminHeaders(string $initData): array
+    {
+        parse_str($initData, $params);
+        $user = json_decode((string) ($params['user'] ?? '{}'), true);
+        $member = $this->memberByTg((int) ($user['id'] ?? 0));
+        $token = $member->createToken('test-web-admin')->plainTextToken;
+
+        return ['X-Requested-With' => 'XMLHttpRequest', 'Authorization' => 'Bearer ' . $token];
+    }
+
+    /**
      * «Регистрация» = первый вызов /cabinet/me с данным initData (middleware создаёт
      * участника). Возвращает [initData, ref_code].
      */

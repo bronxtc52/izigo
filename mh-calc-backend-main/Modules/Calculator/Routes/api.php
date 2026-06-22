@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use Modules\Calculator\Http\Controllers\AdminController;
+use Modules\Calculator\Http\Controllers\AuthController;
 use Modules\Calculator\Http\Controllers\CabinetController;
 use Modules\Calculator\Http\Controllers\CalculatorController;
 use Modules\Calculator\Http\Controllers\CommerceAdminController;
@@ -11,8 +12,12 @@ use Modules\Calculator\Http\Controllers\RankController;
 use Modules\Calculator\Http\Controllers\WebhookController;
 use Modules\Calculator\Http\Middleware\StructureEditTokenMiddleware;
 
-// Авторизация платформы — ТОЛЬКО через Telegram (middleware telegram.auth,
-// заголовок X-Telegram-Init-Data). Email/пароля/Login Widget нет.
+// Авторизация платформы — через Telegram. Mini App (партнёр) — middleware telegram.auth
+// (заголовок X-Telegram-Init-Data). ВЕБ-админка — Telegram Login Widget → Sanctum-токен
+// (middleware web.admin). Классического email/пароля нет.
+
+// Вход в веб-админку: Login Widget отдаёт подписанные поля → Sanctum-токен. Без auth.
+Route::post('auth/telegram-login', [AuthController::class, 'telegramLogin'])->name('auth.telegram-login');
 
 Route::group([
     'prefix' => 'calculator',
@@ -108,11 +113,12 @@ Route::group([
 // подписи внутри драйвера шлюза.
 Route::post('webhooks/wallet-pay', [WebhookController::class, 'walletPay'])->name('webhooks.wallet-pay');
 
-// Админ-портал — Telegram initData + RBAC-гейты. owner проходит всегда (в RoleMiddleware).
+// Админ-портал (веб-админка admin.izigo.adarasoft.com) — Sanctum-токен (web.admin) +
+// RBAC-гейты. owner проходит всегда (в RoleMiddleware). В Mini App админка больше не доступна.
 Route::group([
     'prefix' => 'admin',
     'as' => 'admin.',
-    'middleware' => ['telegram.auth'],
+    'middleware' => ['web.admin'],
 ], function () {
     Route::get('/members', [AdminController::class, 'members'])
         ->middleware('calculator.role:owner,finance,support,leader')->name('members');

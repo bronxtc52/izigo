@@ -49,9 +49,9 @@ class PayoutOnChainTest extends TestCase
     {
         [, $financeData, $id, $rootId] = $this->scenario(900, 'EQ_ton_addr');
 
-        $this->postJson("/api/v1/admin/withdrawals/{$id}/approve", [], $this->tgHeaders($financeData))->assertOk();
+        $this->postJson("/api/v1/admin/withdrawals/{$id}/approve", [], $this->adminHeaders($financeData))->assertOk();
 
-        $res = $this->postJson("/api/v1/admin/withdrawals/{$id}/send", [], $this->tgHeaders($financeData))->assertOk();
+        $res = $this->postJson("/api/v1/admin/withdrawals/{$id}/send", [], $this->adminHeaders($financeData))->assertOk();
         $res->assertJsonPath('data.status', WithdrawalRequest::STATUS_PAID);
         $this->assertNotEmpty($res->json('data.tx_hash'));
 
@@ -67,8 +67,8 @@ class PayoutOnChainTest extends TestCase
     {
         [, $financeData, $id, $rootId] = $this->scenario(910, 'FAIL');
 
-        $this->postJson("/api/v1/admin/withdrawals/{$id}/approve", [], $this->tgHeaders($financeData))->assertOk();
-        $this->postJson("/api/v1/admin/withdrawals/{$id}/send", [], $this->tgHeaders($financeData))->assertStatus(400);
+        $this->postJson("/api/v1/admin/withdrawals/{$id}/approve", [], $this->adminHeaders($financeData))->assertOk();
+        $this->postJson("/api/v1/admin/withdrawals/{$id}/send", [], $this->adminHeaders($financeData))->assertStatus(400);
 
         $this->assertSame(WithdrawalRequest::STATUS_CANCELLED, WithdrawalRequest::find($id)->status);
         $this->assertSame(PayoutTransaction::STATUS_FAILED, PayoutTransaction::where('withdrawal_request_id', $id)->first()->status);
@@ -83,7 +83,7 @@ class PayoutOnChainTest extends TestCase
         [, $financeData, $id] = $this->scenario(920, 'EQ_addr');
 
         // Заявка в requested (не approved) → 422.
-        $this->postJson("/api/v1/admin/withdrawals/{$id}/send", [], $this->tgHeaders($financeData))->assertStatus(422);
+        $this->postJson("/api/v1/admin/withdrawals/{$id}/send", [], $this->adminHeaders($financeData))->assertStatus(422);
     }
 
     public function testNonFinanceForbidden(): void
@@ -91,15 +91,15 @@ class PayoutOnChainTest extends TestCase
         [$rootData, , $id] = $this->scenario(930, 'EQ_addr');
 
         // Root не финансист и не owner → 403.
-        $this->postJson("/api/v1/admin/withdrawals/{$id}/send", [], $this->tgHeaders($rootData))->assertStatus(403);
+        $this->postJson("/api/v1/admin/withdrawals/{$id}/send", [], $this->adminHeaders($rootData))->assertStatus(403);
     }
 
     public function testBroadcastKeepsHoldUntilPollConfirms(): void
     {
         [, $financeData, $id, $rootId] = $this->scenario(940, 'BROADCAST_addr');
 
-        $this->postJson("/api/v1/admin/withdrawals/{$id}/approve", [], $this->tgHeaders($financeData))->assertOk();
-        $this->postJson("/api/v1/admin/withdrawals/{$id}/send", [], $this->tgHeaders($financeData))
+        $this->postJson("/api/v1/admin/withdrawals/{$id}/approve", [], $this->adminHeaders($financeData))->assertOk();
+        $this->postJson("/api/v1/admin/withdrawals/{$id}/send", [], $this->adminHeaders($financeData))
             ->assertOk()->assertJsonPath('data.payout_status', PayoutTransaction::STATUS_BROADCAST);
 
         // На broadcast заявка ещё approved, средства в холде (не выплачены).
@@ -116,8 +116,8 @@ class PayoutOnChainTest extends TestCase
     public function testBroadcastFailedOnPollReturnsHold(): void
     {
         [, $financeData, $id, $rootId] = $this->scenario(945, 'BROADCAST_addr');
-        $this->postJson("/api/v1/admin/withdrawals/{$id}/approve", [], $this->tgHeaders($financeData))->assertOk();
-        $this->postJson("/api/v1/admin/withdrawals/{$id}/send", [], $this->tgHeaders($financeData))->assertOk();
+        $this->postJson("/api/v1/admin/withdrawals/{$id}/approve", [], $this->adminHeaders($financeData))->assertOk();
+        $this->postJson("/api/v1/admin/withdrawals/{$id}/send", [], $this->adminHeaders($financeData))->assertOk();
 
         // Прямой вызов финализации с провалом сети (poll с gateway.status=failed).
         $txId = PayoutTransaction::where('withdrawal_request_id', $id)->value('id');

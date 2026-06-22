@@ -876,3 +876,115 @@ tester (прогон unit-suite + проверка, что витрина жив
 - Sentry: создать проект izigo + DSN в KV izigo--beta--SENTRY-DSN (нужен свой токен) → задеплоить env.
 - server-watchdog: добавить rg-izigo-beta-neu в AZURE_RESOURCE_GROUPS (на mh-central).
 - [x] Azure Monitor алёрты ACA: restart/CPU/RAM (backend) + restart (frontend) -> ag-mh-central-notify.
+
+---
+
+# Веб-админ-панель (admin.izigo.adarasoft.com) — Гейт 2 (план)
+
+ТЗ: `docs/specs/2026-06-22-web-admin-panel.md`. Решения Гейта 1: логин = Telegram Login
+Widget→Sanctum; размещение = тот же Next.js-апп, роутинг по хосту; маркетинг-план =
+полное редактирование боевого ядра (forward-only + аудит); легаси-симулятор вне скоупа.
+
+## Архитектура
+
+### A. Backend — аутентификация веб-админки (Telegram Login Widget → Sanctum)
+- **Новый валидатор** `Modules/Calculator/Services/Telegram/TelegramLoginWidget.php`:
+  HMAC Login Widget (secret = `sha256(bot_token)`, data_check_string = отсортированные
+  `key=value\n` без `hash`). ⚠️ Это НЕ initData-схема (там ключ `WebAppData`) — отдельный класс.
+- **Эндпоинт** `POST /api/v1/auth/telegram-login` (без auth): принимает payload виджета,
+  валидирует подпись+`auth_date` (maxAge), резолвит `Member` по `telegram_id` (через
+  `MemberService`), **требует непустой набор ролей** (иначе 403 `not_admin`), выдаёт
+  `Member->createToken('web-admin')->plainTextToken`. Контроллер `AuthController` (новый).
+- **Member**: добавить трейт `Laravel\Sanctum\HasApiTokens` (`Models/Member.php`).
+- **Миграция** `personal_access_tokens`: НЕ добавляем свою — Sanctum сам грузит vendor-миграцию
+  (`Sanctum::$runsMigrations = true`, `ignoreMigrations` нигде не вызван). Отклонение от первоначального
+  плана (думали, миграции нет): таблица создаётся автоматически на `migrate` (docker/start.sh).
+- **Новый middleware** `WebAdminAuth` (alias `web.admin`): резолвит member через
+  `auth:sanctum`-guard (PersonalAccessToken→tokenable=Member) и кладёт его в тот же
+  request-атрибут, что и `ResolveTelegramMember`, чтобы `RoleMiddleware`/`calculator.role:*`
+  работали БЕЗ изменений.
+- **Admin-роуты** (`Modules/Calculator/Routes/api.php`, группа `prefix=admin`): сменить
+  групповой middleware с `telegram.auth` на `web.admin` (админка теперь web-only).
+  Cabinet-роуты остаются на `telegram.auth`. RBAC-гейты не трогаем.
+
+### B. Backend — маркетинг-план: вынос хардкода в БД (единый источник правды)
+- **Рефактор** `Domain/Plan/IziGoPlanFactory.php`: вынести дефолты в `defaults(): array`
+  (packages PV, ranks-пороги, binary%, referral%, leader%, globals maxRankDiff/referralDepth)
+  и `create(array $overrides=[])` — deep-merge overrides поверх defaults → собрать `Plan`.
+- **`EloquentPlanRepository::load()`**: читать единый ключ `plan` из `plan_settings`
+  (JSON-документ всей структуры) + сохранить обратную совместимость с `rank_bonuses`/`placement_mode`.
+  Merge поверх `defaults()`. Forward-only: меняет только будущие активации.
+- **`PlanSettingsService`** (новый или метод в `AdminService`): валидация структуры
+  (проценты 0–100, PV/пороги ≥0, целостность матриц `[пакет][уровень]`/`[уровень][пакет][ранг]`),
+  запись в `plan_settings('plan')`, запись в аудит-лог (before→after).
+- **Эндпоинты**: `GET /admin/plan` (полный текущий план = defaults+overrides),
+  `PUT /admin/plan` (owner) — заменить нынешний узкий `plan-settings` (placement+rank_bonuses).
+
+### C. Backend — новые read-эндпоинты разделов
+- **Финансы**: `GET /admin/members/{id}/wallet` (баланс из `member_wallets`),
+  `GET /admin/ledger?member_id&account_type&source_type` (журнал `ledger_entries`, пагинация).
+- **Операции**: `GET /admin/orders` уже есть; добавить `GET /admin/payments`,
+  `GET /admin/autoship` (v1.1).
+- **Дашборд**: `GET /admin/dashboard` — агрегаты (активные партнёры, оборот, заявки в очереди,
+  выручка компании из счетов ledger).
+- **Аудит-лог**: новая таблица `admin_audit_log` (`actor_member_id`, `action`, `entity_type`,
+  `entity_id`, `before` json, `after` json, `created_at`) + модель + запись в мутациях
+  (план, роли, выплаты, продукты, KYC); `GET /admin/audit-log`.
+
+### D. Frontend — веб-админка в том же Next.js-аппе
+- **`src/middleware.js`** (новый, root): роутинг по `Host`. `admin.izigo.*` → пускать
+  `/admin/*` (rewrite `/` → `/admin`), глушить `/miniapp`. `izigo.*` → `/admin/*` редирект
+  на `/miniapp`/404.
+- **`src/app/admin/layout.js`**: заменить нынешний `RedirectToMiniApp`-стаб на реальный
+  web-shell: гейт логина (нет токена → страница входа) + сайдбар-навигация по ролям.
+- **`src/app/admin/login/page.js`** (новый): Telegram Login Widget
+  (`telegram.org/js/telegram-widget.js`), callback → `POST /auth/telegram-login` →
+  сохранить токен (localStorage) → редирект на дашборд.
+- **`src/views/admin/webApi.js`** (новый): те же эндпоинты, что `initDataApi.js`, но
+  `Authorization: Bearer <token>` вместо `X-Telegram-Init-Data`. Компоненты `views/admin/*`
+  уже принимают `api` пропом — web-shell передаёт `webAdminApi`.
+- **Страницы разделов** (`src/app/admin/.../page.js` + компоненты `src/views/admin/`):
+  Дашборд, Пользователи (reuse `MembersList`/`MemberCard`+роли), Запросы на выплаты (reuse
+  `AdminWithdrawals`), Продукты (CRUD), **Маркетинг-план** с подвкладками (расширить
+  `PlanSettings.js`: Ранги/Бинарный%/Реферальный%/Лидерский%/Пакеты-PV/Глобальные — формы
+  редактируют `plan`-документ), Аудит-лог. v1.1: Финансы (ledger-браузер), Операции, KYC.
+
+### E. Убрать админку из Telegram Mini App (пункт следующего релиза)
+- **`src/views/miniapp/MiniAppShell.js`**: убрать инъекцию вкладки «Админ» (~строка 160)
+  и рендер `<MiniAppAdmin/>` (~440). Mini App больше не показывает админ-функции.
+- Удалить `src/views/miniapp/MiniAppAdmin.js` (контейнер Mini-App-админки). Компоненты
+  `src/views/admin/*` НЕ удалять — они переиспользуются веб-админкой.
+
+## Схема БД (изменения)
+1. `personal_access_tokens` — новая (Sanctum).
+2. `admin_audit_log` — новая (аудит изменений).
+3. `plan_settings` — без DDL; новый ключ `plan` (JSON-документ всего плана).
+
+## Порядок реализации (MVP → v1.1 → v2)
+
+**MVP (v1.0):**
+1. [x] Sanctum: `HasApiTokens` на `Member` (vendor-миграция Sanctum прогоняется сама).
+2. [x] `TelegramLoginWidget` валидатор + `POST /auth/telegram-login` + `AuthController` (+ `OwnerBootstrap`).
+3. [x] `WebAdminAuth` middleware (alias `web.admin`); admin-группа роутов → `web.admin`.
+4. [ ] `admin_audit_log` таблица+модель; запись в существующих мутациях (роли/выплаты/продукты).
+5. [ ] План: рефактор `IziGoPlanFactory::defaults()`+`create(overrides)`, `EloquentPlanRepository`
+       merge, `PlanSettingsService` (валидация+аудит), `GET/PUT /admin/plan`.
+6. [ ] Frontend: `middleware.js` (host-routing), `admin/layout` web-shell, `admin/login` (Login Widget),
+       `webApi.js`, навигация.
+7. [ ] Frontend разделы MVP: Дашборд, Пользователи+роли, Выплаты, Продукты, **Маркетинг-план
+       (подвкладки)**, Аудит-лог.
+8. [ ] Убрать админку из Mini App (`MiniAppShell` + удалить `MiniAppAdmin`).
+9. [ ] `GET /admin/dashboard` агрегаты.
+10. [ ] Бот: `setDomain admin.izigo.adarasoft.com` для Login Widget.
+
+**v1.1:** Финансы (ledger-браузер `GET /admin/ledger`, wallet), Операции (orders/payments),
+KYC-очередь. **v2:** Autoship-мониторинг, отдельный обзор сети.
+
+## Тесты (из ТЗ, Гейт 4)
+- `TelegramLoginWidget::validate` — валидная/битая подпись, протухший `auth_date`.
+- `auth/telegram-login` — member без ролей → 403; с ролью → токен.
+- `web.admin` middleware + `calculator.role` — доступ по ролям (owner/finance/support/leader).
+- План: `PUT /admin/plan` пишет в `plan_settings`, `EloquentPlanRepository::load()` отдаёт
+  merged-план; валидация диапазонов; аудит-запись создаётся; **прошлые начисления не меняются**.
+- Регресс комп-движка: при дефолтных настройках расчёт идентичен текущему (golden-тест).
+- Mini App: вкладка «Админ» отсутствует.

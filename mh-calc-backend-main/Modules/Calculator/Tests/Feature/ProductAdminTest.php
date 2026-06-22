@@ -51,10 +51,10 @@ class ProductAdminTest extends TestCase
     {
         $support = $this->support(400, 'Support');
 
-        $this->postJson('/api/v1/admin/products', $this->payload(), $this->tgHeaders($support))
+        $this->postJson('/api/v1/admin/products', $this->payload(), $this->adminHeaders($support))
             ->assertOk()->assertJsonPath('data.sku', 'TARIFF-BRONZE');
 
-        $list = $this->getJson('/api/v1/admin/products', $this->tgHeaders($support))->assertOk();
+        $list = $this->getJson('/api/v1/admin/products', $this->adminHeaders($support))->assertOk();
         $this->assertCount(1, $list->json('data'));
         $this->assertSame(1, Product::count());
     }
@@ -63,17 +63,17 @@ class ProductAdminTest extends TestCase
     {
         [$plainData] = $this->registerTg(411, name: 'Plain'); // без ролей и не owner
 
-        $this->getJson('/api/v1/admin/products', $this->tgHeaders($plainData))->assertStatus(403);
-        $this->postJson('/api/v1/admin/products', $this->payload(), $this->tgHeaders($plainData))->assertStatus(403);
+        $this->getJson('/api/v1/admin/products', $this->adminHeaders($plainData))->assertStatus(403);
+        $this->postJson('/api/v1/admin/products', $this->payload(), $this->adminHeaders($plainData))->assertStatus(403);
     }
 
     public function testArchiveHidesFromCatalog(): void
     {
         $support = $this->support(420, 'Support');
-        $created = $this->postJson('/api/v1/admin/products', $this->payload(), $this->tgHeaders($support))
+        $created = $this->postJson('/api/v1/admin/products', $this->payload(), $this->adminHeaders($support))
             ->assertOk()->json('data.id');
 
-        $this->deleteJson("/api/v1/admin/products/{$created}", [], $this->tgHeaders($support))
+        $this->deleteJson("/api/v1/admin/products/{$created}", [], $this->adminHeaders($support))
             ->assertOk()->assertJsonPath('data.is_active', false);
 
         // С витрины пропал.

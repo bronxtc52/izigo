@@ -43,7 +43,7 @@ class OrderAdminTest extends TestCase
         $order = $this->order($this->memberByTg(700), Order::STATUS_PAID);
 
         $this->patchJson("/api/v1/admin/orders/{$order->id}/status",
-            ['status' => Order::STATUS_SHIPPED, 'tracking_no' => 'TRK-1'], $this->tgHeaders($supportData))
+            ['status' => Order::STATUS_SHIPPED, 'tracking_no' => 'TRK-1'], $this->adminHeaders($supportData))
             ->assertOk()
             ->assertJsonPath('data.status', Order::STATUS_SHIPPED)
             ->assertJsonPath('data.tracking_no', 'TRK-1');
@@ -63,7 +63,7 @@ class OrderAdminTest extends TestCase
         $order = $this->order($this->memberByTg(710), Order::STATUS_PENDING_PAYMENT);
 
         $this->patchJson("/api/v1/admin/orders/{$order->id}/status",
-            ['status' => Order::STATUS_PROCESSING], $this->tgHeaders($supportData))
+            ['status' => Order::STATUS_PROCESSING], $this->adminHeaders($supportData))
             ->assertStatus(404);
         $this->assertSame(Order::STATUS_PENDING_PAYMENT, Order::find($order->id)->status);
     }
@@ -77,13 +77,13 @@ class OrderAdminTest extends TestCase
         $order = $this->order($this->memberByTg(720), Order::STATUS_PAID);
 
         $this->patchJson("/api/v1/admin/orders/{$order->id}/status",
-            ['status' => 'flying'], $this->tgHeaders($supportData))->assertStatus(404);
+            ['status' => 'flying'], $this->adminHeaders($supportData))->assertStatus(404);
     }
 
     public function testNonRoleForbidden(): void
     {
         [$plainData] = $this->registerTg(730, name: 'Plain');
 
-        $this->getJson('/api/v1/admin/orders', $this->tgHeaders($plainData))->assertStatus(403);
+        $this->getJson('/api/v1/admin/orders', $this->adminHeaders($plainData))->assertStatus(403);
     }
 }
