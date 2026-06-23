@@ -10,7 +10,7 @@ import {
     ExportOutlined, CopyOutlined, ShoppingOutlined,
 } from '@ant-design/icons';
 import { useTelegram, antdThemeFromTelegram, miniAppPalette } from './telegram';
-import { tint, bonusTint, statusTint, roleTint, bonusDot, numFont } from './tokens';
+import { tint, bonusTint, statusTint, roleTint, bonusDot, numFont, balanceFont } from './tokens';
 import {
     mmMe, mmDashboard, mmRank, mmTree, mmWallet, mmWalletTx, mmWalletStatement, mmWithdrawals, mmWithdrawCreate,
     mmTopup, mmKyc, mmKycSubmit, mmAgreement, mmAgreementAccept, PACKAGES,
@@ -351,6 +351,12 @@ const MiniAppShell = () => {
         <div style={{ fontSize: 12, fontWeight: 700, color: pal.muted, margin: '2px 2px 8px' }}>{children}</div>
     );
 
+    // Aurora-хелперы: градиент только на hero / балансе / CTA / прогрессе (PR2).
+    const heroCardStyle = { background: pal.heroBg, border: `1px solid ${pal.heroBorder}`, boxShadow: pal.heroGlow };
+    const gradBtnStyle = { background: pal.primBg, color: pal.primTxt, border: 'none', boxShadow: pal.primGlow };
+    const balGradStyle = { ...balanceFont, fontWeight: 700, background: pal.balGrad, WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent' };
+    const progGrad = { '0%': '#7C3AED', '100%': isDark ? '#5EE3F5' : '#2563EB' };
+
     return (
         <ConfigProvider theme={themeConfig}>
             <div style={{ minHeight: '100vh', paddingBottom: stateScreen ? 0 : 74, background: pal.scrbg ?? pal.bg, backgroundColor: pal.bg, color: pal.fg, ['--tree-border']: pal.border }}>
@@ -360,17 +366,17 @@ const MiniAppShell = () => {
 
                     {tab === 'income' && (
                         <>
-                            {/* Hero: всего начислено + доступно к выводу */}
-                            <Card size="small" styles={{ body: { padding: 18 } }}>
-                                <div style={{ fontSize: 12, color: pal.muted, fontWeight: 600 }}>Всего начислено</div>
-                                <div style={{ ...numFont, fontWeight: 800, fontSize: 33, lineHeight: 1.1, marginTop: 2 }}>
+                            {/* Hero: всего начислено + доступно к выводу (Aurora: градиентный баланс + свечение) */}
+                            <Card size="small" style={heroCardStyle} styles={{ body: { padding: 18 } }}>
+                                <div style={{ fontSize: 11, color: pal.muted, fontWeight: 600, letterSpacing: '.1em', textTransform: 'uppercase' }}>Всего начислено</div>
+                                <div style={{ ...balGradStyle, fontWeight: 800, fontSize: 36, lineHeight: 1.05, marginTop: 6 }}>
                                     ${dash?.total ?? '0.00'}
                                 </div>
                                 <Divider style={{ margin: '14px 0' }} />
                                 <Flex justify="space-between" align="center">
                                     <div>
                                         <div style={{ fontSize: 11.5, color: pal.muted }}>Доступно к выводу</div>
-                                        <div style={{ ...numFont, fontWeight: 700, fontSize: 20 }}>${wallet?.available ?? '0.00'}</div>
+                                        <div style={{ ...balanceFont, fontWeight: 700, fontSize: 20 }}>${wallet?.available ?? '0.00'}</div>
                                         {Number(wallet?.held ?? 0) > 0 && (
                                             <div style={{ fontSize: 11, color: pal.muted }}>в холде ${wallet.held}</div>
                                         )}
@@ -379,7 +385,8 @@ const MiniAppShell = () => {
                                         )}
                                     </div>
                                     <Flex vertical gap={8}>
-                                        <Button type="primary" disabled={Number(wallet?.available ?? 0) <= 0}
+                                        <Button type="primary" style={Number(wallet?.available ?? 0) <= 0 ? undefined : gradBtnStyle}
+                                            disabled={Number(wallet?.available ?? 0) <= 0}
                                             onClick={() => setWdOpen(true)}>Вывести</Button>
                                         <Button onClick={() => { setTopupAmount(null); setTopupOpen(true); }}>Пополнить</Button>
                                     </Flex>
@@ -396,7 +403,7 @@ const MiniAppShell = () => {
                                                 <span style={{ width: 8, height: 8, borderRadius: '50%', background: bonusDot(k, isDark) }} />
                                                 <span style={{ fontSize: 12, color: pal.muted }}>{TYPE_LABEL[k]}</span>
                                             </Flex>
-                                            <div style={{ ...numFont, fontWeight: 700, fontSize: 18, marginTop: 4 }}>${byType[k] ?? '0.00'}</div>
+                                            <div style={{ ...balanceFont, fontWeight: 700, fontSize: 18, marginTop: 4 }}>${byType[k] ?? '0.00'}</div>
                                         </Card>
                                     ))}
                                 </div>
@@ -434,7 +441,7 @@ const MiniAppShell = () => {
                                                         {TYPE_LABEL[l.type] ?? l.type}
                                                     </Tag>
                                                 </Flex>
-                                                <span style={{ ...numFont, color: pal.success, fontWeight: 700 }}>+${l.amount}</span>
+                                                <span style={{ ...balanceFont, color: pal.pos, fontWeight: 700 }}>+${l.amount}</span>
                                             </List.Item>
                                         );
                                     }}
@@ -585,11 +592,11 @@ const MiniAppShell = () => {
 
                     {tab === 'rank' && (
                         <>
-                            <Card size="small">
+                            <Card size="small" style={heroCardStyle}>
                                 <Flex justify="space-between" align="center">
                                     <Flex align="center" gap={12}>
-                                        <div style={{ width: 52, height: 52, borderRadius: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', background: roleTint('owner', isDark).bg }}>
-                                            <TrophyOutlined style={{ fontSize: 24, color: roleTint('owner', isDark).color }} />
+                                        <div style={{ width: 52, height: 52, borderRadius: 15, display: 'flex', alignItems: 'center', justifyContent: 'center', background: pal.heroBg, border: `1px solid ${pal.heroBorder}` }}>
+                                            <TrophyOutlined style={{ fontSize: 24, color: pal.accent2 }} />
                                         </div>
                                         <div>
                                             <div style={{ fontSize: 11.5, color: pal.muted }}>Текущий ранг</div>
@@ -605,29 +612,29 @@ const MiniAppShell = () => {
                             {rank?.next && (
                                 <>
                                     <Card size="small" title="Малая ветка PV">
-                                        <Flex justify="space-between" style={{ ...numFont, fontWeight: 700, marginBottom: 6 }}>
+                                        <Flex justify="space-between" style={{ ...balanceFont, fontWeight: 700, marginBottom: 6 }}>
                                             <span>{rank.progress?.small_branch_pv ?? 0}</span>
                                             <span style={{ color: pal.muted }}>/ {rank.next.conditions.small_branch_pv}</span>
                                         </Flex>
                                         <Progress showInfo={false}
                                             percent={Math.min(100, Math.round(((rank.progress?.small_branch_pv ?? 0) / (rank.next.conditions.small_branch_pv || 1)) * 100))}
-                                            strokeColor={bonusDot('binary', isDark)} trailColor={pal.bg} />
+                                            strokeColor={progGrad} trailColor={pal.ghostBg} />
                                     </Card>
                                     <Card size="small" title="Приглашённые">
-                                        <Flex justify="space-between" style={{ ...numFont, fontWeight: 700, marginBottom: 6 }}>
+                                        <Flex justify="space-between" style={{ ...balanceFont, fontWeight: 700, marginBottom: 6 }}>
                                             <span>{rank.progress?.personal_count ?? 0}</span>
                                             <span style={{ color: pal.muted }}>/ {rank.next.conditions.personal_count}</span>
                                         </Flex>
                                         <Progress showInfo={false}
                                             percent={Math.min(100, Math.round(((rank.progress?.personal_count ?? 0) / (rank.next.conditions.personal_count || 1)) * 100))}
-                                            strokeColor={bonusDot('referral', isDark)} trailColor={pal.bg} />
+                                            strokeColor={progGrad} trailColor={pal.ghostBg} />
                                     </Card>
-                                    <Card size="small" style={{ background: roleTint('leader', isDark).bg, borderColor: 'transparent' }}>
-                                        <div style={{ fontWeight: 700, color: roleTint('leader', isDark).color, marginBottom: 4 }}>
+                                    <Card size="small" style={heroCardStyle}>
+                                        <div style={{ fontWeight: 700, color: pal.fg, marginBottom: 4 }}>
                                             Ранг {rank.next.alias} открывает
                                         </div>
-                                        <div style={{ fontSize: 12.5, color: pal.fg }}>＋ Лидерский бонус от объёма ветки</div>
-                                        <div style={{ fontSize: 12.5, color: pal.fg }}>＋ Повышенные условия квалификации</div>
+                                        <div style={{ fontSize: 12.5, color: pal.muted }}>＋ Лидерский бонус от объёма ветки</div>
+                                        <div style={{ fontSize: 12.5, color: pal.muted }}>＋ Повышенные условия квалификации</div>
                                     </Card>
                                 </>
                             )}
@@ -636,9 +643,9 @@ const MiniAppShell = () => {
 
                     {tab === 'profile' && (
                         <>
-                            <Card size="small">
+                            <Card size="small" style={heroCardStyle}>
                                 <Flex vertical align="center" gap={6}>
-                                    <Avatar size={66} style={{ background: pal.accent, color: '#fff', fontSize: 22, fontWeight: 700 }}>
+                                    <Avatar size={66} style={{ background: pal.primBg, color: pal.primTxt, fontSize: 22, fontWeight: 700, boxShadow: pal.primGlow }}>
                                         {initials(me?.name)}
                                     </Avatar>
                                     <div style={{ ...numFont, fontWeight: 800, fontSize: 19 }}>{me?.name ?? '—'}</div>
@@ -772,7 +779,8 @@ const MiniAppShell = () => {
                 <div style={{
                     position: 'fixed', bottom: 0, left: 0, right: 0, height: 62,
                     display: 'flex', borderTop: `1px solid ${pal.border}`,
-                    background: pal.surface, boxShadow: pal.shadow,
+                    // Aurora: непрозрачный sheet, иначе glassy-surface в dark просвечивает контент под баром.
+                    background: pal.sheet, boxShadow: pal.shadow,
                 }}>
                     {tabs.map((t) => {
                         const on = tab === t.key;
