@@ -58,9 +58,11 @@ return [
             'prefix_indexes' => true,
             'strict' => true,
             'engine' => null,
-            'options' => extension_loaded('pdo_mysql') ? array_filter([
-                PDO::MYSQL_ATTR_SSL_CA => env('MYSQL_ATTR_SSL_CA'),
-            ]) : [],
+            // PHP 8.5: PDO::MYSQL_ATTR_SSL_CA устарела → Pdo\Mysql::ATTR_SSL_CA.
+            // Константу трогаем только когда SSL-CA реально задан (иначе опция пустая).
+            'options' => extension_loaded('pdo_mysql') && env('MYSQL_ATTR_SSL_CA') ? [
+                \Pdo\Mysql::ATTR_SSL_CA => env('MYSQL_ATTR_SSL_CA'),
+            ] : [],
         ],
 
         'pgsql' => [
