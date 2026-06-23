@@ -65,38 +65,59 @@ function pickDark(theme, scheme) {
 }
 
 /**
- * Палитра Mini App (макет open-design, контраст WCAG AA). Светлая/тёмная выбираются
- * по теме Telegram. Используется как для antd-токенов, так и для кастомных элементов
- * (таб-бар, фон), чтобы цвета НЕ перебивали фон и текст не сливался.
+ * Палитра Mini App — визуальный язык **Aurora** (crypto-premium), контраст WCAG AA.
+ * Светлая/тёмная по теме Telegram. Источник истины для antd-токенов и кастомных элементов
+ * (radial-фон, hero, таб-бар). Градиентные поля (scrbg/heroBg/balGrad/primBg…) — для акцентов
+ * на hero / балансе / CTA / прогрессе; surface держим glassy в dark и solid в light.
  */
 export function miniAppPalette(theme, scheme) {
     const isDark = pickDark(theme, scheme);
     return isDark
         ? {
             isDark: true,
-            bg: '#0E1621', surface: '#18222E', surface2: '#152434',
-            fg: '#EAF0F6', muted: '#93A4B6',
-            // accent — для активных вкладок/ссылок; кнопки primary фиксированы (#2563EB, см. components).
-            accent: '#5AA2F0', accent2: '#7FB3F5', onAccent: '#FFFFFF',
-            tabInactive: '#6F7E8E',
-            border: '#243140', success: '#3FBE84', warning: '#E0B050', error: '#F0635E',
-            shadow: '0 2px 10px rgba(0,0,0,.4)', radius: 14,
+            bg: '#090C16', surface: 'rgba(255,255,255,0.045)', surface2: 'rgba(255,255,255,0.06)',
+            sheet: '#141A2B', fg: '#E9ECF8', muted: '#9AA3C7',
+            // accent — активные вкладки/ссылки; CTA primary — градиент primBg (см. components/экраны).
+            accent: '#8EE6FF', accent2: '#A78BFA', onAccent: '#0A0A16',
+            tabInactive: '#5F6890',
+            border: 'rgba(255,255,255,0.09)', success: '#6FE0AE', warning: '#E6C06A', error: '#F0635E',
+            pos: '#6FE9FF', ghostBg: 'rgba(255,255,255,0.06)',
+            // Aurora-градиенты и свечения.
+            scrbg: 'radial-gradient(125% 70% at 50% -8%, #1B1547 0%, #0B0F1D 46%, #090C16 100%)',
+            heroBg: 'linear-gradient(165deg, rgba(139,92,246,.22), rgba(34,211,238,.05) 60%, rgba(139,92,246,0))',
+            heroBorder: 'rgba(139,92,246,.35)',
+            heroGlow: '0 0 44px -12px rgba(124,58,237,.55) inset, 0 18px 40px -22px rgba(0,0,0,.7)',
+            balGrad: 'linear-gradient(92deg,#C9B8FF,#6FE9FF)',
+            primBg: 'linear-gradient(92deg,#A78BFA,#5EE3F5)', primTxt: '#0A0A16',
+            primGlow: '0 8px 22px -8px rgba(124,58,237,.8)',
+            scrim: 'rgba(5,7,14,.62)',
+            shadow: '0 18px 40px -22px rgba(0,0,0,.7)', radius: 16,
         }
         : {
             isDark: false,
-            bg: '#EEF1F5', surface: '#FFFFFF', surface2: '#F1F6FE',
-            fg: '#14213A', muted: '#6B7785',
-            accent: '#2563EB', accent2: '#2B86E8', onAccent: '#FFFFFF',
-            tabInactive: '#98A2AE',
-            border: '#E7ECF2', success: '#0E9E6E', warning: '#C77700', error: '#D33A36',
-            shadow: '0 1px 3px rgba(0,0,0,.05)', radius: 14,
+            bg: '#EFF1F9', surface: '#FFFFFF', surface2: '#F1EFFC',
+            sheet: '#FFFFFF', fg: '#161A40', muted: '#6B7194',
+            accent: '#6D28D9', accent2: '#7C3AED', onAccent: '#FFFFFF',
+            tabInactive: '#9AA0BE',
+            border: '#E7E4F6', success: '#0E7C5A', warning: '#9A6700', error: '#D33A36',
+            pos: '#0E7C5A', ghostBg: '#F1EFFC',
+            scrbg: 'radial-gradient(125% 70% at 50% -8%, #E9E4FF 0%, #F1F2FC 48%, #EFF1F9 100%)',
+            heroBg: 'linear-gradient(165deg, rgba(124,58,237,.12), rgba(8,145,178,.07) 60%, rgba(124,58,237,0))',
+            heroBorder: 'rgba(124,58,237,.24)',
+            heroGlow: '0 12px 30px -16px rgba(124,58,237,.4)',
+            balGrad: 'linear-gradient(92deg,#6D28D9,#0E7490)',
+            primBg: 'linear-gradient(92deg,#7C3AED,#2563EB)', primTxt: '#FFFFFF',
+            primGlow: '0 8px 20px -8px rgba(124,58,237,.5)',
+            scrim: 'rgba(20,22,50,.4)',
+            shadow: '0 12px 30px -18px rgba(80,60,120,.4)', radius: 16,
         };
 }
 
 // Системный шрифт Telegram для UI; крупные цифры/заголовки — Manrope (next/font, var --font-manrope).
 const UI_FONT = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,system-ui,sans-serif";
-// Кнопки primary: фиксированный #2563EB + белый текст в ОБЕИХ темах (контраст 4.9:1, WCAG AA).
-const PRIMARY_BTN = '#2563EB';
+// Aurora: фиксированный фиолетовый primary + белый текст в ОБЕИХ темах (контраст AA). Градиентные
+// CTA (hero/«Вывести»/«Оплатить») рендерим кастомно поверх primBg на экранах (PR2).
+const PRIMARY_BTN = '#7C3AED';
 
 /** themeParams/colorScheme Telegram → конфиг ConfigProvider antd (алгоритм + токены handoff). */
 export function antdThemeFromTelegram(theme, scheme) {
@@ -108,7 +129,9 @@ export function antdThemeFromTelegram(theme, scheme) {
             colorBgBase: p.bg,
             colorBgLayout: p.bg,
             colorBgContainer: p.surface,
-            colorBgElevated: p.surface,
+            // Elevated (Modal/Drawer/Select-dropdown) — НЕпрозрачный sheet, иначе glassy-surface
+            // в dark просвечивает контент под модалкой.
+            colorBgElevated: p.sheet,
             colorText: p.fg,
             colorTextSecondary: p.muted,
             colorBorder: p.border,
@@ -120,8 +143,8 @@ export function antdThemeFromTelegram(theme, scheme) {
             fontFamily: UI_FONT,
         },
         components: {
-            // Кнопка primary — фиксированный синий с белым текстом в обеих темах (контраст AA).
-            Button: { colorPrimary: PRIMARY_BTN, colorPrimaryHover: '#1D4ED8', colorPrimaryActive: '#1E40AF', borderRadius: 11 },
+            // Кнопка primary — фиксированный фиолетовый (Aurora) с белым текстом в обеих темах (AA).
+            Button: { colorPrimary: PRIMARY_BTN, colorPrimaryHover: '#6D28D9', colorPrimaryActive: '#5B21B6', borderRadius: 11 },
             Card: { colorBgContainer: p.surface, colorBorderSecondary: p.border, borderRadiusLG: 16 },
             List: { colorBorder: p.border },
             Segmented: { borderRadius: 10 },

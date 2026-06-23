@@ -353,7 +353,7 @@ const MiniAppShell = () => {
 
     return (
         <ConfigProvider theme={themeConfig}>
-            <div style={{ minHeight: '100vh', paddingBottom: stateScreen ? 0 : 74, background: pal.bg, color: pal.fg, ['--tree-border']: pal.border }}>
+            <div style={{ minHeight: '100vh', paddingBottom: stateScreen ? 0 : 74, background: pal.scrbg ?? pal.bg, backgroundColor: pal.bg, color: pal.fg, ['--tree-border']: pal.border }}>
                 {stateScreen ?? (
                 <>
                 <div style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 12 }}>
