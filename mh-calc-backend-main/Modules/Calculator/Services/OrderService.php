@@ -90,7 +90,10 @@ class OrderService
         $order->status = Order::STATUS_PAID;
         $order->save();
 
-        $event = $this->activation->activate($order->member_id, $order->package_id, "order:{$order->id}");
+        // Имя купленного товара (снимок на момент покупки) — для текста уведомления об активации,
+        // чтобы показать партнёру название его товара, а не легаси-имя пакета (Bronze/Silver/Gold).
+        $displayName = OrderItem::query()->where('order_id', $order->id)->value('name_snapshot');
+        $event = $this->activation->activate($order->member_id, $order->package_id, "order:{$order->id}", $displayName);
 
         $order->activation_event_id = $event->id;
         $order->save();

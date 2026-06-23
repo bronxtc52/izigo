@@ -178,7 +178,20 @@ class PaymentService
             }
         }
 
-        return ['confirmed' => $confirmed, 'failed' => $failed];
+        // TTL: «висящие» pending, по которым оплата так и не пришла, истекают, чтобы не
+        // копиться бессрочно. Экспирируем СТРОГО ПОСЛЕ опроса — платёж, чьи средства упали
+        // прямо перед отсечкой, успевает подтвердиться выше и не будет помечен expired по
+        // ошибке. Фильтр created_at < cutoff не трогает платежи, созданные в этот же прогон.
+        $expired = 0;
+        $ttlMinutes = (int) config('calculator.payment_pending_ttl_minutes', 1440);
+        if ($ttlMinutes > 0) {
+            $expired = Payment::query()
+                ->where('status', Payment::STATUS_PENDING)
+                ->where('created_at', '<', now()->subMinutes($ttlMinutes))
+                ->update(['status' => Payment::STATUS_EXPIRED]);
+        }
+
+        return ['confirmed' => $confirmed, 'failed' => $failed, 'expired' => $expired];
     }
 
     /**

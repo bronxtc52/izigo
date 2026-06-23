@@ -46,6 +46,19 @@ class TelegramNotifierTest extends TestCase
         Http::assertSent(fn ($req) => $req['chat_id'] == 500);
     }
 
+    public function testActivationNotificationUsesDisplayNameOverPackage(): void
+    {
+        // Имя купленного товара приоритетнее легаси-имени пакета в тексте уведомления.
+        Http::fake();
+        config(['calculator.telegram_notify_enabled' => true, 'calculator.telegram_bot_token' => 'TT']);
+
+        $member = app(MemberService::class)->registerTelegram(502, 'Tg', 'tg502');
+        app(ActivationService::class)->activate($member->id, 1, 'evt-name', 'Start');
+
+        Http::assertSent(fn ($req) => $req['chat_id'] == 502
+            && str_contains((string) $req['text'], 'Start'));
+    }
+
     public function testActivationSurvivesTelegramError(): void
     {
         // Best-effort: сбой доставки в Telegram не должен ронять активацию/расчёт.
