@@ -21,6 +21,10 @@ export const req = async (path, initData, method = 'GET', body = null) => {
     }
 };
 
+// C3: активные фиче-флаги кабинета (карта ключ→true; есть только включённые).
+// Гейтит ПОКАЗ blockC-фич в Mini App (deny-by-default — сбой/отсутствие = всё скрыто).
+export const mmFeatureFlags = (i) => req('/api/v1/cabinet/feature-flags', i);
+
 export const mmMe = (i) => req('/api/v1/cabinet/me', i);
 export const mmDashboard = (i) => req('/api/v1/cabinet/dashboard', i);
 export const mmRank = (i) => req('/api/v1/cabinet/rank-progress', i);
@@ -76,3 +80,34 @@ export const PACKAGES = [
     { id: 2, name: 'Silver', pv: 180, price: 200 },
     { id: 3, name: 'Gold', pv: 540, price: 600 },
 ];
+
+// >>> Block C notifications
+// C1: inbox партнёра (свои уведомления + отметка прочтения).
+export const mmNotifications = (i) => req('/api/v1/cabinet/notifications', i);
+export const mmNotificationsUnread = (i) => req('/api/v1/cabinet/notifications/unread-count', i);
+export const mmNotificationRead = (i, id) => req(`/api/v1/cabinet/notifications/${id}/read`, i, 'POST');
+export const mmNotificationReadAll = (i) => req('/api/v1/cabinet/notifications/read-all', i, 'POST');
+// <<< Block C notifications
+
+// >>> Block C copartners
+// C6: со-партнёры / наследники в профиле (справочные данные). Партнёр CRUD-ит ТОЛЬКО
+// свои записи (бэкенд скоупит по текущему участнику). Несколько записей разрешено,
+// сумма долей не валидируется. payload: { kind: 'copartner'|'heir', full_name, phone?, share_percent?, note? }.
+export const mmCopartners = (i) => req('/api/v1/cabinet/copartners', i);
+export const mmCopartnerCreate = (i, payload) => req('/api/v1/cabinet/copartners', i, 'POST', payload);
+export const mmCopartnerUpdate = (i, id, payload) => req(`/api/v1/cabinet/copartners/${id}`, i, 'PUT', payload);
+export const mmCopartnerDelete = (i, id) => req(`/api/v1/cabinet/copartners/${id}`, i, 'DELETE');
+// <<< Block C copartners
+
+// >>> Block C helpdesk
+// C2: тикеты поддержки партнёра (cabinet). Бэкенд скоупит по текущему участнику —
+// видны/доступны ТОЛЬКО свои тикеты. Чтение треда — polling по since-курсору (5–8с).
+export const mmTickets = (i) => req('/api/v1/cabinet/tickets', i);
+export const mmTicketCreate = (i, subject, body) =>
+    req('/api/v1/cabinet/tickets', i, 'POST', { subject, body });
+export const mmTicket = (i, id) => req(`/api/v1/cabinet/tickets/${id}`, i);
+export const mmTicketMessage = (i, id, body) =>
+    req(`/api/v1/cabinet/tickets/${id}/messages`, i, 'POST', { body });
+export const mmTicketPoll = (i, id, since = 0) =>
+    req(`/api/v1/cabinet/tickets/${id}/poll?since=${since}`, i);
+// <<< Block C helpdesk

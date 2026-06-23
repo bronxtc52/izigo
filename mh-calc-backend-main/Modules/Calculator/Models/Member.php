@@ -92,6 +92,12 @@ class Member extends Model
         return $this->belongsTo(Package::class, 'package_id');
     }
 
+    /** C6 (Block C): справочные со-партнёры/наследники участника. Аддитивно, на логику не влияет. */
+    public function copartners(): HasMany
+    {
+        return $this->hasMany(MemberCopartner::class, 'member_id');
+    }
+
     public function isActive(): bool
     {
         return $this->status === 'active';

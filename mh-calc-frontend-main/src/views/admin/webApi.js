@@ -157,3 +157,114 @@ export const ROLES = [
 
 export const isForbidden = (res) => res?.error === 403 || res?.status === 403;
 export const isUnauthorized = (res) => res?.error === 401 || res?.status === 401;
+
+// >>> Block C feature_flags
+// C3: рантайм фиче-флаги (owner-only). Список с описанием + переключение.
+export const fetchFeatureFlags = (token) => req('/api/v1/admin/feature-flags', token);
+export const setFeatureFlag = (token, key, enabled) =>
+    mutate(token, '/api/v1/admin/feature-flags', 'POST', { key, enabled });
+// <<< Block C feature_flags
+
+// >>> Block C notifications
+// C1: рассылки (owner,support). preview — dry-run охвата; send — постановка в outbox.
+export const previewBroadcast = (token, segmentType, segmentValue = null) =>
+    mutate(token, '/api/v1/admin/broadcasts/preview', 'POST', { segment_type: segmentType, segment_value: segmentValue });
+export const sendBroadcast = (token, segmentType, segmentValue, body) =>
+    mutate(token, '/api/v1/admin/broadcasts', 'POST', { segment_type: segmentType, segment_value: segmentValue, body });
+// <<< Block C notifications
+
+// >>> Block C exports
+// C5: экспорт участника (JSON/CSV) + PII маска/reveal. Сводка с PII в МАСКЕ —
+// owner,finance,support. Reveal сырых PII — ТОЛЬКО owner (бэкенд = последняя линия,
+// кнопка лишь дублирует). Экспорт для не-owner всегда маскирован (форсится на бэке).
+export const fetchMemberPii = (token, id) => req(`/api/v1/admin/members/${id}/pii`, token);
+export const revealMemberPii = (token, id) =>
+    mutate(token, `/api/v1/admin/members/${id}/pii/reveal`, 'POST', {});
+
+// Экспорт: качаем файл (csv) или объект (json). masked=false (полный) — только owner;
+// бэкенд принудительно маскирует не-owner, даже если masked=0. Возвращает { ok } / { error }.
+export const exportMember = async (token, id, format = 'json', masked = true) => {
+    const bearer = (typeof token === 'string' && token) ? token : getToken();
+    const params = qs({ format, masked: masked ? '1' : '0' });
+    try {
+        const res = await fetch(`${API_SERVER_URL}/api/v1/admin/members/${id}/export${params}`, {
+            headers: { 'X-Requested-With': 'XMLHttpRequest', Authorization: `Bearer ${bearer}` },
+        });
+        if (res.status === 401) { handleUnauthorized(); return { error: 401 }; }
+        if (!res.ok) return { error: res.status };
+
+        if (format === 'csv') {
+            const blob = await res.blob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `member-${id}${masked ? '-masked' : ''}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(url);
+            return { ok: true };
+        }
+
+        const json = await res.json();
+        const blob = new Blob([JSON.stringify(json?.data ?? json, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `member-${id}${masked ? '-masked' : ''}.json`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+        return { ok: true };
+    } catch (e) {
+        return { error: 0 };
+    }
+};
+// <<< Block C exports
+
+// >>> Block C copartners
+// C6: READ-ONLY просмотр со-партнёров/наследников участника (owner,finance,support).
+// Никаких write-вызовов в админке — редактирование доступно только самому партнёру
+// в Mini App (cabinet). Справочные данные, на деньги/дерево не влияют.
+export const fetchMemberCopartners = (token, id) => req(`/api/v1/admin/members/${id}/copartners`, token);
+// <<< Block C copartners
+
+// >>> Block C helpdesk
+// C2: очередь тикетов + чат оператора (owner,support). Token-first (Bearer Sanctum):
+// первый аргумент — undefined, чтобы взять токен из localStorage (см. req()).
+export const fetchTickets = (token, status = '', assigned = '') => {
+    const qs = new URLSearchParams();
+    if (status) qs.set('status', status);
+    if (assigned) qs.set('assigned', assigned);
+    const suffix = qs.toString() ? `?${qs.toString()}` : '';
+    return req(`/api/v1/admin/tickets${suffix}`, token);
+};
+export const fetchTicket = (token, id) => req(`/api/v1/admin/tickets/${id}`, token);
+export const replyTicket = (token, id, body) =>
+    req(`/api/v1/admin/tickets/${id}/reply`, token, 'POST', { body });
+export const setTicketStatus = (token, id, status) =>
+    req(`/api/v1/admin/tickets/${id}/status`, token, 'POST', { status });
+export const assignTicket = (token, id, assignedTo = undefined) =>
+    req(`/api/v1/admin/tickets/${id}/assign`, token, 'POST',
+        assignedTo === undefined ? {} : { assigned_to: assignedTo });
+// <<< Block C helpdesk
+
+// >>> Block C monitoring
+// C7: READ-ONLY мониторинг outbox/планировщика (owner-only). Только чтение — без
+// write-вызовов. Token-first: первый аргумент undefined → токен из localStorage.
+export const fetchMonitoringOutbox = (token) => req('/api/v1/admin/monitoring/outbox', token);
+export const fetchMonitoringProblems = (token, limit = 50) =>
+    req(`/api/v1/admin/monitoring/outbox/problems?limit=${limit}`, token);
+// <<< Block C monitoring
+
+// >>> Block C i18n
+// C4: редактируемые переводы (DB-оверрайды поверх статики). list/upsert/delete — owner-only.
+// Token-first: первый аргумент undefined → токен из localStorage.
+export const fetchTranslationOverrides = (token, locale = '') =>
+    req(`/api/v1/admin/i18n/overrides${locale ? `?locale=${locale}` : ''}`, token);
+export const upsertTranslationOverride = (token, locale, key, value) =>
+    mutate(token, '/api/v1/admin/i18n/overrides', 'POST', { locale, key, value });
+export const deleteTranslationOverride = (token, locale, key) =>
+    mutate(token, '/api/v1/admin/i18n/overrides', 'DELETE', { locale, key });
+// <<< Block C i18n

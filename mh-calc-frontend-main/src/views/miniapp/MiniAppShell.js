@@ -3,6 +3,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import {
     ConfigProvider, Card, Statistic, Button, Tag, List, Spin, Result, Progress,
     Input, InputNumber, Modal, Avatar, Divider, Flex, DatePicker, message,
+    Segmented, Popconfirm,
 } from 'antd';
 import {
     WalletOutlined, TeamOutlined, TrophyOutlined, UserOutlined,
@@ -13,9 +14,12 @@ import { tint, bonusTint, statusTint, roleTint, bonusDot, numFont } from './toke
 import {
     mmMe, mmDashboard, mmRank, mmTree, mmWallet, mmWalletTx, mmWalletStatement, mmWithdrawals, mmWithdrawCreate,
     mmTopup, mmKyc, mmKycSubmit, mmAgreement, mmAgreementAccept, PACKAGES,
+    mmCopartners, mmCopartnerCreate, mmCopartnerUpdate, mmCopartnerDelete,
+    mmFeatureFlags,
 } from './api';
 import MiniAppShop from './MiniAppShop';
 import TonPayCheckout from './TonPayCheckout';
+import { visibleBlockCTabs, blockCTabRender } from './tabs/registry';
 
 // Базовая проверка user-friendly TON-адреса (48 символов base64url, префикс EQ/UQ/kQ/0Q…).
 // Backend трактует payout_details как TON-адрес получателя USDT (валидации формата на бэке нет).
@@ -136,6 +140,16 @@ const MiniAppShell = () => {
     const [stmtRange, setStmtRange] = useState(null);
     const [stmtData, setStmtData] = useState(null);
     const [stmtLoading, setStmtLoading] = useState(false);
+    // C6: со-партнёры / наследники (справочные данные профиля).
+    const [copartners, setCopartners] = useState([]);
+    const [cpOpen, setCpOpen] = useState(false);
+    const [cpEditId, setCpEditId] = useState(null); // null = создание новой записи
+    const [cpForm, setCpForm] = useState({ kind: 'copartner', full_name: '', phone: '', share_percent: null, note: '' });
+    const [cpSaving, setCpSaving] = useState(false);
+    // C3: карта активных фиче-флагов кабинета {key: true}. Deny-by-default — пустой
+    // объект, пока не загрузилась (или при сбое) => все blockC-фичи скрыты. Базовый
+    // интерфейс (income/shop/team/rank/profile) от флагов НЕ зависит.
+    const [flags, setFlags] = useState({});
 
     const themeConfig = useMemo(() => antdThemeFromTelegram(theme, scheme), [theme, scheme]);
     const pal = useMemo(() => miniAppPalette(theme, scheme), [theme, scheme]);
@@ -157,15 +171,19 @@ const MiniAppShell = () => {
         setDash(d?.data ?? null);
         setRank(r?.data ?? null);
         setTree(t?.data ?? null);
-        // Кошелёк/выводы (Фаза 3) + KYC (Фаза 4) + соглашение (B3) — опциональны: их сбой НЕ роняет кабинет.
-        const [w, wtx, wd, k, ag] = await Promise.all([
+        // Кошелёк/выводы (Фаза 3) + KYC (Фаза 4) + соглашение (B3) + флаги (C3) — опциональны: их сбой НЕ роняет кабинет.
+        const [w, wtx, wd, k, ag, cp, ff] = await Promise.all([
             mmWallet(initData), mmWalletTx(initData), mmWithdrawals(initData), mmKyc(initData), mmAgreement(initData),
+            mmCopartners(initData), mmFeatureFlags(initData),
         ]);
         setWallet(w?.error ? null : (w?.data ?? null));
         setWalletTx(wtx?.error ? [] : (wtx?.data?.items ?? []));
         setWithdrawals(Array.isArray(wd?.data) ? wd.data : []);
         setKyc(k?.error ? null : (k?.data ?? null));
         setAgreement(ag?.error ? null : (ag?.data ?? null));
+        setCopartners(Array.isArray(cp?.data) ? cp.data : []);
+        // Deny-by-default: сбой/невалидный ответ (или не-объект/массив) => пустая карта => blockC-фичи скрыты.
+        setFlags(ff?.error || !ff?.data || typeof ff.data !== 'object' || Array.isArray(ff.data) ? {} : ff.data);
         setLoading(false);
     };
 
@@ -243,6 +261,56 @@ const MiniAppShell = () => {
         setKyc(res?.data ?? null);
     };
 
+    // C6: со-партнёры/наследники — справочные данные, на деньги/дерево не влияют.
+    const loadCopartners = async () => {
+        const res = await mmCopartners(initData);
+        setCopartners(Array.isArray(res?.data) ? res.data : []);
+    };
+
+    const openCpCreate = () => {
+        setCpEditId(null);
+        setCpForm({ kind: 'copartner', full_name: '', phone: '', share_percent: null, note: '' });
+        setCpOpen(true);
+    };
+
+    const openCpEdit = (c) => {
+        setCpEditId(c.id);
+        setCpForm({
+            kind: c.kind ?? 'copartner',
+            full_name: c.full_name ?? '',
+            phone: c.phone ?? '',
+            share_percent: c.share_percent != null ? Number(c.share_percent) : null,
+            note: c.note ?? '',
+        });
+        setCpOpen(true);
+    };
+
+    const onCpSave = async () => {
+        if (!cpForm.full_name.trim()) { message.error('Укажите ФИО'); return; }
+        const payload = {
+            kind: cpForm.kind,
+            full_name: cpForm.full_name.trim(),
+            phone: cpForm.phone?.trim() || null,
+            share_percent: cpForm.share_percent != null ? cpForm.share_percent : null,
+            note: cpForm.note?.trim() || null,
+        };
+        setCpSaving(true);
+        const res = cpEditId
+            ? await mmCopartnerUpdate(initData, cpEditId, payload)
+            : await mmCopartnerCreate(initData, payload);
+        setCpSaving(false);
+        if (res?.error) { message.error('Не удалось сохранить запись'); return; }
+        wa?.HapticFeedback?.notificationOccurred?.('success');
+        setCpOpen(false);
+        loadCopartners();
+    };
+
+    const onCpDelete = async (id) => {
+        const res = await mmCopartnerDelete(initData, id);
+        if (res?.error) { message.error('Не удалось удалить запись'); return; }
+        loadCopartners();
+    };
+
     const onCopyRef = () => {
         navigator.clipboard?.writeText(refLink).then(
             () => { message.success('Ссылка скопирована'); wa?.HapticFeedback?.notificationOccurred?.('success'); },
@@ -262,7 +330,11 @@ const MiniAppShell = () => {
         { key: 'profile', label: 'Профиль', icon: <UserOutlined /> },
     ];
     // Админка вынесена в веб (admin.izigo.adarasoft.com) — в Mini App её больше нет.
-    const tabs = TABS;
+    // Block C: вкладки фич подмешиваются из registry, отфильтрованные по фиче-флагам
+    // (deny-by-default: пустая карта flags => флаговые вкладки скрыты, базовый таб-бар цел).
+    const tabs = [...TABS, ...visibleBlockCTabs(flags)];
+    // Block C: контекст шелла для render вкладок фич (чтобы не дублировать загрузку данных).
+    const blockCCtx = { initData, pal, isDark, wa, me, dash, rank, tree, wallet, reload: load };
 
     const stateScreen = loading
         ? <Spin size="large" style={{ display: 'block', margin: '80px auto' }} />
@@ -638,6 +710,47 @@ const MiniAppShell = () => {
                                     </Flex>
                                 </Card>
                             )}
+                            {/* C6: совладельцы/наследники — показ гейтится фиче-флагом (deny-by-default) */}
+                            {flags?.c6_copartners === true && (
+                            <Card
+                                size="small"
+                                title="Совладельцы / Наследники"
+                                extra={<Button size="small" type="link" onClick={openCpCreate}>Добавить</Button>}
+                            >
+                                <List
+                                    dataSource={copartners}
+                                    locale={{ emptyText: 'Записей пока нет' }}
+                                    renderItem={(c) => (
+                                        <List.Item
+                                            actions={[
+                                                <Button key="edit" size="small" type="link" onClick={() => openCpEdit(c)}>Изм.</Button>,
+                                                <Popconfirm key="del" title="Удалить запись?" okText="Да" cancelText="Нет"
+                                                    onConfirm={() => onCpDelete(c.id)}>
+                                                    <Button size="small" type="link" danger>Удал.</Button>
+                                                </Popconfirm>,
+                                            ]}
+                                        >
+                                            <Flex vertical gap={2}>
+                                                <span>
+                                                    <Tag style={{ marginInlineEnd: 6 }}>
+                                                        {c.kind === 'heir' ? 'Наследник' : 'Совладелец'}
+                                                    </Tag>
+                                                    <b style={{ fontSize: 13.5 }}>{c.full_name}</b>
+                                                </span>
+                                                <span style={{ fontSize: 11.5, color: pal.muted }}>
+                                                    {[c.phone, c.share_percent != null ? `${c.share_percent}%` : null, c.note]
+                                                        .filter(Boolean).join(' · ') || '—'}
+                                                </span>
+                                            </Flex>
+                                        </List.Item>
+                                    )}
+                                />
+                                <div style={{ fontSize: 11, color: pal.muted, marginTop: 6 }}>
+                                    Справочная информация. Не влияет на начисления, выплаты и структуру.
+                                </div>
+                            </Card>
+                            )}
+
                             <Card size="small" title="Настройки">
                                 <List>
                                     <List.Item>Ранг <span style={{ color: pal.muted }}>{me?.rank?.alias ?? 'нет'} ›</span></List.Item>
@@ -649,6 +762,9 @@ const MiniAppShell = () => {
                             </Card>
                         </>
                     )}
+
+                    {/* Block C: контент вкладок фич блока (по key из registry, гейт по флагам). */}
+                    {blockCTabRender(tab, blockCCtx, flags)}
 
                 </div>
 
@@ -702,6 +818,60 @@ const MiniAppShell = () => {
                 <TonPayCheckout open={!!topupInvoice} invoice={topupInvoice} order={null}
                     initData={initData} pal={pal} wa={wa}
                     onClose={() => setTopupInvoice(null)} onPaid={onTopupPaid} />
+
+                {/* C6: форма со-партнёра/наследника (справочная запись профиля) */}
+                <Modal
+                    title={cpEditId ? 'Изменить запись' : 'Новая запись'}
+                    open={cpOpen}
+                    onOk={onCpSave}
+                    onCancel={() => setCpOpen(false)}
+                    okText="Сохранить"
+                    confirmLoading={cpSaving}
+                >
+                    <Segmented
+                        block
+                        style={{ marginBottom: 12 }}
+                        value={cpForm.kind}
+                        onChange={(v) => setCpForm((f) => ({ ...f, kind: v }))}
+                        options={[
+                            { label: 'Совладелец', value: 'copartner' },
+                            { label: 'Наследник', value: 'heir' },
+                        ]}
+                    />
+                    <Input
+                        style={{ marginBottom: 8 }}
+                        placeholder="ФИО"
+                        maxLength={160}
+                        value={cpForm.full_name}
+                        onChange={(e) => setCpForm((f) => ({ ...f, full_name: e.target.value }))}
+                    />
+                    <Input
+                        style={{ marginBottom: 8 }}
+                        placeholder="Телефон (необязательно)"
+                        maxLength={32}
+                        value={cpForm.phone}
+                        onChange={(e) => setCpForm((f) => ({ ...f, phone: e.target.value }))}
+                    />
+                    <InputNumber
+                        style={{ width: '100%', marginBottom: 8 }}
+                        placeholder="Доля % (необязательно)"
+                        min={0}
+                        max={100}
+                        step={1}
+                        value={cpForm.share_percent}
+                        onChange={(v) => setCpForm((f) => ({ ...f, share_percent: v }))}
+                    />
+                    <Input.TextArea
+                        rows={2}
+                        placeholder="Заметка (необязательно)"
+                        maxLength={255}
+                        value={cpForm.note}
+                        onChange={(e) => setCpForm((f) => ({ ...f, note: e.target.value }))}
+                    />
+                    <div style={{ fontSize: 11, color: pal.muted, marginTop: 6 }}>
+                        Справочные данные. Сумма долей не проверяется и ни на что не влияет.
+                    </div>
+                </Modal>
 
                 {/* B3: онбординг-гейт — пока соглашение не принято, кабинет заблокирован */}
                 <Modal

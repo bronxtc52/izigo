@@ -107,7 +107,7 @@ const Genealogy = () => {
         return (
             <Space direction="vertical" size={12} style={{ display: 'flex' }}>
                 <Button onClick={() => setSelected(null)}>← К дереву</Button>
-                <MemberCard id={selected} creds={creds} api={webApi} />
+                <MemberCard id={selected} creds={creds} api={webApi} piiApi={webApi} canReveal={isOwner} />
             </Space>
         );
     }
