@@ -1,7 +1,19 @@
 'use client';
 import { API_SERVER_URL } from '@/common/utils/utils';
+import i18n from '@/common/i18n';
 
 // Mini App API: авторизация через заголовок X-Telegram-Init-Data (не web-токен).
+
+// Текущий язык интерфейса для Accept-Language (бэкенд по нему отдаёт локализованные тексты,
+// напр. соглашение). Mini App работает в RU/EN — нормализуем (i18n.language может временно быть
+// витринным kk и т.п. до reconcile-эффекта). Фолбэк на ru.
+const currentLang = () => {
+    let l = i18n?.language;
+    if (!l && typeof window !== 'undefined') {
+        try { l = localStorage.getItem('miniapp_lang'); } catch (e) { /* private mode */ }
+    }
+    return l === 'en' ? 'en' : 'ru';
+};
 
 export const req = async (path, initData, method = 'GET', body = null) => {
     try {
@@ -11,6 +23,7 @@ export const req = async (path, initData, method = 'GET', body = null) => {
                 'X-Requested-With': 'XMLHttpRequest',
                 'Content-Type': 'application/json;charset=UTF-8',
                 'X-Telegram-Init-Data': initData || '',
+                'Accept-Language': currentLang(),
             },
             body: body ? JSON.stringify(body) : undefined,
         });
@@ -20,6 +33,10 @@ export const req = async (path, initData, method = 'GET', body = null) => {
         return { error: 0 };
     }
 };
+
+// Сохранить выбранный язык интерфейса в профиле партнёра (members.language). best-effort.
+export const mmSetLanguage = (i, language) =>
+    req('/api/v1/cabinet/profile/language', i, 'PATCH', { language });
 
 // C3: активные фиче-флаги кабинета (карта ключ→true; есть только включённые).
 // Гейтит ПОКАЗ blockC-фич в Mini App (deny-by-default — сбой/отсутствие = всё скрыто).

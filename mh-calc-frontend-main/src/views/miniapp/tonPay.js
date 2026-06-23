@@ -7,6 +7,7 @@
 import { TonClient } from '@ton/ton';
 import { Address, beginCell, toNano } from '@ton/core';
 import { CHAIN } from '@tonconnect/ui-react';
+import i18n from '@/common/i18n';
 
 const JETTON_TRANSFER_OP = 0x0f8a7ea5; // TEP-74 transfer
 const USDT_DECIMALS = 6; // USDT-джеттон в сети TON
@@ -72,10 +73,10 @@ function buildTransferBody(invoice, ownerAddress) {
  */
 export async function sendTonPayment(tonConnectUI, invoice) {
     const owner = tonConnectUI?.account?.address;
-    if (!owner) throw new Error('Кошелёк не подключён');
+    if (!owner) throw new Error(i18n.t('miniapp.pay_err_wallet_not_connected'));
     const c = tonConfig();
-    if (!tonConfigured()) throw new Error('TON-параметры не настроены');
-    if (!invoice?.merchant_address || !invoice?.memo) throw new Error('Некорректный инвойс');
+    if (!tonConfigured()) throw new Error(i18n.t('miniapp.pay_err_ton_params'));
+    if (!invoice?.merchant_address || !invoice?.memo) throw new Error(i18n.t('miniapp.pay_err_invalid_invoice'));
 
     const client = new TonClient({ endpoint: c.rpc });
     const jettonWallet = await resolveSenderJettonWallet(client, c.jettonMaster, owner);

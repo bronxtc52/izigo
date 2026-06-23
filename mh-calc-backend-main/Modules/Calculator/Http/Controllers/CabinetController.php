@@ -122,16 +122,63 @@ class CabinetController
         ));
     }
 
-    /** B3: статус пользовательского соглашения для участника (версия/текст + принял ли). */
+    /**
+     * B3: статус пользовательского соглашения для участника (версия/текст + принял ли).
+     * Текст отдаётся на языке запроса (ru/en) — см. agreementLocale().
+     */
     public function agreement(Request $request): JsonResponse
     {
-        return $this->guarded(fn () => $this->agreement->statusFor($this->member($request)));
+        $locale = $this->agreementLocale($request);
+
+        return $this->guarded(fn () => $this->agreement->statusFor($this->member($request), $locale));
     }
 
-    /** B3: принять текущую версию соглашения (онбординг). */
+    /** B3: принять текущую версию соглашения (онбординг). Возвращает статус на языке запроса. */
     public function acceptAgreement(Request $request): JsonResponse
     {
-        return $this->guarded(fn () => $this->agreement->accept($this->member($request)));
+        $locale = $this->agreementLocale($request);
+
+        return $this->guarded(fn () => $this->agreement->accept($this->member($request), $locale));
+    }
+
+    /**
+     * Сменить язык интерфейса партнёра (персист в members.language). Фронт затем шлёт
+     * Accept-Language. Поддерживаемые языки — config('translatable') + en; неизвестный → 422.
+     */
+    public function updateLanguage(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'language' => 'required|string|in:ru,en,kk,mn,uz,ky,az',
+        ]);
+
+        $member = $this->member($request);
+        $member->language = $validated['language'];
+        $member->save();
+
+        return response()->json(['status' => 'success', 'data' => ['language' => $member->language]]);
+    }
+
+    /**
+     * Язык для соглашения (только ru/en). SetLocale знает ru/kk/mn/uz/ky/az, но НЕ en — для
+     * en он молча оставляет дефолт app-locale (ru), поэтому en невозможно отличить от ru
+     * только по app()->getLocale(). Решение: сначала смотрим первый язык-тег Accept-Language
+     * (en→en), и лишь затем app-locale; всё прочее → дефолт ru (сервис нормализует фолбэк).
+     */
+    private function agreementLocale(Request $request): string
+    {
+        $accept = strtolower((string) $request->headers->get('Accept-Language', ''));
+        $primary = trim(explode(';', trim(explode(',', $accept)[0] ?? ''))[0] ?? '');
+        if (str_starts_with($primary, 'en')) {
+            return 'en';
+        }
+        if (str_starts_with($primary, 'ru')) {
+            return 'ru';
+        }
+
+        // Нет явного ru/en в заголовке — доверяем app-locale, если он ru/en, иначе ru.
+        $appLocale = app()->getLocale();
+
+        return in_array($appLocale, ['ru', 'en'], true) ? $appLocale : 'ru';
     }
 
     /**

@@ -1,5 +1,6 @@
 'use client';
 import React, { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Modal, Button, Flex, Spin, Result, message } from 'antd';
 import { CopyOutlined } from '@ant-design/icons';
 import { useTonConnectUI, useTonWallet, TonConnectButton } from '@tonconnect/ui-react';
@@ -18,6 +19,7 @@ const MAX_POLLS = 22; // ~90с авто-поллинга, далее — руч�
  * как запасной путь (оплата из любого кошелька).
  */
 export default function TonPayCheckout({ open, invoice, order, initData, pal, wa, onClose, onPaid }) {
+    const { t } = useTranslation();
     const [tonConnectUI] = useTonConnectUI();
     const wallet = useTonWallet();
     const [phase, setPhase] = useState('idle'); // idle | sending | awaiting | paid | failed
@@ -43,7 +45,7 @@ export default function TonPayCheckout({ open, invoice, order, initData, pal, wa
         const res = await mmCheckPayment(initData, pid);
         if (!silent) setChecking(false);
         if (pidRef.current !== pid) return; // инвойс сменился, пока ждали ответ — игнорируем
-        if (res?.error) { if (!silent) message.error('Не удалось проверить оплату'); return; }
+        if (res?.error) { if (!silent) message.error(t('miniapp.pay_err_check')); return; }
         const st = res?.data?.payment_status;
         if (st === 'paid') {
             stopPoll(); setPhase('paid');
@@ -65,26 +67,26 @@ export default function TonPayCheckout({ open, invoice, order, initData, pal, wa
             if (pollRef.current && attemptsRef.current >= MAX_POLLS) {
                 stopPoll();
                 setPhase('idle');
-                message.info('Подтверждение задерживается. Проверьте оплату вручную или повторите.');
+                message.info(t('miniapp.pay_info_delayed'));
             }
         }, POLL_MS);
     };
 
     const onPay = async () => {
-        if (!wallet) { message.info('Сначала подключите TON-кошелёк'); return; }
-        if (!tonConfigured()) { message.error('TON-оплата не настроена (нет RPC/мастер-адреса)'); return; }
+        if (!wallet) { message.info(t('miniapp.pay_info_connect_wallet')); return; }
+        if (!tonConfigured()) { message.error(t('miniapp.pay_err_not_configured')); return; }
         setPhase('sending');
         try {
             await sendTonPayment(tonConnectUI, invoice);
             startAwaiting();
         } catch (e) {
             setPhase('idle');
-            message.error(e?.message || 'Не удалось отправить перевод');
+            message.error(e?.message || t('miniapp.pay_err_send'));
         }
     };
 
     const copy = (txt) => navigator.clipboard?.writeText(String(txt ?? '')).then(
-        () => message.success('Скопировано'), () => {});
+        () => message.success(t('miniapp.pay_ok_copied')), () => {});
 
     const close = () => { stopPoll(); onClose?.(); };
 
@@ -106,32 +108,31 @@ export default function TonPayCheckout({ open, invoice, order, initData, pal, wa
 
     let body;
     if (phase === 'paid') {
-        body = <Result status="success" title="Оплата подтверждена"
-            subTitle={order ? 'Заказ оплачен, тариф активирован.' : 'Платёж зачислен.'}
-            extra={<Button type="primary" onClick={close}>Готово</Button>} />;
+        body = <Result status="success" title={t('miniapp.pay_paid_title')}
+            subTitle={order ? t('miniapp.pay_paid_order_sub') : t('miniapp.pay_paid_topup_sub')}
+            extra={<Button type="primary" onClick={close}>{t('miniapp.pay_done')}</Button>} />;
     } else if (phase === 'failed') {
-        body = <Result status="error" title="Платёж не подтверждён"
-            subTitle="Транзакция не найдена или сумма не совпала. Повторите оплату."
-            extra={<Button onClick={() => setPhase('idle')}>Назад</Button>} />;
+        body = <Result status="error" title={t('miniapp.pay_failed_title')}
+            subTitle={t('miniapp.pay_failed_sub')}
+            extra={<Button onClick={() => setPhase('idle')}>{t('miniapp.pay_back')}</Button>} />;
     } else {
         body = (
             <>
                 <div style={{ textAlign: 'center', margin: '4px 0 12px' }}>
-                    <div style={{ fontSize: 11, color: pal.muted, letterSpacing: '.1em', textTransform: 'uppercase' }}>К оплате</div>
+                    <div style={{ fontSize: 11, color: pal.muted, letterSpacing: '.1em', textTransform: 'uppercase' }}>{t('miniapp.pay_to_pay')}</div>
                     <div style={{ ...amtGrad, fontSize: 30, lineHeight: 1.1, marginTop: 4 }}>
                         {usd(invoice?.amount_cents)} <span style={{ fontSize: 16, color: pal.muted, WebkitTextFillColor: pal.muted }}>{invoice?.currency || 'USDT'}</span>
                     </div>
                 </div>
 
                 <div style={{ background: pal.surface2, borderRadius: 12, padding: '4px 12px', marginBottom: 12 }}>
-                    <Row label="Адрес получателя" value={invoice?.merchant_address} mono />
-                    <Row label="Memo (обязательно)" value={invoice?.memo} mono />
+                    <Row label={t('miniapp.pay_recipient_address')} value={invoice?.merchant_address} mono />
+                    <Row label={t('miniapp.pay_memo_required')} value={invoice?.memo} mono />
                 </div>
 
                 {!tonConfigured() && (
                     <div style={{ fontSize: 11.5, color: pal.warning, marginBottom: 10 }}>
-                        TON-оплата в кошельке не настроена в этом окружении — оплатите вручную по реквизитам выше
-                        (адрес + memo), затем нажмите «Проверить оплату».
+                        {t('miniapp.pay_not_configured_hint')}
                     </div>
                 )}
 
@@ -140,23 +141,23 @@ export default function TonPayCheckout({ open, invoice, order, initData, pal, wa
                     {phase === 'awaiting' ? (
                         <Flex vertical align="center" gap={6} style={{ padding: '6px 0' }}>
                             <Spin />
-                            <span style={{ fontSize: 12.5, color: pal.muted }}>Ждём подтверждения в сети…</span>
+                            <span style={{ fontSize: 12.5, color: pal.muted }}>{t('miniapp.pay_awaiting')}</span>
                         </Flex>
                     ) : (
                         <Button type="primary" block loading={phase === 'sending'}
                             style={(!wallet || !tonConfigured()) ? undefined : gradBtn}
                             disabled={!wallet || !tonConfigured()} onClick={onPay}>
-                            Оплатить через кошелёк
+                            {t('miniapp.pay_wallet')}
                         </Button>
                     )}
-                    <Button block loading={checking} onClick={() => checkOnce(false)}>Проверить оплату</Button>
+                    <Button block loading={checking} onClick={() => checkOnce(false)}>{t('miniapp.pay_check_payment')}</Button>
                 </Flex>
             </>
         );
     }
 
     return (
-        <Modal title="Оплата TON Pay" open={open} onCancel={close} footer={null} destroyOnClose maskClosable={false}>
+        <Modal title={t('miniapp.pay_checkout_title')} open={open} onCancel={close} footer={null} destroyOnClose maskClosable={false}>
             {body}
         </Modal>
     );

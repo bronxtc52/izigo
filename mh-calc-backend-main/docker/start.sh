@@ -16,6 +16,10 @@ php artisan db:seed --class="Modules\\Calculator\\Database\\Seeders\\ProductSeed
 # Идемпотентно (firstOrCreate) — не перетирает выставленное администратором значение.
 php artisan db:seed --class="Modules\\Calculator\\Database\\Seeders\\FeatureFlagSeeder" --force || true
 
+# Реальный текст Пользовательского соглашения (RU+EN). Идемпотентно: версия бампается только
+# при изменении текста, иначе деплой не форсит повторное принятие у всех участников.
+php artisan db:seed --class="Modules\\Calculator\\Database\\Seeders\\AgreementSeeder" --force || true
+
 # Планировщик Laravel (single-replica). schedule:work раз в минуту вызывает schedule:run,
 # который и дёргает commerce:tonpay-poll (приём ждёт подтверждения сети), commerce:autoship-run
 # и commerce:payouts-poll. Без него эти команды на ACA не срабатывают. Фоном, рядом с serve;

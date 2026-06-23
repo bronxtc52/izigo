@@ -75,6 +75,8 @@ Route::group([
     'middleware' => ['telegram.auth'],
 ], function () {
     Route::get('/me', [CabinetController::class, 'me'])->name('me');
+    // Персист выбранного языка интерфейса партнёра (members.language).
+    Route::patch('/profile/language', [CabinetController::class, 'updateLanguage'])->name('profile-language');
     Route::get('/dashboard', [CabinetController::class, 'dashboard'])->name('dashboard');
     Route::get('/rank-progress', [CabinetController::class, 'rankProgress'])->name('rank-progress');
     Route::get('/team-tree', [CabinetController::class, 'teamTree'])->name('team-tree');

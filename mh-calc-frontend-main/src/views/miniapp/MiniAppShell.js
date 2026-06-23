@@ -1,5 +1,6 @@
 'use client';
 import React, { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
     ConfigProvider, Card, Statistic, Button, Tag, List, Spin, Result, Progress,
     Input, InputNumber, Modal, Avatar, Divider, Flex, DatePicker, message,
@@ -13,41 +14,49 @@ import { useTelegram, antdThemeFromTelegram, miniAppPalette } from './telegram';
 import { tint, bonusTint, statusTint, roleTint, bonusDot, numFont, balanceFont } from './tokens';
 import {
     mmMe, mmDashboard, mmRank, mmTree, mmWallet, mmWalletTx, mmWalletStatement, mmWithdrawals, mmWithdrawCreate,
-    mmTopup, mmKyc, mmKycSubmit, mmAgreement, mmAgreementAccept, PACKAGES,
+    mmTopup, mmKyc, mmKycSubmit, mmAgreement, mmAgreementAccept, mmSetLanguage, PACKAGES,
     mmCopartners, mmCopartnerCreate, mmCopartnerUpdate, mmCopartnerDelete,
     mmFeatureFlags, mmPersonalReferrals, mmChangeSponsor,
 } from './api';
 import MiniAppShop from './MiniAppShop';
 import TonPayCheckout from './TonPayCheckout';
 import SplashScreen from './SplashScreen';
+import { legalText } from './legalTexts';
 import { visibleBlockCTabs, blockCTabRender } from './tabs/registry';
+
+// Языки Mini App: RU (основной) + EN. Переключатель — в профиле/настройках. Выбор хранится
+// в localStorage (мгновенный кэш) и персистится на бэк (members.language) best-effort.
+const MINIAPP_LANGS = ['ru', 'en'];
+const LANG_STORAGE_KEY = 'miniapp_lang';
+const normalizeLang = (l) => (MINIAPP_LANGS.includes(l) ? l : null);
 
 // Базовая проверка user-friendly TON-адреса (48 символов base64url, префикс EQ/UQ/kQ/0Q…).
 // Backend трактует payout_details как TON-адрес получателя USDT (валидации формата на бэке нет).
 const isTonAddress = (s) => /^[EUk0][Qf][A-Za-z0-9_-]{46}$/.test(String(s || '').trim());
 
+// Значения label — i18n-ключи (переводятся через t() в месте рендера), kind — цветовой тон.
 const KYC_STATUS = {
-    none: { label: 'не пройдена', kind: 'neutral' },
-    pending: { label: 'на проверке', kind: 'amber' },
-    approved: { label: 'подтверждена', kind: 'green' },
-    rejected: { label: 'отклонена', kind: 'amber' },
+    none: { label: 'miniapp.kyc_none', kind: 'neutral' },
+    pending: { label: 'miniapp.kyc_pending', kind: 'amber' },
+    approved: { label: 'miniapp.kyc_approved', kind: 'green' },
+    rejected: { label: 'miniapp.kyc_rejected', kind: 'amber' },
 };
 
-const TYPE_LABEL = { binary: 'Бинар', referral: 'Реферал', leader: 'Лидер', rank: 'Ранг' };
-const TX_SOURCE_LABEL = { accrual: 'Начисление', withdrawal: 'Вывод' };
+const TYPE_LABEL = { binary: 'miniapp.bonus_binary', referral: 'miniapp.bonus_referral', leader: 'miniapp.bonus_leader', rank: 'miniapp.bonus_rank' };
+const TX_SOURCE_LABEL = { accrual: 'miniapp.tx_accrual', withdrawal: 'miniapp.tx_withdrawal' };
 
-// A2: экспорт выписки (массив движений) в CSV-файл, без сторонних либ.
-const exportStatementCsv = (items) => {
+// A2: экспорт выписки (массив движений) в CSV-файл, без сторонних либ. tr — функция перевода.
+const exportStatementCsv = (items, tr) => {
     const esc = (v) => {
         const s = v == null ? '' : String(v);
         return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
     };
     const head = 'date,type,amount_usd,source_id';
-    const body = items.map((t) => [
-        esc(t.created_at ?? ''),
-        esc(TX_SOURCE_LABEL[t.source_type] ?? t.source_type),
-        esc(t.amount),
-        esc(t.source_id ?? ''),
+    const body = items.map((row) => [
+        esc(row.created_at ?? ''),
+        esc(TX_SOURCE_LABEL[row.source_type] ? tr(TX_SOURCE_LABEL[row.source_type]) : row.source_type),
+        esc(row.amount),
+        esc(row.source_id ?? ''),
     ].join(',')).join('\n');
     const blob = new Blob([`${head}\n${body}`], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -58,11 +67,11 @@ const exportStatementCsv = (items) => {
     URL.revokeObjectURL(url);
 };
 const WD_STATUS = {
-    requested: { label: 'на рассмотрении', kind: 'blue' },
-    approved: { label: 'одобрена', kind: 'blue' },
-    paid: { label: 'выплачена', kind: 'green' },
-    rejected: { label: 'отклонена', kind: 'amber' },
-    cancelled: { label: 'отменена', kind: 'neutral' },
+    requested: { label: 'miniapp.wd_requested', kind: 'blue' },
+    approved: { label: 'miniapp.wd_approved', kind: 'blue' },
+    paid: { label: 'miniapp.wd_paid', kind: 'green' },
+    rejected: { label: 'miniapp.wd_rejected', kind: 'amber' },
+    cancelled: { label: 'miniapp.wd_cancelled', kind: 'neutral' },
 };
 
 const initials = (name) => (name || '?').trim().split(/\s+/).map((w) => w[0]).slice(0, 2).join('').toUpperCase();
@@ -82,35 +91,40 @@ const countTeam = (node) => {
 };
 
 /** Узел дерева команды: аватар-инициалы (tint по статусу) + имя + статус-бейдж, вложенность бордером. */
-const TreeNode = ({ node, depth, isDark, filter }) => {
+const TreeNode = ({ node, depth, isDark, filter, t }) => {
     if (!node) return null;
     const st = node.attributes?.status;
     const visible = filter === 'all' || (filter === 'active' && st === 'active') || (filter === 'new' && st !== 'active');
-    const t = statusTint(st, isDark);
+    const tn = statusTint(st, isDark);
     const children = (node.children || []).filter(Boolean);
     return (
         <div style={depth ? { marginLeft: 15, borderLeft: `1.5px solid var(--tree-border)`, paddingLeft: 13 } : undefined}>
             {(depth === 0 || visible) && (
                 <Flex align="center" gap={9} style={{ padding: '7px 0' }}>
-                    <Avatar size={28} style={{ background: t.bg, color: t.color, fontSize: 11, fontWeight: 700 }}>
+                    <Avatar size={28} style={{ background: tn.bg, color: tn.color, fontSize: 11, fontWeight: 700 }}>
                         {initials(node.name)}
                     </Avatar>
                     <span style={{ fontSize: 13.5, fontWeight: depth ? 500 : 700, flex: 1 }}>{node.name}</span>
-                    <Tag style={{ background: t.bg, color: t.color, border: 'none', fontSize: 10.5, fontWeight: 600, marginInlineEnd: 0 }}>
-                        {st === 'active' ? 'активен' : 'нов'}
+                    <Tag style={{ background: tn.bg, color: tn.color, border: 'none', fontSize: 10.5, fontWeight: 600, marginInlineEnd: 0 }}>
+                        {st === 'active' ? t('miniapp.status_active') : t('miniapp.status_new')}
                     </Tag>
                 </Flex>
             )}
-            {children.map((c, i) => <TreeNode key={c.attributes?.id ?? c.name ?? i} node={c} depth={depth + 1} isDark={isDark} filter={filter} />)}
+            {children.map((c, i) => <TreeNode key={c.attributes?.id ?? c.name ?? i} node={c} depth={depth + 1} isDark={isDark} filter={filter} t={t} />)}
         </div>
     );
 };
 
 const MiniAppShell = () => {
+    const { t, i18n } = useTranslation();
     const { initData, theme, wa, ready, scheme } = useTelegram();
     const [tab, setTab] = useState('income');
     const [me, setMe] = useState(null);
     const [refLink, setRefLink] = useState('');
+    // Язык интерфейса Mini App (RU/EN). Инициализируется из localStorage → Telegram → ru.
+    const [lang, setLang] = useState('ru');
+    // Юр-документ для модалки настроек: 'privacy' | 'terms' | null.
+    const [legalDoc, setLegalDoc] = useState(null);
     // Лид (ещё не купил пакет): спонсор/окно/смена. needReferral — валидный юзер без спонсора.
     const [leadInfo, setLeadInfo] = useState(null);
     const [needReferral, setNeedReferral] = useState(false);
@@ -164,6 +178,39 @@ const MiniAppShell = () => {
     const pal = useMemo(() => miniAppPalette(theme, scheme), [theme, scheme]);
     const isDark = pal.isDark;
 
+    // Применить язык: i18next + локальный стейт + кэш в localStorage. persist=true ещё и
+    // best-effort пишет на бэк (members.language) — нефатально при сбое.
+    const applyLang = (l, persist = false) => {
+        const next = normalizeLang(l) || 'ru';
+        i18n.changeLanguage(next);
+        setLang(next);
+        if (typeof window !== 'undefined') {
+            try { localStorage.setItem(LANG_STORAGE_KEY, next); } catch (e) { /* private mode */ }
+        }
+        if (persist && initData) { mmSetLanguage(initData, next); }
+    };
+
+    // Инициализация языка при первом монтировании: localStorage → Telegram language_code → ru.
+    useEffect(() => {
+        let stored = null;
+        if (typeof window !== 'undefined') {
+            try { stored = localStorage.getItem(LANG_STORAGE_KEY); } catch (e) { /* private mode */ }
+        }
+        const tg = wa?.initDataUnsafe?.user?.language_code;
+        const fromTg = tg && String(tg).toLowerCase().startsWith('en') ? 'en' : 'ru';
+        applyLang(normalizeLang(stored) || fromTg);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [wa]);
+
+    // Mini App поддерживает только RU/EN. Витринный GlobalContext (родитель) на маунте
+    // восстанавливает свой язык (напр. kk) и может перебить наш выбор — возвращаем в RU/EN.
+    useEffect(() => {
+        if (!MINIAPP_LANGS.includes(i18n.language)) {
+            i18n.changeLanguage(lang);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [i18n.language, lang]);
+
     const load = async () => {
         setAuthError(false);
         setServerError(false);
@@ -194,15 +241,20 @@ const MiniAppShell = () => {
         // Участник: профиль + критичные данные кабинета (их сбой = экран ошибки).
         setMe(data.member ?? null);
         setRefLink(data.ref_link ?? '');
-        const [d, r, t] = await Promise.all([
+        // Персист-язык с бэка применяем ТОЛЬКО если у пользователя нет локального выбора.
+        const stored = (typeof window !== 'undefined') ? (() => { try { return localStorage.getItem(LANG_STORAGE_KEY); } catch (e) { return null; } })() : null;
+        if (!normalizeLang(stored) && normalizeLang(data.member?.language)) {
+            applyLang(data.member.language);
+        }
+        const [d, r, tr] = await Promise.all([
             mmDashboard(initData), mmRank(initData), mmTree(initData),
         ]);
-        const errors = [d, r, t].map((x) => x?.error).filter((e) => e !== undefined);
+        const errors = [d, r, tr].map((x) => x?.error).filter((e) => e !== undefined);
         if (errors.includes(401)) { setAuthError(true); setLoading(false); return; }
         if (errors.length) { setServerError(true); setLoading(false); return; }
         setDash(d?.data ?? null);
         setRank(r?.data ?? null);
-        setTree(t?.data ?? null);
+        setTree(tr?.data ?? null);
         // Кошелёк/выводы + KYC + соглашение + флаги + личные рефералы — опциональны: их сбой НЕ роняет кабинет.
         const [w, wtx, wd, k, ag, cp, ff, pr] = await Promise.all([
             mmWallet(initData), mmWalletTx(initData), mmWithdrawals(initData), mmKyc(initData), mmAgreement(initData),
@@ -229,13 +281,13 @@ const MiniAppShell = () => {
 
     const onWithdraw = async () => {
         const amount = Number(wdAmount);
-        if (!amount || amount <= 0) { message.error('Укажите сумму вывода'); return; }
-        if (!isTonAddress(wdDetails)) { message.error('Укажите корректный TON-адрес (USDT)'); return; }
+        if (!amount || amount <= 0) { message.error(t('miniapp.err_enter_amount')); return; }
+        if (!isTonAddress(wdDetails)) { message.error(t('miniapp.err_invalid_ton')); return; }
         setWdSubmitting(true);
         const res = await mmWithdrawCreate(initData, amount.toFixed(2), wdDetails.trim());
         setWdSubmitting(false);
-        if (res?.error) { message.error('Не удалось создать заявку (проверьте сумму)'); return; }
-        message.success('Заявка на вывод создана');
+        if (res?.error) { message.error(t('miniapp.err_create_request')); return; }
+        message.success(t('miniapp.ok_request_created'));
         wa?.HapticFeedback?.notificationOccurred?.('success');
         setWdAmount(null);
         setWdDetails('');
@@ -250,7 +302,7 @@ const MiniAppShell = () => {
         const to = stmtRange?.[1] ? stmtRange[1].format('YYYY-MM-DD') : '';
         const res = await mmWalletStatement(initData, from, to);
         setStmtLoading(false);
-        if (res?.error) { message.error('Не удалось загрузить выписку'); return; }
+        if (res?.error) { message.error(t('miniapp.err_load_statement')); return; }
         setStmtData(res?.data ?? null);
     };
 
@@ -261,7 +313,7 @@ const MiniAppShell = () => {
         setAgreeBusy(true);
         const res = await mmAgreementAccept(initData);
         setAgreeBusy(false);
-        if (res?.error) { message.error('Не удалось принять соглашение'); return; }
+        if (res?.error) { message.error(t('miniapp.err_accept_agreement')); return; }
         setAgreement(res?.data ?? null);
         wa?.HapticFeedback?.notificationOccurred?.('success');
     };
@@ -269,11 +321,11 @@ const MiniAppShell = () => {
     // F5: создать счёт на пополнение → открыть TON Pay checkout (без заказа, только зачисление).
     const onTopup = async () => {
         const amount = Number(topupAmount);
-        if (!amount || amount <= 0) { message.error('Укажите сумму пополнения'); return; }
+        if (!amount || amount <= 0) { message.error(t('miniapp.err_enter_topup')); return; }
         setTopupSubmitting(true);
         const res = await mmTopup(initData, Math.round(amount * 100)); // доллары → центы
         setTopupSubmitting(false);
-        if (res?.error) { message.error('Не удалось создать счёт на пополнение'); return; }
+        if (res?.error) { message.error(t('miniapp.err_create_topup')); return; }
         wa?.HapticFeedback?.impactOccurred?.('light');
         setTopupOpen(false);
         setTopupAmount(null);
@@ -288,8 +340,8 @@ const MiniAppShell = () => {
         setKycSubmitting(true);
         const res = await mmKycSubmit(initData, [{ type: 'passport', source: 'mini_app_intake' }]);
         setKycSubmitting(false);
-        if (res?.error) { message.error('Не удалось отправить заявку на верификацию'); return; }
-        message.success('Заявка на верификацию отправлена');
+        if (res?.error) { message.error(t('miniapp.err_kyc_submit')); return; }
+        message.success(t('miniapp.ok_kyc_submitted'));
         wa?.HapticFeedback?.notificationOccurred?.('success');
         setKyc(res?.data ?? null);
     };
@@ -319,7 +371,7 @@ const MiniAppShell = () => {
     };
 
     const onCpSave = async () => {
-        if (!cpForm.full_name.trim()) { message.error('Укажите ФИО'); return; }
+        if (!cpForm.full_name.trim()) { message.error(t('copartners.nameRequired')); return; }
         const payload = {
             kind: cpForm.kind,
             full_name: cpForm.full_name.trim(),
@@ -332,7 +384,7 @@ const MiniAppShell = () => {
             ? await mmCopartnerUpdate(initData, cpEditId, payload)
             : await mmCopartnerCreate(initData, payload);
         setCpSaving(false);
-        if (res?.error) { message.error('Не удалось сохранить запись'); return; }
+        if (res?.error) { message.error(t('copartners.saveFailed')); return; }
         wa?.HapticFeedback?.notificationOccurred?.('success');
         setCpOpen(false);
         loadCopartners();
@@ -340,29 +392,29 @@ const MiniAppShell = () => {
 
     const onCpDelete = async (id) => {
         const res = await mmCopartnerDelete(initData, id);
-        if (res?.error) { message.error('Не удалось удалить запись'); return; }
+        if (res?.error) { message.error(t('copartners.deleteFailed')); return; }
         loadCopartners();
     };
 
     const onCopyRef = () => {
         navigator.clipboard?.writeText(refLink).then(
-            () => { message.success('Ссылка скопирована'); wa?.HapticFeedback?.notificationOccurred?.('success'); },
-            () => message.error('Не удалось скопировать'),
+            () => { message.success(t('miniapp.ok_link_copied')); wa?.HapticFeedback?.notificationOccurred?.('success'); },
+            () => message.error(t('miniapp.err_copy')),
         );
     };
 
     // Лид: сменить спонсора по ref-коду (доступно, пока окно не истекло и пакет не куплен).
     const onChangeSponsor = async () => {
         const code = csRef.trim();
-        if (!code) { message.error('Введите реф-код спонсора'); return; }
+        if (!code) { message.error(t('miniapp.err_enter_ref')); return; }
         setCsBusy(true);
         const res = await mmChangeSponsor(initData, code);
         setCsBusy(false);
         if (res?.error || res?.status === 'error') {
-            message.error('Не удалось сменить спонсора (проверьте код, срок не истёк)');
+            message.error(t('miniapp.err_change_sponsor'));
             return;
         }
-        message.success('Спонсор обновлён');
+        message.success(t('miniapp.ok_sponsor_updated'));
         wa?.HapticFeedback?.notificationOccurred?.('success');
         setCsOpen(false);
         setCsRef('');
@@ -382,31 +434,31 @@ const MiniAppShell = () => {
     const personalCount = me?.personal_count ?? 0;
 
     const TABS = [
-        { key: 'income', label: 'Доход', icon: <WalletOutlined /> },
-        { key: 'shop', label: 'Магазин', icon: <ShoppingOutlined /> },
-        { key: 'team', label: 'Команда', icon: <TeamOutlined /> },
-        { key: 'rank', label: 'Ранг', icon: <TrophyOutlined /> },
-        { key: 'profile', label: 'Профиль', icon: <UserOutlined /> },
+        { key: 'income', label: t('miniapp.tab_income'), icon: <WalletOutlined /> },
+        { key: 'shop', label: t('miniapp.tab_shop'), icon: <ShoppingOutlined /> },
+        { key: 'team', label: t('miniapp.tab_team'), icon: <TeamOutlined /> },
+        { key: 'rank', label: t('miniapp.tab_rank'), icon: <TrophyOutlined /> },
+        { key: 'profile', label: t('miniapp.tab_profile'), icon: <UserOutlined /> },
     ];
     // Админка вынесена в веб (admin.izigo.adarasoft.com) — в Mini App её больше нет.
     // Block C: вкладки фич подмешиваются из registry, отфильтрованные по фиче-флагам
     // (deny-by-default: пустая карта flags => флаговые вкладки скрыты, базовый таб-бар цел).
-    const tabs = [...TABS, ...visibleBlockCTabs(flags)];
+    const tabs = [...TABS, ...visibleBlockCTabs(flags).map((tb) => ({ ...tb, label: t(tb.label) }))];
     // Block C: контекст шелла для render вкладок фич (чтобы не дублировать загрузку данных).
     const blockCCtx = { initData, pal, isDark, wa, me, dash, rank, tree, wallet, reload: load };
 
     const stateScreen = loading
         ? <Spin size="large" style={{ display: 'block', margin: '80px auto' }} />
         : authError
-            ? <Result status="warning" title="Откройте через Telegram"
-                subTitle="Mini App доступен только внутри Telegram (авторизация по initData)." />
+            ? <Result status="warning" title={t('miniapp.open_tg_title')}
+                subTitle={t('miniapp.open_tg_sub')} />
             : serverError
-                ? <Result status="error" title="Ошибка загрузки"
-                    subTitle="Не удалось получить данные. Попробуйте позже."
-                    extra={<Button type="primary" onClick={() => { setServerError(false); setLoading(true); load(); }}>Повторить</Button>} />
+                ? <Result status="error" title={t('miniapp.load_err_title')}
+                    subTitle={t('miniapp.load_err_sub')}
+                    extra={<Button type="primary" onClick={() => { setServerError(false); setLoading(true); load(); }}>{t('miniapp.retry')}</Button>} />
                 : needReferral
-                    ? <Result status="info" title="Нужна реферальная ссылка"
-                        subTitle="Откройте приложение по приглашению партнёра, чтобы присоединиться к команде." />
+                    ? <Result status="info" title={t('miniapp.need_ref_title')}
+                        subTitle={t('miniapp.need_ref_sub')} />
                     : null;
 
     const SectionLabel = ({ children }) => (
@@ -429,24 +481,24 @@ const MiniAppShell = () => {
                     {/* Экран ЛИДА: ещё не купил пакет → вне дерева. Может купить (промоушн в Member)
                         или сменить спонсора, пока не активировал. */}
                     <Card size="small" style={heroCardStyle} styles={{ body: { padding: 18 } }}>
-                        <div style={{ ...numFont, fontSize: 18, fontWeight: 800 }}>Добро пожаловать 👋</div>
+                        <div style={{ ...numFont, fontSize: 18, fontWeight: 800 }}>{t('miniapp.welcome')}</div>
                         <div style={{ fontSize: 13.5, color: pal.muted, marginTop: 6 }}>
-                            Активируйте любой пакет, чтобы вступить в команду и получить свою реферальную ссылку.
+                            {t('miniapp.lead_activate_hint')}
                         </div>
                         <Divider style={{ margin: '14px 0' }} />
                         <Flex justify="space-between" align="center" gap={8}>
                             <div style={{ minWidth: 0 }}>
-                                <div style={{ fontSize: 11.5, color: pal.muted }}>Ваш спонсор</div>
+                                <div style={{ fontSize: 11.5, color: pal.muted }}>{t('miniapp.your_sponsor')}</div>
                                 <div style={{ ...numFont, fontWeight: 700, fontSize: 16 }}>{leadInfo.sponsor?.name ?? '—'}</div>
                                 {leadInfo.sponsor?.ref_code && (
-                                    <div style={{ fontSize: 11, color: pal.muted }}>код {leadInfo.sponsor.ref_code}</div>
+                                    <div style={{ fontSize: 11, color: pal.muted }}>{t('miniapp.code_prefix')} {leadInfo.sponsor.ref_code}</div>
                                 )}
                             </div>
-                            <Button icon={<SwapOutlined />} onClick={() => { setCsRef(''); setCsOpen(true); }}>Сменить</Button>
+                            <Button icon={<SwapOutlined />} onClick={() => { setCsRef(''); setCsOpen(true); }}>{t('miniapp.change')}</Button>
                         </Flex>
                         {leadDaysLeft != null && (
                             <div style={{ fontSize: 11.5, color: pal.muted, marginTop: 10 }}>
-                                <ClockCircleOutlined /> Привязка к спонсору активна ещё {leadDaysLeft} дн. — сменить спонсора можно до первой покупки.
+                                <ClockCircleOutlined /> {t('miniapp.lead_window_hint', { days: leadDaysLeft })}
                             </div>
                         )}
                     </Card>
@@ -454,12 +506,12 @@ const MiniAppShell = () => {
                     <MiniAppShop initData={initData} pal={pal} isDark={isDark} wa={wa}
                         leadMode onUnauthorized={() => setAuthError(true)} onAfterPaid={load} />
 
-                    <Modal title="Сменить спонсора" open={csOpen} onOk={onChangeSponsor} confirmLoading={csBusy}
-                        onCancel={() => setCsOpen(false)} okText="Сменить">
+                    <Modal title={t('miniapp.change_sponsor_title')} open={csOpen} onOk={onChangeSponsor} confirmLoading={csBusy}
+                        onCancel={() => setCsOpen(false)} okText={t('miniapp.change')}>
                         <div style={{ fontSize: 12, color: pal.muted, marginBottom: 8 }}>
-                            Введите реф-код нового спонсора. Сменить можно, пока вы не активировали пакет.
+                            {t('miniapp.change_sponsor_hint')}
                         </div>
-                        <Input placeholder="Реф-код (например A1B2C3D4)" value={csRef} maxLength={16}
+                        <Input placeholder={t('miniapp.ref_code_placeholder')} value={csRef} maxLength={16}
                             onChange={(e) => setCsRef(e.target.value.trim().toUpperCase())} />
                     </Modal>
                 </div>
@@ -471,40 +523,40 @@ const MiniAppShell = () => {
                         <>
                             {/* Hero: всего начислено + доступно к выводу (Aurora: градиентный баланс + свечение) */}
                             <Card size="small" style={heroCardStyle} styles={{ body: { padding: 18 } }}>
-                                <div style={{ fontSize: 11, color: pal.muted, fontWeight: 600, letterSpacing: '.1em', textTransform: 'uppercase' }}>Всего начислено</div>
+                                <div style={{ fontSize: 11, color: pal.muted, fontWeight: 600, letterSpacing: '.1em', textTransform: 'uppercase' }}>{t('miniapp.total_accrued')}</div>
                                 <div style={{ ...balGradStyle, fontWeight: 800, fontSize: 36, lineHeight: 1.05, marginTop: 6 }}>
                                     ${dash?.total ?? '0.00'}
                                 </div>
                                 <Divider style={{ margin: '14px 0' }} />
                                 <Flex justify="space-between" align="center">
                                     <div>
-                                        <div style={{ fontSize: 11.5, color: pal.muted }}>Доступно к выводу</div>
+                                        <div style={{ fontSize: 11.5, color: pal.muted }}>{t('miniapp.available_to_withdraw')}</div>
                                         <div style={{ ...balanceFont, fontWeight: 700, fontSize: 20 }}>${wallet?.available ?? '0.00'}</div>
                                         {Number(wallet?.held ?? 0) > 0 && (
-                                            <div style={{ fontSize: 11, color: pal.muted }}>в холде ${wallet.held}</div>
+                                            <div style={{ fontSize: 11, color: pal.muted }}>{t('miniapp.in_hold')} ${wallet.held}</div>
                                         )}
                                         {Number(wallet?.clawback_debt ?? 0) > 0 && (
-                                            <div style={{ fontSize: 11, color: pal.error }}>к компенсации ${wallet.clawback_debt}</div>
+                                            <div style={{ fontSize: 11, color: pal.error }}>{t('miniapp.clawback')} ${wallet.clawback_debt}</div>
                                         )}
                                     </div>
                                     <Flex vertical gap={8}>
                                         <Button type="primary" style={Number(wallet?.available ?? 0) <= 0 ? undefined : gradBtnStyle}
                                             disabled={Number(wallet?.available ?? 0) <= 0}
-                                            onClick={() => setWdOpen(true)}>Вывести</Button>
-                                        <Button onClick={() => { setTopupAmount(null); setTopupOpen(true); }}>Пополнить</Button>
+                                            onClick={() => setWdOpen(true)}>{t('miniapp.withdraw')}</Button>
+                                        <Button onClick={() => { setTopupAmount(null); setTopupOpen(true); }}>{t('miniapp.topup')}</Button>
                                     </Flex>
                                 </Flex>
                             </Card>
 
                             {/* Бонусы по типам — 2×2 */}
                             <div>
-                                <SectionLabel>Бонусы по типам</SectionLabel>
+                                <SectionLabel>{t('miniapp.bonuses_by_type')}</SectionLabel>
                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                                     {['binary', 'referral', 'leader', 'rank'].map((k) => (
                                         <Card key={k} size="small" styles={{ body: { padding: 12 } }}>
                                             <Flex align="center" gap={7}>
                                                 <span style={{ width: 8, height: 8, borderRadius: '50%', background: bonusDot(k, isDark) }} />
-                                                <span style={{ fontSize: 12, color: pal.muted }}>{TYPE_LABEL[k]}</span>
+                                                <span style={{ fontSize: 12, color: pal.muted }}>{t(TYPE_LABEL[k])}</span>
                                             </Flex>
                                             <div style={{ ...balanceFont, fontWeight: 700, fontSize: 18, marginTop: 4 }}>${byType[k] ?? '0.00'}</div>
                                         </Card>
@@ -513,35 +565,35 @@ const MiniAppShell = () => {
                             </div>
 
                             {/* Пакет — активация ТОЛЬКО через покупку в Магазине (без бесплатной активации) */}
-                            <Card size="small" title="Пакет">
+                            <Card size="small" title={t('miniapp.package')}>
                                 {me?.package_id ? (
                                     <Flex justify="space-between" align="center" gap={8}>
                                         <span style={{ fontSize: 13.5 }}>
-                                            Текущий: <b>{PACKAGES.find((p) => p.id === me.package_id)?.name ?? `#${me.package_id}`}</b>
+                                            {t('miniapp.current')}: <b>{PACKAGES.find((p) => p.id === me.package_id)?.name ?? `#${me.package_id}`}</b>
                                         </span>
-                                        <Button onClick={() => setTab('shop')}>Сменить в Магазине</Button>
+                                        <Button onClick={() => setTab('shop')}>{t('miniapp.change_in_shop')}</Button>
                                     </Flex>
                                 ) : (
                                     <Flex justify="space-between" align="center" gap={8}>
-                                        <span style={{ fontSize: 13, color: pal.muted }}>Пакет не активирован</span>
-                                        <Button type="primary" onClick={() => setTab('shop')}>Купить в Магазине</Button>
+                                        <span style={{ fontSize: 13, color: pal.muted }}>{t('miniapp.package_not_activated')}</span>
+                                        <Button type="primary" onClick={() => setTab('shop')}>{t('miniapp.buy_in_shop')}</Button>
                                     </Flex>
                                 )}
                             </Card>
 
                             {/* Последние начисления */}
-                            <Card size="small" title="Последние начисления">
+                            <Card size="small" title={t('miniapp.recent_accruals')}>
                                 <List
                                     dataSource={dash?.lines ?? []}
-                                    locale={{ emptyText: 'Пока пусто' }}
+                                    locale={{ emptyText: t('miniapp.empty') }}
                                     renderItem={(l) => {
-                                        const t = bonusTint(l.type, isDark);
+                                        const tt = bonusTint(l.type, isDark);
                                         return (
                                             <List.Item>
                                                 <Flex align="center" gap={8}>
                                                     <span style={{ width: 8, height: 8, borderRadius: '50%', background: bonusDot(l.type, isDark) }} />
-                                                    <Tag style={{ background: t.bg, color: t.color, border: 'none', fontWeight: 600 }}>
-                                                        {TYPE_LABEL[l.type] ?? l.type}
+                                                    <Tag style={{ background: tt.bg, color: tt.color, border: 'none', fontWeight: 600 }}>
+                                                        {TYPE_LABEL[l.type] ? t(TYPE_LABEL[l.type]) : l.type}
                                                     </Tag>
                                                 </Flex>
                                                 <span style={{ ...balanceFont, color: pal.pos, fontWeight: 700 }}>+${l.amount}</span>
@@ -553,17 +605,17 @@ const MiniAppShell = () => {
 
                             {/* Заявки на вывод */}
                             {withdrawals.length > 0 && (
-                                <Card size="small" title="Мои заявки">
+                                <Card size="small" title={t('miniapp.my_requests')}>
                                     <List
                                         dataSource={withdrawals}
                                         renderItem={(w) => {
-                                            const s = WD_STATUS[w.status] ?? { label: w.status, kind: 'neutral' };
-                                            const t = tint(s.kind, isDark);
+                                            const s = WD_STATUS[w.status];
+                                            const tt = tint(s?.kind ?? 'neutral', isDark);
                                             return (
                                                 <List.Item>
                                                     <span>
                                                         <span style={{ ...numFont, fontWeight: 700 }}>${w.amount}</span>{' '}
-                                                        <Tag style={{ background: t.bg, color: t.color, border: 'none', fontSize: 10.5, fontWeight: 600 }}>{s.label}</Tag>
+                                                        <Tag style={{ background: tt.bg, color: tt.color, border: 'none', fontSize: 10.5, fontWeight: 600 }}>{s ? t(s.label) : w.status}</Tag>
                                                     </span>
                                                     <span style={{ fontSize: 11, color: pal.muted }}>
                                                         {w.requested_at ? new Date(w.requested_at).toLocaleDateString() : ''}
@@ -579,8 +631,8 @@ const MiniAppShell = () => {
                             {walletTx.length > 0 && (
                                 <Card
                                     size="small"
-                                    title="История операций"
-                                    extra={<Button size="small" type="link" onClick={openStatement}>Выписка</Button>}
+                                    title={t('miniapp.operations_history')}
+                                    extra={<Button size="small" type="link" onClick={openStatement}>{t('miniapp.statement')}</Button>}
                                 >
                                     <List
                                         dataSource={walletTx}
@@ -589,7 +641,7 @@ const MiniAppShell = () => {
                                             return (
                                                 <List.Item>
                                                     <span style={{ color: pal.muted, fontSize: 12 }}>
-                                                        {TX_SOURCE_LABEL[tx.source_type] ?? tx.source_type}
+                                                        {TX_SOURCE_LABEL[tx.source_type] ? t(TX_SOURCE_LABEL[tx.source_type]) : tx.source_type}
                                                         {tx.created_at ? ` · ${new Date(tx.created_at).toLocaleDateString()}` : ''}
                                                     </span>
                                                     <span style={{ ...numFont, color: neg ? pal.muted : pal.success, fontWeight: 700 }}>
@@ -606,7 +658,7 @@ const MiniAppShell = () => {
                             <Modal
                                 open={stmtOpen}
                                 onCancel={() => setStmtOpen(false)}
-                                title="Выписка за период"
+                                title={t('miniapp.statement_period_title')}
                                 footer={null}
                                 styles={{ body: { paddingTop: 8 } }}
                             >
@@ -618,13 +670,13 @@ const MiniAppShell = () => {
                                         allowClear
                                     />
                                     <Button size="small" type="primary" loading={stmtLoading} onClick={onLoadStatement}>
-                                        Показать
+                                        {t('miniapp.show')}
                                     </Button>
                                     <Button
                                         size="small"
                                         icon={<ExportOutlined />}
                                         disabled={!stmtData?.items?.length}
-                                        onClick={() => exportStatementCsv(stmtData.items)}
+                                        onClick={() => exportStatementCsv(stmtData.items, t)}
                                     >
                                         CSV
                                     </Button>
@@ -632,11 +684,11 @@ const MiniAppShell = () => {
 
                                 {stmtData?.summary && (
                                     <Flex justify="space-between" style={{ marginBottom: 12 }}>
-                                        <Statistic title="Поступило" value={`$${(stmtData.summary.credited_cents / 100).toFixed(2)}`}
+                                        <Statistic title={t('miniapp.received')} value={`$${(stmtData.summary.credited_cents / 100).toFixed(2)}`}
                                             valueStyle={{ fontSize: 16, color: pal.success }} />
-                                        <Statistic title="Списано" value={`$${(stmtData.summary.debited_cents / 100).toFixed(2)}`}
+                                        <Statistic title={t('miniapp.debited')} value={`$${(stmtData.summary.debited_cents / 100).toFixed(2)}`}
                                             valueStyle={{ fontSize: 16, color: pal.muted }} />
-                                        <Statistic title="Итог" value={`$${(stmtData.summary.net_cents / 100).toFixed(2)}`}
+                                        <Statistic title={t('miniapp.total_net')} value={`$${(stmtData.summary.net_cents / 100).toFixed(2)}`}
                                             valueStyle={{ fontSize: 16 }} />
                                     </Flex>
                                 )}
@@ -644,14 +696,14 @@ const MiniAppShell = () => {
                                 <List
                                     size="small"
                                     loading={stmtLoading}
-                                    locale={{ emptyText: 'Нет движений за период' }}
+                                    locale={{ emptyText: t('miniapp.no_movements_period') }}
                                     dataSource={stmtData?.items ?? []}
                                     renderItem={(tx) => {
                                         const neg = String(tx.amount).startsWith('-');
                                         return (
                                             <List.Item>
                                                 <span style={{ color: pal.muted, fontSize: 12 }}>
-                                                    {TX_SOURCE_LABEL[tx.source_type] ?? tx.source_type}
+                                                    {TX_SOURCE_LABEL[tx.source_type] ? t(TX_SOURCE_LABEL[tx.source_type]) : tx.source_type}
                                                     {tx.created_at ? ` · ${new Date(tx.created_at).toLocaleDateString()}` : ''}
                                                 </span>
                                                 <span style={{ ...numFont, color: neg ? pal.muted : pal.success, fontWeight: 700 }}>
@@ -674,39 +726,39 @@ const MiniAppShell = () => {
                         <>
                             <Card size="small" styles={{ body: { padding: 14 } }}>
                                 <Flex justify="space-around" align="center">
-                                    <Statistic title="В команде" value={teamCount.total} />
+                                    <Statistic title={t('miniapp.in_team')} value={teamCount.total} />
                                     <Divider type="vertical" style={{ height: 36 }} />
-                                    <Statistic title="Активных" value={teamCount.active} valueStyle={{ color: pal.success }} />
+                                    <Statistic title={t('miniapp.active')} value={teamCount.active} valueStyle={{ color: pal.success }} />
                                     <Divider type="vertical" style={{ height: 36 }} />
-                                    <Statistic title="Личных" value={personalCount} />
+                                    <Statistic title={t('miniapp.personal')} value={personalCount} />
                                 </Flex>
                             </Card>
                             <div style={{ display: 'flex', gap: 8 }}>
-                                {[['all', 'Все'], ['active', 'Активные'], ['new', 'Новые']].map(([k, lbl]) => (
+                                {[['all', t('miniapp.filter_all')], ['active', t('miniapp.filter_active')], ['new', t('miniapp.filter_new')]].map(([k, lbl]) => (
                                     <Button key={k} size="small" type={teamFilter === k ? 'primary' : 'default'}
                                         onClick={() => setTeamFilter(k)} style={{ flex: 1 }}>{lbl}</Button>
                                 ))}
                             </div>
-                            <Card size="small" title="Бинарная команда">
+                            <Card size="small" title={t('miniapp.binary_team')}>
                                 <div style={{ fontSize: 11.5, color: pal.muted, marginBottom: 8 }}>
-                                    Структура размещения (2 ветки). Сюда по спилловеру встают и не ваши личные рефералы.
+                                    {t('miniapp.binary_team_hint')}
                                 </div>
-                                {tree?.name ? <TreeNode node={tree} depth={0} isDark={isDark} filter={teamFilter} /> : 'Команда пуста'}
+                                {tree?.name ? <TreeNode node={tree} depth={0} isDark={isDark} filter={teamFilter} t={t} /> : t('miniapp.team_empty')}
                             </Card>
 
-                            <Card size="small" title="Личные рефералы">
+                            <Card size="small" title={t('miniapp.personal_referrals')}>
                                 <div style={{ fontSize: 11.5, color: pal.muted, marginBottom: 8 }}>
-                                    Кого вы лично пригласили (по реф-ссылке) и кто купил. Могут стоять на любой глубине бинара.
+                                    {t('miniapp.personal_referrals_hint')}
                                 </div>
                                 <List
                                     dataSource={personalReferrals}
-                                    locale={{ emptyText: 'Личных рефералов пока нет' }}
+                                    locale={{ emptyText: t('miniapp.no_personal_referrals') }}
                                     renderItem={(p) => {
-                                        const t = statusTint(p.status, isDark);
+                                        const tt = statusTint(p.status, isDark);
                                         return (
                                             <List.Item>
                                                 <Flex align="center" gap={9} style={{ flex: 1, minWidth: 0 }}>
-                                                    <Avatar size={28} style={{ background: t.bg, color: t.color, fontSize: 11, fontWeight: 700 }}>
+                                                    <Avatar size={28} style={{ background: tt.bg, color: tt.color, fontSize: 11, fontWeight: 700 }}>
                                                         {initials(p.name)}
                                                     </Avatar>
                                                     <span style={{ fontSize: 13.5, fontWeight: 600, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</span>
@@ -714,11 +766,11 @@ const MiniAppShell = () => {
                                                 <Flex gap={6} align="center">
                                                     {p.depth_from_me != null && (
                                                         <Tag style={{ background: tint('blue', isDark).bg, color: tint('blue', isDark).color, border: 'none', fontSize: 10.5 }}>
-                                                            глубина {p.depth_from_me}
+                                                            {t('miniapp.depth_prefix')} {p.depth_from_me}
                                                         </Tag>
                                                     )}
-                                                    <Tag style={{ background: t.bg, color: t.color, border: 'none', fontSize: 10.5, fontWeight: 600, marginInlineEnd: 0 }}>
-                                                        {p.status === 'active' ? 'активен' : 'нов'}
+                                                    <Tag style={{ background: tt.bg, color: tt.color, border: 'none', fontSize: 10.5, fontWeight: 600, marginInlineEnd: 0 }}>
+                                                        {p.status === 'active' ? t('miniapp.status_active') : t('miniapp.status_new')}
                                                     </Tag>
                                                 </Flex>
                                             </List.Item>
@@ -738,19 +790,19 @@ const MiniAppShell = () => {
                                             <TrophyOutlined style={{ fontSize: 24, color: pal.accent2 }} />
                                         </div>
                                         <div>
-                                            <div style={{ fontSize: 11.5, color: pal.muted }}>Текущий ранг</div>
-                                            <div style={{ ...numFont, fontWeight: 800, fontSize: 22 }}>{rank?.current?.alias ?? 'нет'}</div>
+                                            <div style={{ fontSize: 11.5, color: pal.muted }}>{t('miniapp.current_rank')}</div>
+                                            <div style={{ ...numFont, fontWeight: 800, fontSize: 22 }}>{rank?.current?.alias ?? t('miniapp.rank_none')}</div>
                                         </div>
                                     </Flex>
                                     <div style={{ textAlign: 'right' }}>
-                                        <div style={{ fontSize: 11.5, color: pal.muted }}>далее</div>
-                                        <div style={{ fontWeight: 700, color: pal.accent }}>{rank?.next?.alias ?? 'макс.'} ↗</div>
+                                        <div style={{ fontSize: 11.5, color: pal.muted }}>{t('miniapp.next')}</div>
+                                        <div style={{ fontWeight: 700, color: pal.accent }}>{rank?.next?.alias ?? t('miniapp.rank_max')} ↗</div>
                                     </div>
                                 </Flex>
                             </Card>
                             {rank?.next && (
                                 <>
-                                    <Card size="small" title="Малая ветка PV">
+                                    <Card size="small" title={t('miniapp.small_branch_pv')}>
                                         <Flex justify="space-between" style={{ ...balanceFont, fontWeight: 700, marginBottom: 6 }}>
                                             <span>{rank.progress?.small_branch_pv ?? 0}</span>
                                             <span style={{ color: pal.muted }}>/ {rank.next.conditions.small_branch_pv}</span>
@@ -759,7 +811,7 @@ const MiniAppShell = () => {
                                             percent={Math.min(100, Math.round(((rank.progress?.small_branch_pv ?? 0) / (rank.next.conditions.small_branch_pv || 1)) * 100))}
                                             strokeColor={progGrad} trailColor={pal.ghostBg} />
                                     </Card>
-                                    <Card size="small" title="Приглашённые">
+                                    <Card size="small" title={t('miniapp.invited')}>
                                         <Flex justify="space-between" style={{ ...balanceFont, fontWeight: 700, marginBottom: 6 }}>
                                             <span>{rank.progress?.personal_count ?? 0}</span>
                                             <span style={{ color: pal.muted }}>/ {rank.next.conditions.personal_count}</span>
@@ -770,10 +822,10 @@ const MiniAppShell = () => {
                                     </Card>
                                     <Card size="small" style={heroCardStyle}>
                                         <div style={{ fontWeight: 700, color: pal.fg, marginBottom: 4 }}>
-                                            Ранг {rank.next.alias} открывает
+                                            {t('miniapp.rank_opens', { rank: rank.next.alias })}
                                         </div>
-                                        <div style={{ fontSize: 12.5, color: pal.muted }}>＋ Лидерский бонус от объёма ветки</div>
-                                        <div style={{ fontSize: 12.5, color: pal.muted }}>＋ Повышенные условия квалификации</div>
+                                        <div style={{ fontSize: 12.5, color: pal.muted }}>{t('miniapp.rank_perk_leader')}</div>
+                                        <div style={{ fontSize: 12.5, color: pal.muted }}>{t('miniapp.rank_perk_quals')}</div>
                                     </Card>
                                 </>
                             )}
@@ -790,7 +842,7 @@ const MiniAppShell = () => {
                                     <div style={{ ...numFont, fontWeight: 800, fontSize: 19 }}>{me?.name ?? '—'}</div>
                                     <Flex gap={6}>
                                         <Tag style={{ background: statusTint(me?.status, isDark).bg, color: statusTint(me?.status, isDark).color, border: 'none', fontWeight: 600 }}>
-                                            ● {me?.status === 'active' ? 'Активен' : 'Новый'}
+                                            ● {me?.status === 'active' ? t('miniapp.status_active_cap') : t('miniapp.status_new_cap')}
                                         </Tag>
                                         {me?.rank?.alias && (
                                             <Tag style={{ background: roleTint('owner', isDark).bg, color: roleTint('owner', isDark).color, border: 'none', fontWeight: 600 }}>
@@ -801,43 +853,43 @@ const MiniAppShell = () => {
                                 </Flex>
                                 <Divider style={{ margin: '14px 0' }} />
                                 <Flex justify="space-around" wrap="wrap" gap={8}>
-                                    <Statistic title="Заработано" value={`$${dash?.total ?? '0.00'}`} />
-                                    <Statistic title="Приглашено" value={personalCount} />
-                                    <Statistic title="В команде" value={teamCount.total} />
-                                    <Statistic title="ID" value={me?.id ?? '—'} formatter={(v) => `#${v}`} />
+                                    <Statistic title={t('miniapp.earned')} value={`$${dash?.total ?? '0.00'}`} />
+                                    <Statistic title={t('miniapp.invited_stat')} value={personalCount} />
+                                    <Statistic title={t('miniapp.in_team')} value={teamCount.total} />
+                                    <Statistic title={t('miniapp.id')} value={me?.id ?? '—'} formatter={(v) => `#${v}`} />
                                 </Flex>
                             </Card>
-                            <Card size="small" title="Реферальная ссылка">
+                            <Card size="small" title={t('miniapp.referral_link')}>
                                 <div style={{ ...numFont, fontWeight: 800, fontSize: 18, marginBottom: 8 }}>{me?.ref_code ?? '—'}</div>
                                 <Input readOnly value={refLink} style={{ marginBottom: 8 }} />
                                 <Flex gap={8}>
-                                    <Button type="primary" icon={<CopyOutlined />} onClick={onCopyRef} style={{ flex: 1 }}>Копировать ссылку</Button>
+                                    <Button type="primary" icon={<CopyOutlined />} onClick={onCopyRef} style={{ flex: 1 }}>{t('miniapp.copy_link')}</Button>
                                     {wa?.openTelegramLink && (
                                         <Button icon={<ExportOutlined />} onClick={() => wa.openTelegramLink(`https://t.me/share/url?url=${encodeURIComponent(refLink)}`)} />
                                     )}
                                 </Flex>
                             </Card>
-                            <Card size="small" title="Верификация (KYC)">
+                            <Card size="small" title={t('miniapp.kyc_title')}>
                                 {(() => {
                                     const s = kyc?.status ?? 'none';
                                     const k = KYC_STATUS[s] ?? KYC_STATUS.none;
-                                    const t = tint(k.kind, isDark);
+                                    const tt = tint(k.kind, isDark);
                                     return (
                                         <>
                                             <Flex justify="space-between" align="center">
-                                                <span style={{ fontSize: 13 }}>Статус</span>
-                                                <Tag style={{ background: t.bg, color: t.color, border: 'none', fontWeight: 600 }}>{k.label}</Tag>
+                                                <span style={{ fontSize: 13 }}>{t('miniapp.status')}</span>
+                                                <Tag style={{ background: tt.bg, color: tt.color, border: 'none', fontWeight: 600 }}>{t(k.label)}</Tag>
                                             </Flex>
                                             {s === 'rejected' && kyc?.reject_reason && (
-                                                <div style={{ fontSize: 11.5, color: pal.error, marginTop: 6 }}>Причина: {kyc.reject_reason}</div>
+                                                <div style={{ fontSize: 11.5, color: pal.error, marginTop: 6 }}>{t('miniapp.kyc_reason')} {kyc.reject_reason}</div>
                                             )}
                                             {(s === 'none' || s === 'rejected') && (
                                                 <Button type="primary" block style={{ marginTop: 10 }} loading={kycSubmitting}
-                                                    onClick={onKycSubmit}>Пройти верификацию</Button>
+                                                    onClick={onKycSubmit}>{t('miniapp.pass_verification')}</Button>
                                             )}
                                             {s === 'pending' && (
                                                 <div style={{ fontSize: 11.5, color: pal.muted, marginTop: 8 }}>
-                                                    Заявка на проверке. Дождитесь решения — это требуется для вывода крупных сумм.
+                                                    {t('miniapp.kyc_pending_hint')}
                                                 </div>
                                             )}
                                         </>
@@ -845,13 +897,13 @@ const MiniAppShell = () => {
                                 })()}
                             </Card>
                             {agreement && (
-                                <Card size="small" title="Соглашение">
+                                <Card size="small" title={t('miniapp.agreement')}>
                                     <Flex justify="space-between" align="center">
-                                        <span style={{ fontSize: 13 }}>Статус (версия {agreement.version})</span>
+                                        <span style={{ fontSize: 13 }}>{t('miniapp.agreement_status_ver', { v: agreement.version })}</span>
                                         {agreement.accepted ? (
-                                            <Tag style={{ background: tint('success', isDark).bg, color: tint('success', isDark).color, border: 'none', fontWeight: 600 }}>Принято</Tag>
+                                            <Tag style={{ background: tint('success', isDark).bg, color: tint('success', isDark).color, border: 'none', fontWeight: 600 }}>{t('miniapp.accepted')}</Tag>
                                         ) : (
-                                            <Button type="primary" size="small" loading={agreeBusy} onClick={onAcceptAgreement}>Принять</Button>
+                                            <Button type="primary" size="small" loading={agreeBusy} onClick={onAcceptAgreement}>{t('miniapp.accept')}</Button>
                                         )}
                                     </Flex>
                                 </Card>
@@ -860,26 +912,26 @@ const MiniAppShell = () => {
                             {flags?.c6_copartners === true && (
                             <Card
                                 size="small"
-                                title="Совладельцы / Наследники"
-                                extra={<Button size="small" type="link" onClick={openCpCreate}>Добавить</Button>}
+                                title={t('copartners.title')}
+                                extra={<Button size="small" type="link" onClick={openCpCreate}>{t('copartners.add')}</Button>}
                             >
                                 <List
                                     dataSource={copartners}
-                                    locale={{ emptyText: 'Записей пока нет' }}
+                                    locale={{ emptyText: t('copartners.empty') }}
                                     renderItem={(c) => (
                                         <List.Item
                                             actions={[
-                                                <Button key="edit" size="small" type="link" onClick={() => openCpEdit(c)}>Изм.</Button>,
-                                                <Popconfirm key="del" title="Удалить запись?" okText="Да" cancelText="Нет"
+                                                <Button key="edit" size="small" type="link" onClick={() => openCpEdit(c)}>{t('copartners.edit')}</Button>,
+                                                <Popconfirm key="del" title={t('copartners.deleteConfirm')} okText={t('copartners.yes')} cancelText={t('copartners.no')}
                                                     onConfirm={() => onCpDelete(c.id)}>
-                                                    <Button size="small" type="link" danger>Удал.</Button>
+                                                    <Button size="small" type="link" danger>{t('copartners.delete')}</Button>
                                                 </Popconfirm>,
                                             ]}
                                         >
                                             <Flex vertical gap={2}>
                                                 <span>
                                                     <Tag style={{ marginInlineEnd: 6 }}>
-                                                        {c.kind === 'heir' ? 'Наследник' : 'Совладелец'}
+                                                        {c.kind === 'heir' ? t('copartners.kindHeir') : t('copartners.kindCopartner')}
                                                     </Tag>
                                                     <b style={{ fontSize: 13.5 }}>{c.full_name}</b>
                                                 </span>
@@ -892,17 +944,30 @@ const MiniAppShell = () => {
                                     )}
                                 />
                                 <div style={{ fontSize: 11, color: pal.muted, marginTop: 6 }}>
-                                    Справочная информация. Не влияет на начисления, выплаты и структуру.
+                                    {t('copartners.infoHint')}
                                 </div>
                             </Card>
                             )}
 
-                            <Card size="small" title="Настройки">
+                            <Card size="small" title={t('miniapp.settings')}>
+                                <Flex justify="space-between" align="center" style={{ padding: '4px 0 10px' }}>
+                                    <span style={{ fontSize: 13.5 }}>{t('miniapp.language')}</span>
+                                    <Segmented
+                                        size="small"
+                                        value={lang}
+                                        onChange={(v) => { applyLang(v, true); message.success(i18n.t('miniapp.lang_changed', { lng: v })); }}
+                                        options={[{ label: 'RU', value: 'ru' }, { label: 'EN', value: 'en' }]}
+                                    />
+                                </Flex>
                                 <List>
-                                    <List.Item>Ранг <span style={{ color: pal.muted }}>{me?.rank?.alias ?? 'нет'} ›</span></List.Item>
-                                    <List.Item>Статус <span style={{ color: pal.muted }}>{me?.status} ›</span></List.Item>
+                                    <List.Item style={{ cursor: 'pointer' }} onClick={() => setLegalDoc('privacy')}>
+                                        {t('miniapp.privacy_policy')} <span style={{ color: pal.muted }}>›</span>
+                                    </List.Item>
+                                    <List.Item style={{ cursor: 'pointer' }} onClick={() => setLegalDoc('terms')}>
+                                        {t('miniapp.terms_of_use')} <span style={{ color: pal.muted }}>›</span>
+                                    </List.Item>
                                     <List.Item>
-                                        <span style={{ color: pal.error, cursor: 'pointer' }} onClick={() => wa?.close?.()}>Закрыть</span>
+                                        <span style={{ color: pal.error, cursor: 'pointer' }} onClick={() => wa?.close?.()}>{t('miniapp.close')}</span>
                                     </List.Item>
                                 </List>
                             </Card>
@@ -921,44 +986,44 @@ const MiniAppShell = () => {
                     // Aurora: непрозрачный sheet, иначе glassy-surface в dark просвечивает контент под баром.
                     background: pal.sheet, boxShadow: pal.shadow,
                 }}>
-                    {tabs.map((t) => {
-                        const on = tab === t.key;
+                    {tabs.map((tb) => {
+                        const on = tab === tb.key;
                         return (
-                            <button key={t.key} onClick={() => setTab(t.key)}
+                            <button key={tb.key} onClick={() => setTab(tb.key)}
                                 style={{
                                     flex: 1, border: 'none', background: 'transparent', cursor: 'pointer',
                                     display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 3,
                                     fontSize: 10.5, fontWeight: on ? 700 : 500,
                                     color: on ? pal.accent : pal.tabInactive,
                                 }}>
-                                <span style={{ fontSize: 18, color: on ? pal.accent : pal.tabInactive }}>{t.icon}</span>
-                                {t.label}
+                                <span style={{ fontSize: 18, color: on ? pal.accent : pal.tabInactive }}>{tb.icon}</span>
+                                {tb.label}
                             </button>
                         );
                     })}
                 </div>
 
                 {/* Модалка вывода средств (on-chain USDT в сети TON) */}
-                <Modal title="Вывод средств" open={wdOpen} onOk={onWithdraw} onCancel={() => setWdOpen(false)}
-                    okText="Запросить вывод" confirmLoading={wdSubmitting}>
-                    <div style={{ fontSize: 12, color: pal.muted, marginBottom: 8 }}>Доступно: ${wallet?.available ?? '0.00'}</div>
+                <Modal title={t('miniapp.withdraw_funds')} open={wdOpen} onOk={onWithdraw} onCancel={() => setWdOpen(false)}
+                    okText={t('miniapp.request_withdraw')} confirmLoading={wdSubmitting}>
+                    <div style={{ fontSize: 12, color: pal.muted, marginBottom: 8 }}>{t('miniapp.available')}: ${wallet?.available ?? '0.00'}</div>
                     <InputNumber style={{ width: '100%', marginBottom: 8 }} min={0.01} step={0.01} precision={2}
-                        prefix="$" placeholder="Сумма" value={wdAmount} onChange={setWdAmount} />
-                    <Input.TextArea rows={2} maxLength={70} placeholder="TON-адрес для USDT (например EQ…)"
+                        prefix="$" placeholder={t('miniapp.amount')} value={wdAmount} onChange={setWdAmount} />
+                    <Input.TextArea rows={2} maxLength={70} placeholder={t('miniapp.ton_address_placeholder')}
                         value={wdDetails} onChange={(e) => setWdDetails(e.target.value)} />
                     <div style={{ fontSize: 11, color: pal.muted, marginTop: 6 }}>
-                        Выплата приходит в USDT на указанный TON-адрес. Проверьте адрес — ошибка необратима.
+                        {t('miniapp.withdraw_hint')}
                     </div>
                 </Modal>
 
                 {/* Модалка пополнения внутреннего USDT-баланса (F5) */}
-                <Modal title="Пополнение баланса" open={topupOpen} onOk={onTopup} onCancel={() => setTopupOpen(false)}
-                    okText="Пополнить" confirmLoading={topupSubmitting}>
+                <Modal title={t('miniapp.topup_title')} open={topupOpen} onOk={onTopup} onCancel={() => setTopupOpen(false)}
+                    okText={t('miniapp.topup')} confirmLoading={topupSubmitting}>
                     <div style={{ fontSize: 12, color: pal.muted, marginBottom: 8 }}>
-                        Пополнение USDT через TON Pay. Баланс используется для автозаказов и покупок.
+                        {t('miniapp.topup_hint')}
                     </div>
                     <InputNumber style={{ width: '100%' }} min={0.01} max={1000000} step={0.01} precision={2}
-                        prefix="$" placeholder="Сумма" value={topupAmount} onChange={setTopupAmount} />
+                        prefix="$" placeholder={t('miniapp.amount')} value={topupAmount} onChange={setTopupAmount} />
                 </Modal>
 
                 {/* Checkout пополнения — без заказа (order=null): только зачисление на баланс */}
@@ -968,11 +1033,11 @@ const MiniAppShell = () => {
 
                 {/* C6: форма со-партнёра/наследника (справочная запись профиля) */}
                 <Modal
-                    title={cpEditId ? 'Изменить запись' : 'Новая запись'}
+                    title={cpEditId ? t('copartners.editTitle') : t('copartners.newTitle')}
                     open={cpOpen}
                     onOk={onCpSave}
                     onCancel={() => setCpOpen(false)}
-                    okText="Сохранить"
+                    okText={t('copartners.save')}
                     confirmLoading={cpSaving}
                 >
                     <Segmented
@@ -981,27 +1046,27 @@ const MiniAppShell = () => {
                         value={cpForm.kind}
                         onChange={(v) => setCpForm((f) => ({ ...f, kind: v }))}
                         options={[
-                            { label: 'Совладелец', value: 'copartner' },
-                            { label: 'Наследник', value: 'heir' },
+                            { label: t('copartners.kindCopartner'), value: 'copartner' },
+                            { label: t('copartners.kindHeir'), value: 'heir' },
                         ]}
                     />
                     <Input
                         style={{ marginBottom: 8 }}
-                        placeholder="ФИО"
+                        placeholder={t('copartners.fullName')}
                         maxLength={160}
                         value={cpForm.full_name}
                         onChange={(e) => setCpForm((f) => ({ ...f, full_name: e.target.value }))}
                     />
                     <Input
                         style={{ marginBottom: 8 }}
-                        placeholder="Телефон (необязательно)"
+                        placeholder={t('copartners.phone')}
                         maxLength={32}
                         value={cpForm.phone}
                         onChange={(e) => setCpForm((f) => ({ ...f, phone: e.target.value }))}
                     />
                     <InputNumber
                         style={{ width: '100%', marginBottom: 8 }}
-                        placeholder="Доля % (необязательно)"
+                        placeholder={t('copartners.sharePercent')}
                         min={0}
                         max={100}
                         step={1}
@@ -1010,26 +1075,38 @@ const MiniAppShell = () => {
                     />
                     <Input.TextArea
                         rows={2}
-                        placeholder="Заметка (необязательно)"
+                        placeholder={t('copartners.note')}
                         maxLength={255}
                         value={cpForm.note}
                         onChange={(e) => setCpForm((f) => ({ ...f, note: e.target.value }))}
                     />
                     <div style={{ fontSize: 11, color: pal.muted, marginTop: 6 }}>
-                        Справочные данные. Сумма долей не проверяется и ни на что не влияет.
+                        {t('copartners.shareHint')}
+                    </div>
+                </Modal>
+
+                {/* Настройки: read-only юр-документы (Политика конфиденциальности / Условия использования) */}
+                <Modal
+                    title={legalDoc === 'terms' ? t('miniapp.terms_of_use') : t('miniapp.privacy_policy')}
+                    open={!!legalDoc}
+                    onCancel={() => setLegalDoc(null)}
+                    footer={[<Button key="close" onClick={() => setLegalDoc(null)}>{t('miniapp.close')}</Button>]}
+                >
+                    <div style={{ maxHeight: '60vh', overflowY: 'auto', whiteSpace: 'pre-wrap', fontSize: 12.5, lineHeight: 1.6, color: pal.muted }}>
+                        {legalDoc ? legalText(legalDoc, lang) : ''}
                     </div>
                 </Modal>
 
                 {/* B3: онбординг-гейт — пока соглашение не принято, кабинет заблокирован */}
                 <Modal
-                    title="Пользовательское соглашение"
+                    title={t('miniapp.agreement_modal_title')}
                     open={!!agreement && agreement.accepted === false}
                     closable={false}
                     maskClosable={false}
                     keyboard={false}
                     footer={[
                         <Button key="accept" type="primary" loading={agreeBusy} onClick={onAcceptAgreement}>
-                            Принимаю
+                            {t('miniapp.i_accept')}
                         </Button>,
                     ]}
                 >

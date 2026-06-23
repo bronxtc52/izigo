@@ -11,7 +11,7 @@ import NotificationInbox from '../NotificationInbox';
  */
 const notificationsTab = {
     key: 'inbox',
-    label: 'Уведомления',
+    label: 'notifications.title', // i18n-ключ; MiniAppShell резолвит через t() при сборке таб-бара
     icon: <BellOutlined />,
     flag: 'c1_notifications', // показ гейтится фиче-флагом (deny-by-default)
     render: (ctx) => (

@@ -128,7 +128,9 @@ export const movePlacement = (token, body) =>
 
 // Пользовательское соглашение (B3): просмотр (owner,support) / правка текста (owner).
 export const fetchAgreement = (token) => req('/api/v1/admin/agreement', token);
-export const updateAgreement = (token, text) => mutate(token, '/api/v1/admin/agreement', 'PUT', { text });
+// Соглашение двуязычное: бэкенд требует text_ru + text_en (оба обязательны), версия +1.
+export const updateAgreement = (token, textRu, textEn) =>
+    mutate(token, '/api/v1/admin/agreement', 'PUT', { text_ru: textRu, text_en: textEn });
 
 // --- Продукты ---
 export const fetchProducts = (token) => req('/api/v1/admin/products', token);
