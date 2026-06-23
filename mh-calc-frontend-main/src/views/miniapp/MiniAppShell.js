@@ -19,6 +19,7 @@ import {
 } from './api';
 import MiniAppShop from './MiniAppShop';
 import TonPayCheckout from './TonPayCheckout';
+import SplashScreen from './SplashScreen';
 import { visibleBlockCTabs, blockCTabRender } from './tabs/registry';
 
 // Базовая проверка user-friendly TON-адреса (48 символов base64url, префикс EQ/UQ/kQ/0Q…).
@@ -360,6 +361,8 @@ const MiniAppShell = () => {
     return (
         <ConfigProvider theme={themeConfig}>
             <div style={{ minHeight: '100vh', paddingBottom: stateScreen ? 0 : 74, background: pal.scrbg, color: pal.fg, ['--tree-border']: pal.border }}>
+                {/* Aurora-сплэш запуска: висит, пока грузимся (loading=true до ready+данных), затем crossfade. */}
+                <SplashScreen active={loading} pal={pal} />
                 {stateScreen ?? (
                 <>
                 <div style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 12 }}>

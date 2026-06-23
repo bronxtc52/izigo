@@ -99,3 +99,84 @@ tc-root {
   position: relative;
   z-index: 10000 !important;
 }
+
+/* ===== Aurora-сплэш запуска Mini App (SplashScreen.js) =====
+   Оверлей поверх контента на время загрузки; z-index ниже tc-root (10000), выше app. */
+.mini-splash {
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 22px;
+  opacity: 1;
+  transition: opacity 0.45s ease;
+}
+.mini-splash.is-leaving {
+  opacity: 0;
+  pointer-events: none;
+}
+.mini-splash__glow {
+  position: absolute;
+  width: 280px;
+  height: 280px;
+  border-radius: 50%;
+  filter: blur(44px);
+  opacity: 0.8;
+  animation: splashBreath 3.2s ease-in-out infinite;
+}
+.mini-splash__mark {
+  position: relative;
+  font-family: var(--font-space-grotesk), system-ui, sans-serif;
+  font-weight: 700;
+  font-size: 46px;
+  letter-spacing: -0.02em;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 0 18px rgba(124, 58, 237, 0.55));
+  animation: splashGlow 1.8s ease-in-out infinite;
+}
+.mini-splash__bar {
+  position: relative;
+  width: 132px;
+  height: 4px;
+  border-radius: 4px;
+  background: rgba(124, 58, 237, 0.18);
+  overflow: hidden;
+}
+.mini-splash__bar-fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 46px;
+  border-radius: 4px;
+  animation: splashShimmer 1.25s ease-in-out infinite;
+}
+@keyframes splashGlow {
+  0%, 100% { filter: drop-shadow(0 0 14px rgba(124, 58, 237, 0.45)); }
+  50%      { filter: drop-shadow(0 0 24px rgba(94, 227, 245, 0.6)); }
+}
+@keyframes splashShimmer {
+  0%   { transform: translateX(-60px); opacity: 0.4; }
+  50%  { opacity: 1; }
+  100% { transform: translateX(150px); opacity: 0.4; }
+}
+@keyframes splashBreath {
+  0%, 100% { transform: scale(0.92); opacity: 0.55; }
+  50%      { transform: scale(1.08); opacity: 0.9; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mini-splash__mark,
+  .mini-splash__glow,
+  .mini-splash__bar-fill { animation: none; }
+  .mini-splash__bar-fill { width: 100%; opacity: 0.8; transform: none; }
+}
+
+/* Анти-вспышка: фон Aurora до монтирования React (миг до первого кадра). По prefers-color-scheme
+   как эвристика темы; реальную тему задаёт уже React (pal.scrbg) + Telegram setBackgroundColor. */
+.miniapp-bg { min-height: 100vh; background: #090C16; }
+@media (prefers-color-scheme: light) { .miniapp-bg { background: #EFF1F9; } }
