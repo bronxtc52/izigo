@@ -52,8 +52,13 @@ final class LeaderBonusCalculator
     }
 
     /**
-     * true, если между $receiver (спонсором) и получателем бинар-бонуса есть узел,
-     * чей ранг выше ранга спонсора на maxRankDiff и более (тогда спонсор пропускается).
+     * true, если в цепочке от получателя бинар-бонуса (ВКЛЮЧАЯ его самого) вверх по линии
+     * спонсоров до $receiver (спонсора, исключительно) есть узел, чей ранг выше ранга
+     * спонсора на maxRankDiff и более — тогда спонсор пропускается (differential/blocking:
+     * даунлайн, обогнавший аплайна на ≥2 ранга, перекрывает ему лидерский override).
+     * Семантика A-inclusive намеренная — совпадает с легаси BonusLeaderService и ТЗ
+     * («разница в статусах между Спонсором и Партнёром»), зафиксирована golden-тестом
+     * BonusCalculatorsTest::testLeaderRankCompressionSkipsSponsor.
      * Фикс: проверка null до обращения к ->id (цепочка может дойти до корня).
      */
     private function hasHigherRankInChain(MemberNode $receiver, MemberNode $binaryReceiver): bool
