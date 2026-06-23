@@ -25,6 +25,13 @@ return [
     // По истечении лид открепляется (leads:expire) и может привязаться заново.
     'lead_window_days' => (int) env('LEAD_WINDOW_DAYS', 7),
 
+    // Реф-ссылка — Telegram deep-link на Mini App (платформа Telegram-only, не веб).
+    // username бота (без @) и short-name Mini App (BotFather) — ПУБЛИЧНЫЕ, не секреты.
+    // Итог: https://t.me/<username>/<short>?startapp=<ref_code> (доставляет start_param);
+    // пустой short → https://t.me/<username>?startapp=<ref_code> (главная Mini App бота).
+    'telegram_bot_username' => env('TELEGRAM_BOT_USERNAME', 'Izigopro_mlm_bot'),
+    'telegram_miniapp_short_name' => env('TELEGRAM_MINIAPP_SHORT_NAME', 'app'),
+
     // ── Фаза 4 (commerce/платежи) ────────────────────────────────────────────
     // Учётная валюта commerce (модель A — стейблкоин USDT в сети TON).
     'commerce_currency' => env('COMMERCE_CURRENCY', 'USDT'),

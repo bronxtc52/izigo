@@ -266,10 +266,24 @@ class CabinetService
         return null;
     }
 
+    /**
+     * Реф-ссылка = Telegram deep-link на Mini App (платформа Telegram-only). Форма
+     * t.me/<bot>/<short>?startapp=<ref_code> — единственная, что доставляет start_param
+     * в initData (его ловит MiniAppAuth для привязки спонсора). Веб-ссылка `?ref=` не
+     * работала бы. Фолбэк на веб — только если username бота не сконфигурирован.
+     */
     private function refLink(string $refCode): string
     {
-        $base = rtrim((string) config('app.frontend_url', config('app.url')), '/');
+        $bot = trim((string) config('calculator.telegram_bot_username', ''));
+        if ($bot === '') {
+            $base = rtrim((string) config('app.frontend_url', config('app.url')), '/');
 
-        return "{$base}/?ref={$refCode}";
+            return "{$base}/?ref={$refCode}";
+        }
+
+        $short = trim((string) config('calculator.telegram_miniapp_short_name', ''));
+        $path = $short !== '' ? "/{$short}" : '';
+
+        return "https://t.me/{$bot}{$path}?startapp={$refCode}";
     }
 }
