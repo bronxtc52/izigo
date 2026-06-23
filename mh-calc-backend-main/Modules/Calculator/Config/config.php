@@ -20,6 +20,11 @@ return [
     // Исходящие уведомления в Telegram (opt-in; в тестах выключено по умолчанию).
     'telegram_notify_enabled' => (bool) env('TELEGRAM_NOTIFY_ENABLED', false),
 
+    // Лид-окно (дни): сколько лид закреплён за спонсором до первой покупки. Спонсора
+    // можно менять, пока окно не истекло; первая оплата фиксирует спонсора навсегда.
+    // По истечении лид открепляется (leads:expire) и может привязаться заново.
+    'lead_window_days' => (int) env('LEAD_WINDOW_DAYS', 7),
+
     // ── Фаза 4 (commerce/платежи) ────────────────────────────────────────────
     // Учётная валюта commerce (модель A — стейблкоин USDT в сети TON).
     'commerce_currency' => env('COMMERCE_CURRENCY', 'USDT'),

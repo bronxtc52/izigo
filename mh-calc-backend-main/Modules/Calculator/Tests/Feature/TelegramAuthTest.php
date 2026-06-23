@@ -3,14 +3,15 @@
 namespace Modules\Calculator\Tests\Feature;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Modules\Calculator\Models\Lead;
 use Modules\Calculator\Models\Member;
 use Modules\Calculator\Tests\Feature\Concerns\SignsTelegramInitData;
 use Tests\TestCase;
 
 /**
- * Авторизация платформы — ТОЛЬКО Telegram initData: создание участника по
- * telegram_id при первом входе, повторное использование, отказ при неверной/пустой
- * подписи, привязка спонсора по start_param и бутстрап владельца из конфига.
+ * Авторизация платформы — ТОЛЬКО Telegram initData. Идентичность: участник (member),
+ * лид (перешёл по рефке, ещё не купил) или никто (нужна реф-ссылка). Участник создаётся
+ * при первой покупке (промоушн лида), НЕ при первом заходе. Подделка/пустая подпись → 401.
  */
 class TelegramAuthTest extends TestCase
 {
@@ -23,26 +24,54 @@ class TelegramAuthTest extends TestCase
         $this->bootTelegram();
     }
 
-    public function testMeCreatesMemberFromInitData(): void
+    public function testFirstVisitWithSponsorCreatesLeadNotMember(): void
     {
-        $res = $this->getJson('/api/v1/cabinet/me', $this->tgHeaders($this->initData(555)))->assertOk();
+        [, $ref] = $this->registerTg(100); // спонсор-корень (участник)
 
-        $this->assertSame('success', $res->json('status'));
-        $this->assertNotEmpty($res->json('data.member.ref_code'));
-        $this->assertDatabaseHas('members', ['telegram_id' => 555]);
+        $res = $this->getJson('/api/v1/cabinet/me', $this->tgHeaders($this->initData(101, $ref)))->assertOk();
+
+        $this->assertTrue($res->json('data.is_lead'));
+        $this->assertSame($ref, $res->json('data.sponsor.ref_code'));
+        $this->assertDatabaseHas('leads', ['telegram_id' => 101]);
+        $this->assertDatabaseMissing('members', ['telegram_id' => 101]);
     }
 
-    public function testSecondCallReusesSameMember(): void
+    public function testFirstVisitWithoutSponsorNeedsReferral(): void
     {
-        $this->getJson('/api/v1/cabinet/me', $this->tgHeaders($this->initData(556)))->assertOk();
-        $this->getJson('/api/v1/cabinet/me', $this->tgHeaders($this->initData(556)))->assertOk();
+        $res = $this->getJson('/api/v1/cabinet/me', $this->tgHeaders($this->initData(202)))->assertOk();
 
-        $this->assertSame(1, Member::where('telegram_id', 556)->count());
+        $this->assertTrue($res->json('data.need_referral'));
+        $this->assertDatabaseMissing('leads', ['telegram_id' => 202]);
+        $this->assertDatabaseMissing('members', ['telegram_id' => 202]);
+    }
+
+    public function testExistingMemberResolvedAsMember(): void
+    {
+        $this->registerTg(303);
+
+        $res = $this->getJson('/api/v1/cabinet/me', $this->tgHeaders($this->initData(303)))->assertOk();
+
+        $this->assertNotEmpty($res->json('data.member.ref_code'));
+        $this->assertNull($res->json('data.is_lead'));
+    }
+
+    public function testReattachLastClickWins(): void
+    {
+        [, $refA] = $this->registerTg(100);
+        [, $refB] = $this->registerTg(200);
+
+        // Лид под спонсором A, затем заход по рефке B → перепривязка к B.
+        $this->makeLead(101, $refA);
+        $res = $this->getJson('/api/v1/cabinet/me', $this->tgHeaders($this->initData(101, $refB)))->assertOk();
+
+        $this->assertSame($refB, $res->json('data.sponsor.ref_code'));
+        $sponsorB = Member::where('telegram_id', 200)->first();
+        $this->assertSame($sponsorB->id, Lead::where('telegram_id', 101)->value('sponsor_id'));
+        $this->assertSame(1, Lead::where('telegram_id', 101)->count());
     }
 
     public function testForgedInitDataRejected(): void
     {
-        // Подпись неверным токеном.
         $secret = hash_hmac('sha256', 'WRONG', 'WebAppData', true);
         $bad = http_build_query([
             'user' => json_encode(['id' => 1]),
@@ -60,15 +89,13 @@ class TelegramAuthTest extends TestCase
 
     public function testEmptyBotTokenRejects(): void
     {
-        // Мисконфиг: токен не подтянулся из KV → безопасный фейл 401 (а не «все проходят»).
         config(['calculator.telegram_bot_token' => '']);
         $this->getJson('/api/v1/cabinet/me', $this->tgHeaders($this->initData(999)))->assertStatus(401);
     }
 
     public function testConcurrentResolveReusesMember(): void
     {
-        // Симуляция гонки: участник уже создан другим параллельным запросом с тем же
-        // telegram_id — повторный резолв возвращает его, без дубля и без 500.
+        // Участник уже создан параллельным запросом — повторный резолв возвращает его.
         Member::create([
             'telegram_id' => 888,
             'name' => 'tg:888',
@@ -77,50 +104,42 @@ class TelegramAuthTest extends TestCase
             'path' => '1',
         ]);
 
-        $this->getJson('/api/v1/cabinet/me', $this->tgHeaders($this->initData(888)))->assertOk();
+        $res = $this->getJson('/api/v1/cabinet/me', $this->tgHeaders($this->initData(888)))->assertOk();
+        $this->assertNotEmpty($res->json('data.member.ref_code'));
         $this->assertSame(1, Member::where('telegram_id', 888)->count());
     }
 
-    public function testActivateViaCabinet(): void
+    public function testActivatePackageIsMemberOnly(): void
     {
-        $initData = $this->initData(777);
+        // Участник может (пере)активировать пакет напрямую.
+        [$initData] = $this->registerTg(777);
         $this->postJson('/api/v1/cabinet/activate-package', ['package_id' => 1], $this->tgHeaders($initData))
             ->assertOk();
-
         $this->assertDatabaseHas('members', ['telegram_id' => 777, 'status' => 'active', 'package_id' => 1]);
+
+        // Лид (ещё не купил) активировать через этот эндпоинт НЕ может (member-only → 404).
+        [, $ref] = $this->registerTg(100);
+        [$leadInit] = $this->makeLead(110, $ref);
+        $this->postJson('/api/v1/cabinet/activate-package', ['package_id' => 1], $this->tgHeaders($leadInit))
+            ->assertStatus(404);
     }
 
-    public function testStartParamLinksSponsor(): void
+    public function testOwnerBootstrapForExistingMember(): void
     {
-        // Спонсор-участник (корень) с реф-кодом.
-        $sponsor = $this->getJson('/api/v1/cabinet/me', $this->tgHeaders($this->initData(100)))->json('data.member');
-        $ref = $sponsor['ref_code'];
-
-        $this->getJson('/api/v1/cabinet/me', $this->tgHeaders($this->initData(101, $ref)))->assertOk();
-
-        $child = Member::where('telegram_id', 101)->first();
-        $sponsorMember = Member::where('telegram_id', 100)->first();
-        $this->assertSame($sponsorMember->id, $child->sponsor_id);
-    }
-
-    public function testOwnerBootstrapFromConfig(): void
-    {
-        // telegram_id из OWNER_TELEGRAM_IDS получает роль owner при первом входе
-        // и сразу имеет доступ к админке.
         config(['calculator.owner_telegram_ids' => '201374791,42']);
-        $initData = $this->initData(201374791, name: 'Boss');
+        $this->registerTg(201374791, name: 'Boss'); // owner как корень-участник
 
-        $me = $this->getJson('/api/v1/cabinet/me', $this->tgHeaders($initData))->assertOk();
+        $me = $this->getJson('/api/v1/cabinet/me', $this->tgHeaders($this->initData(201374791, name: 'Boss')))->assertOk();
         $this->assertContains('owner', $me->json('data.member.roles'));
 
-        // Owner проходит RBAC-гейт админки.
-        $this->getJson('/api/v1/admin/members', $this->adminHeaders($initData))->assertOk();
+        $this->getJson('/api/v1/admin/members', $this->adminHeaders($this->initData(201374791, name: 'Boss')))->assertOk();
     }
 
     public function testNonOwnerDoesNotGetOwnerRole(): void
     {
         config(['calculator.owner_telegram_ids' => '201374791']);
-        $initData = $this->initData(123, name: 'Regular');
+        [, $ref] = $this->registerTg(201374791, name: 'Boss');
+        [$initData] = $this->registerTg(123, $ref, 'Regular');
 
         $me = $this->getJson('/api/v1/cabinet/me', $this->tgHeaders($initData))->assertOk();
         $this->assertSame([], $me->json('data.member.roles'));

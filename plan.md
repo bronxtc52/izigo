@@ -1,3 +1,127 @@
+# План: Лид-окно + изменяемый спонсор + личные рефералы — Гейт 2 (АКТИВНЫЙ)
+
+**ТЗ:** `docs/specs/2026-06-23-lead-window-changeable-sponsor.md` (Гейт 1 утверждён).
+Замок спонсора = подтверждённая оплата. **Движок `Modules/Calculator` не трогаем** (только вход).
+
+## A. Архитектурное решение (итог разведки)
+
+### A1. Лид — отдельная таблица `leads`, ВНЕ бинар-дерева
+Member с `parent_id=NULL` невозможен для лида: partial-unique `members_single_root` допускает лишь
+один корень. Лид не должен занимать слот (иначе спилловер ставит под него чужих → несовместимо с
+«лид удаляемый/переносимый»). → **новая таблица `leads`**: `id`, `telegram_id` (unique),
+`telegram_username`, `name`, `language`, `sponsor_id` (FK members, nullOnDelete) — замок-pending
+спонсор (будущий личный реферал), `expires_at`, `timestamps`. Без `ref_code` (лид не рекрутирует),
+без позиции в дереве.
+
+### A2. Member создаётся только при подтверждённой оплате (промоушн)
+Текущая постановка в дерево (`MiniAppAuth → registerTelegram → place`) при первом заходе — **убирается**
+для Telegram-пути. Member появляется в `OrderService::markPaid` (внутри платёжной транзакции):
+`place()` нового Member под `lead.sponsor_id` → backfill `order.member_id` → удалить лид → `activate()`
+(ставит `status=active`, пересчёт). Атомарно. `registerTelegram`/`place` сохраняются для owner-bootstrap
+(`AuthController`) и сидов/тестов.
+
+### A3. Заказы/платежи принадлежат лиду до оплаты
+`orders.member_id` и `payments.member_id` → **nullable**; добавить `orders.lead_id`, `payments.lead_id`
+(nullable FK leads, nullOnDelete). Существующие строки (members) не ломаются; на промоушне backfill.
+
+### A4. Идентичность запроса: member ИЛИ lead
+`telegram.auth` middleware резолвит по `telegram_id`: (1) есть Member → attach `member`, `start_param`
+игнор (спонсор замкнут); (2) есть Lead → attach `lead`, при `start_param` с другим валидным спонсором
+в окне → перепривязка last-click-wins; протухший → пересоздать; (3) нет → создать Lead из `start_param`
+(нужен валидный спонсор), без `start_param` → `need_referral`. Middleware кладёт оба атрибута (nullable);
+member-only эндпоинты — guard (нет member → 4xx «активируйте пакет»); `ownerBootstrap` только при member.
+
+### A5. Личное vs бинар (исправление дисплея)
+`sponsor_id` = личный реферал (любая глубина); `parent_id/position/path` = бинар-команда.
+`rank-progress.personal_count` уже корректен. Баг — фронтовый `tree.children.length` (≤2). Добавляем
+эндпоинт списка личных рефералов + глубину относительно меня (ltree `nlevel`).
+
+### A6. Совместимость с прод-данными
+Существующие `status=registered` Member'ы остаются в дереве — НЕ конвертируем ретроспективно. Новая
+модель — только для новых заходов. Root/сиды не трогаем.
+
+## B. Решения по открытым вопросам Гейта 1
+- Хранение лида: таблица `leads` (A1). Точка замка: `markPaid` (A2). Промоушн: перед `activate()` (A2).
+- **Срок при перепривязке:** сброс 7 дней заново (новый спонсор = новое окно). Конфиг
+  `calculator.lead_window_days` (env, default 7). Обратимо.
+- **Dedup:** `telegram_id` unique на `members` остаётся; лид — своя таблица со своим unique; промоушн
+  удаляет лид и создаёт member в одной транзакции (гонок нет).
+- **Шедулер:** `leads:expire` (образец TTL pending), ежечасно `withoutOverlapping`.
+
+## C. Пошаговый план (файлы и порядок)
+
+### Фаза 0 — Миграции ✅
+- [x] `2026_06_23_010100_create_leads_table.php` (telegram_id unique, index sponsor_id/expires_at).
+- [x] `2026_06_23_010200_add_lead_to_orders_table.php` — member_id nullable + lead_id FK (pgsql raw).
+- [x] `2026_06_23_010300_add_lead_to_payments_table.php` — member_id nullable + lead_id FK.
+- [x] `Config/config.php`: `lead_window_days` (env `LEAD_WINDOW_DAYS`, default 7).
+
+### Фаза 1 — Backend: жизненный цикл лида ✅
+- [x] `Models/Lead.php` (fillable, `sponsor()`, `isExpired()`).
+- [x] `Services/LeadService.php`: `attachOrReattach()`, `changeSponsor()`, `expireDue()` (не трогает
+      лидов с pending-платежом), `promote()` (через `MemberService::registerTelegram` под lead.sponsor).
+- [x] `MiniAppAuth::resolveIdentity()` (member|lead|none); `resolveMember` удалён (ссылок нет).
+- [x] `ResolveTelegramMember` — attach `member`+`lead`; ownerBootstrap только при member; 401 при invalid.
+- [x] `LeadController::changeSponsor` + роут `POST /cabinet/lead/change-sponsor`.
+- [x] `CabinetController::me` ветвит member/lead/none; `member()` гейтит null; `leadState()` в сервисе.
+- [x] `Console/ExpireLeadsCommand.php` (`leads:expire`) + регистрация + schedule hourly.
+
+### Фаза 2 — Backend: коммерция для лида (промоушн на оплате) ✅
+- [x] `OrderService::createForLead()` (order с `lead_id`, `member_id=null`).
+- [x] `OrderService::markPaid` — lead-заказ: `promote()` → backfill `member_id` → activate; защита от
+      истёкшего лида (throw, не активируем «в никуда»).
+- [x] `PaymentService::startOrderPaymentForLead` + `checkForLead`; backfill `payment.member_id` в `applyPaid`.
+- [x] `CommerceController` createOrder/payOrder/checkPayment — ветвление member/lead; member-only гейт.
+- [x] `Order`/`Payment` модели — `lead_id` в fillable.
+
+### Фаза 3 — Backend: личные рефералы ✅
+- [x] `CabinetService::personalReferrals(Member)` — `sponsor_id=me` + `binary_depth`/`depth_from_me`
+      (nlevel из path) + position; сорт по дате.
+- [x] Роут `GET /cabinet/personal-referrals` (member-only).
+- [x] `CabinetService::profile` — `personal_count` (по sponsor_id).
+
+### Фаза 4 — Frontend: лид-UI ✅
+- [x] `api.js`: `mmChangeSponsor`, `mmPersonalReferrals`.
+- [x] `MiniAppShell.js`: экран лида (спонсор, обратный отсчёт `leadDaysLeft`, CTA «Активировать» через
+      встроенный `MiniAppShop`, кнопка «Сменить спонсора»); `need_referral`-экран; `load()` ветвит
+      member/lead/none; `onAfterPaid` в MiniAppShop перезагружает идентичность после промоушна.
+
+### Фаза 5 — Frontend: личные рефералы (исправление) ✅
+- [x] `personalCount` из `me.personal_count` (не `tree.children.length`); «Личных»/«Приглашено» верны.
+- [x] Карточка «Личные рефералы» (`mmPersonalReferrals`) с бейджем глубины; «Бинарная команда»
+      переименована и снабжена пояснением (спилловер ставит чужих).
+- [x] `npm run build` зелёный.
+
+### Фаза 6 — Тесты ✅
+- [x] **Тест-инфра:** `registerTg` создаёт Member напрямую (через MemberService); добавлен `makeLead`.
+      Все 27 registerTg-зависимых тестов зелёные без правок.
+- [x] `TelegramAuthTest` переписан под идентичность member/lead/none (11 тестов).
+- [x] `LeadTest` (10 тестов): создание лида+окно, смена спонсора (кнопка), неизвестный ref, истёкшее
+      окно (guard), self-referral, reattach по новой рефке, промоушн на оплате + замок спонсора +
+      запрет смены после покупки, `expireDue` (бережёт pending-платёж), личные рефералы vs бинар.
+- [x] **Прогон:** 318 passed, 0 новых провалов. 16 падений — только легаси `StructureTest`
+      (пред-существующий `calculator_user_tokens.email`, память `izigo-test-db-email-bug`).
+      Golden-регресс движка (Domain/Verification) зелёный.
+
+## D. Риски
+- **Тест-инфра** (registerTg меняет смысл) — самый дорогой пункт; иначе красный suite.
+- **Атомарность промоушна** в платёжной транзакции (place+activate+backfill); идемпотентность
+  `confirmPayment`/`activate` не сломать (лид удалён → повтор markPaid идемпотентен по статусу заказа).
+- **Гонки reattach** — `telegram_id` unique на `leads` + ловля `UniqueConstraintViolationException`.
+- **Прод-данные:** старые `registered`-члены остаются (A6). **Движок не трогаем** — golden-регресс обязателен.
+
+## Статус
+- [x] Гейт 1 — ТЗ  ·  [x] Гейт 2 — план (одобрен как есть)
+- [x] Гейт 3 — кодинг (фазы 0–6)
+- [x] Гейт 4 — reviewer (P0 нет; P1×2 деньги + P2 исправлены) → tester (бэк 319 passed, фронт build ✓).
+  Применённые фиксы ревью: P1.1 promote переносит ВСЕ заказы/платежи лида на участника (второй
+  оплаченный заказ не осиротеет) + регресс-тест; P1.2 attachOrReattach бережёт лида с pending-платежом;
+  P2.3 формулировка markPaid; P2.6 leadMode в MiniAppShop (скрыть member-only сегменты у лида).
+  16 падений — только легаси StructureTest (пред-существующий).
+- [ ] Ручной клик-тест в Telegram (за пользователем) · деплой (push в main = прод, по согласованию)
+
+---
+
 # План: Фаза 4 — Commerce и платежи (модель A, TON/USDT) — Гейт 2
 
 **ТЗ:** `docs/specs/2026-06-21-phase4-commerce-payments.md`. **Решение архитектуры — Вариант A**

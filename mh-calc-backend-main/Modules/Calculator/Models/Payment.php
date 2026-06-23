@@ -31,6 +31,7 @@ class Payment extends Model
     protected $fillable = [
         'order_id',
         'member_id',
+        'lead_id',
         'provider',
         'purpose',
         'amount_cents',

@@ -29,6 +29,11 @@ export const mmMe = (i) => req('/api/v1/cabinet/me', i);
 export const mmDashboard = (i) => req('/api/v1/cabinet/dashboard', i);
 export const mmRank = (i) => req('/api/v1/cabinet/rank-progress', i);
 export const mmTree = (i) => req('/api/v1/cabinet/team-tree', i);
+// Личные рефералы (по sponsor_id, любая глубина бинара) — НЕ бинар-ноги (team-tree).
+export const mmPersonalReferrals = (i) => req('/api/v1/cabinet/personal-referrals', i);
+// Действие лида (ещё не купил): сменить спонсора в пределах окна по ref-коду.
+export const mmChangeSponsor = (i, refCode) =>
+    req('/api/v1/cabinet/lead/change-sponsor', i, 'POST', { ref_code: refCode });
 export const mmActivate = (i, packageId) =>
     req('/api/v1/cabinet/activate-package', i, 'POST', { package_id: packageId });
 

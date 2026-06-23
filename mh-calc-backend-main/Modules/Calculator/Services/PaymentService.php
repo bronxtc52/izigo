@@ -4,6 +4,7 @@ namespace Modules\Calculator\Services;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Modules\Calculator\Models\Lead;
 use Modules\Calculator\Models\Member;
 use Modules\Calculator\Models\Order;
 use Modules\Calculator\Models\Payment;
@@ -51,7 +52,39 @@ class PaymentService
             'external_ref' => null, // заполним pay:{id} в issueInvoice (нужен id); null безопасен под unique
         ]);
 
-        return $this->issueInvoice($payment, $member, Payment::PURPOSE_ORDER);
+        return $this->issueInvoice($payment, (int) $member->telegram_id, Payment::PURPOSE_ORDER);
+    }
+
+    /**
+     * Инвойс на оплату заказа ЛИДА (первая покупка). Заказ должен быть его (lead_id) и
+     * pending. Платёж создаётся с lead_id (member_id=null до промоушна на оплате).
+     */
+    public function startOrderPaymentForLead(Lead $lead, int $orderId): array
+    {
+        $order = Order::query()
+            ->where('lead_id', $lead->id)
+            ->where('id', $orderId)
+            ->first();
+        if ($order === null) {
+            throw new RuntimeException('Заказ не найден');
+        }
+        if ($order->status !== Order::STATUS_PENDING_PAYMENT) {
+            throw new RuntimeException('Заказ уже не ожидает оплаты');
+        }
+
+        $payment = Payment::query()->create([
+            'order_id' => $order->id,
+            'member_id' => null,
+            'lead_id' => $lead->id,
+            'provider' => str_contains((string) config('calculator.payment_gateway'), 'ton') ? 'ton_pay' : 'wallet_pay',
+            'purpose' => Payment::PURPOSE_ORDER,
+            'amount_cents' => $order->total_usdt_cents,
+            'currency' => config('calculator.commerce_currency', 'USDT'),
+            'status' => Payment::STATUS_CREATED,
+            'external_ref' => null,
+        ]);
+
+        return $this->issueInvoice($payment, (int) $lead->telegram_id, Payment::PURPOSE_ORDER);
     }
 
     /** Инвойс на пополнение внутреннего USDT-баланса (для autoship). */
@@ -72,11 +105,11 @@ class PaymentService
             'external_ref' => null,
         ]);
 
-        return $this->issueInvoice($payment, $member, Payment::PURPOSE_TOPUP);
+        return $this->issueInvoice($payment, (int) $member->telegram_id, Payment::PURPOSE_TOPUP);
     }
 
     /** Создать инвойс в шлюзе и сохранить ref/external_id. */
-    private function issueInvoice(Payment $payment, Member $member, string $purpose): array
+    private function issueInvoice(Payment $payment, int $telegramId, string $purpose): array
     {
         $ref = "pay:{$payment->id}";
         $invoice = $this->gateway->createInvoice(
@@ -84,7 +117,7 @@ class PaymentService
             $payment->currency,
             $purpose,
             $ref,
-            ['telegram_id' => $member->telegram_id],
+            ['telegram_id' => $telegramId],
         );
 
         $payment->external_ref = $ref;
@@ -226,6 +259,39 @@ class PaymentService
         return ['payment_status' => $payment->fresh()->status];
     }
 
+    /**
+     * Немедленная проверка статуса платежа ЛИДА (чекаут первой покупки). При подтверждении
+     * confirmPayment промоутит лида в Member (см. OrderService::markPaid) — после чего
+     * следующий заход уже резолвится как участник.
+     */
+    public function checkForLead(Lead $lead, int $paymentId): array
+    {
+        $payment = Payment::query()
+            ->where('id', $paymentId)
+            ->where('lead_id', $lead->id)
+            ->first();
+        if ($payment === null) {
+            throw new RuntimeException('Платёж не найден');
+        }
+
+        if ($payment->status === Payment::STATUS_PENDING) {
+            $status = $this->gateway->pollStatus($payment->external_ref, $payment->amount_cents);
+            if ($status === 'paid') {
+                $this->confirmPayment($payment->id);
+
+                return ['payment_status' => Payment::STATUS_PAID];
+            }
+            if ($status === 'failed') {
+                $payment->status = Payment::STATUS_FAILED;
+                $payment->save();
+
+                return ['payment_status' => Payment::STATUS_FAILED];
+            }
+        }
+
+        return ['payment_status' => $payment->fresh()->status];
+    }
+
     /** Подтвердить платёж по данным сети (идемпотентно, под локом). */
     public function confirmPayment(int $paymentId): void
     {
@@ -250,6 +316,15 @@ class PaymentService
 
         if ($locked->purpose === Payment::PURPOSE_ORDER && $locked->order_id !== null) {
             $this->orders->markPaid($locked->order_id);
+            // Лид-платёж: markPaid промоутнул лида и проставил order.member_id —
+            // переносим участника на платёж (lead_id обнулён FK при удалении лида).
+            if ($locked->member_id === null) {
+                $memberId = Order::query()->where('id', $locked->order_id)->value('member_id');
+                if ($memberId !== null) {
+                    $locked->member_id = (int) $memberId;
+                    $locked->save();
+                }
+            }
         } elseif ($locked->purpose === Payment::PURPOSE_TOPUP) {
             $this->ledger->deposit($locked->member_id, $locked->amount_cents, "topup:{$locked->id}", $locked->id);
         } else {

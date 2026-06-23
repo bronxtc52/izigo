@@ -3,11 +3,13 @@
 namespace Modules\Calculator\Services;
 
 use Illuminate\Support\Facades\DB;
+use Modules\Calculator\Models\Lead;
 use Modules\Calculator\Models\Member;
 use Modules\Calculator\Models\Order;
 use Modules\Calculator\Models\OrderItem;
 use Modules\Calculator\Models\Product;
 use Modules\Calculator\Services\ActivationService;
+use Modules\Calculator\Services\LeadService;
 use RuntimeException;
 
 /**
@@ -19,6 +21,7 @@ class OrderService
 {
     public function __construct(
         private readonly ActivationService $activation,
+        private readonly LeadService $leads,
     ) {
     }
 
@@ -74,6 +77,59 @@ class OrderService
     }
 
     /**
+     * Заказ ЛИДА (ещё не купил, вне дерева): member_id=null, lead_id указывает на лида.
+     * При подтверждённой оплате лид промоутится в Member и member_id заполняется
+     * (см. markPaid). Идемпотентность — по lead_id + idempotency_key.
+     */
+    public function createForLead(Lead $lead, int $productId, int $qty = 1, ?string $idempotencyKey = null): array
+    {
+        if ($qty < 1) {
+            throw new RuntimeException('Количество должно быть ≥ 1');
+        }
+
+        if ($idempotencyKey !== null) {
+            $existing = Order::query()
+                ->where('lead_id', $lead->id)
+                ->where('idempotency_key', $idempotencyKey)
+                ->first();
+            if ($existing !== null) {
+                return $this->serialize($existing->fresh('items'));
+            }
+        }
+
+        $product = Product::query()->where('id', $productId)->where('is_active', true)->first();
+        if ($product === null) {
+            throw new RuntimeException('Товар не найден или недоступен');
+        }
+
+        $unit = $product->price_usdt_cents;
+        $order = DB::transaction(function () use ($lead, $product, $qty, $unit, $idempotencyKey) {
+            $order = Order::query()->create([
+                'member_id' => null,
+                'lead_id' => $lead->id,
+                'package_id' => $product->package_id,
+                'total_usdt_cents' => $unit * $qty,
+                'total_pv' => $product->pv * $qty,
+                'status' => Order::STATUS_PENDING_PAYMENT,
+                'idempotency_key' => $idempotencyKey,
+            ]);
+
+            OrderItem::query()->create([
+                'order_id' => $order->id,
+                'product_id' => $product->id,
+                'qty' => $qty,
+                'unit_price_usdt_cents' => $unit,
+                'pv' => $product->pv,
+                'name_snapshot' => $product->name,
+            ]);
+
+            return $order;
+        });
+
+        return $this->serialize($order->fresh('items'));
+    }
+
+    /**
      * Перевести заказ в paid по факту оплаты (вызывается из PaymentService внутри
      * транзакции). Идемпотентно: переводит только из pending_payment. По оплаченному
      * заказу запускает активацию тарифа (модель A) — существующий ActivationService
@@ -85,6 +141,26 @@ class OrderService
         $order = Order::query()->where('id', $orderId)->lockForUpdate()->first();
         if ($order === null || $order->status !== Order::STATUS_PENDING_PAYMENT) {
             return;
+        }
+
+        // Промоушн лида → Member (первая покупка). Лид ставится в бинар-дерево под
+        // замкнутого спонсора; member_id заказа заполняется. Спонсор зафиксирован навсегда.
+        if ($order->member_id === null && $order->lead_id !== null) {
+            $lead = Lead::query()->where('id', $order->lead_id)->first();
+            if ($lead !== null) {
+                $member = $this->leads->promote($lead);
+                $order->member_id = $member->id;
+                $order->lead_id = null; // лид промоутнут (запись удалена)
+            }
+        }
+
+        if ($order->member_id === null) {
+            // Лид-заказ, у которого не осталось ни участника, ни лида (запись удалена без
+            // backfill — напр. лид без pending-платежа открепился). Поставить в дерево некого:
+            // не активируем «в никуда», откатываемся (платёж останется pending, TTL → expired).
+            // Защитный инвариант: в норме недостижим (promote переносит все заказы лида на
+            // участника, а expireDue/attachOrReattach берегут лидов с pending-платежом).
+            throw new RuntimeException("Заказ {$order->id}: нет участника для активации");
         }
 
         $order->status = Order::STATUS_PAID;
