@@ -29,8 +29,11 @@ class CabinetTest extends TestCase
 
         $res = $this->getJson('/api/v1/cabinet/me', $this->tgHeaders($initData))->assertOk();
         $res->assertJsonPath('status', 'success');
-        $this->assertNotEmpty($res->json('data.member.ref_code'));
-        $this->assertStringContainsString('ref=', $res->json('data.ref_link'));
+        $refCode = $res->json('data.member.ref_code');
+        $this->assertNotEmpty($refCode);
+        // Реф-ссылка — Telegram deep-link на Mini App с startapp=<ref_code> (не веб-URL).
+        $this->assertStringContainsString('t.me/', $res->json('data.ref_link'));
+        $this->assertStringContainsString("startapp={$refCode}", $res->json('data.ref_link'));
         $this->assertSame('registered', $res->json('data.member.status'));
         $this->assertSame([], $res->json('data.member.roles'));
     }
