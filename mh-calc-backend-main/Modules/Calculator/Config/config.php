@@ -36,8 +36,9 @@ return [
     // Учётная валюта commerce (модель A — стейблкоин USDT в сети TON).
     'commerce_currency' => env('COMMERCE_CURRENCY', 'USDT'),
 
-    // Приём оплаты. Драйвер: ton_pay (боевой, non-custodial) | wallet_pay (fallback) |
-    // ton_pay_fake | fake (тесты/dev). Секреты — из Key Vault, инжектятся env, не хардкод.
+    // Приём оплаты. Драйвер: ton_pay (боевой, non-custodial) | ton_pay_fake | fake (тесты/dev).
+    // Wallet Pay ОТКЛЮЧЁН полностью (драйвер/класс удалены, wallet_pay → fail-closed throw).
+    // Секреты — из Key Vault, инжектятся env, не хардкод.
     'payment_gateway' => env('PAYMENT_GATEWAY', 'ton_pay'),
     // TTL «висящих» pending-платежей (минуты). commerce:tonpay-poll метит их expired ПОСЛЕ
     // финального опроса, чтобы не копились бессрочно. Держим щедрым: приём non-custodial —
@@ -53,9 +54,8 @@ return [
     'ton_api_v3_base_url' => env('TON_API_V3_BASE_URL', 'https://toncenter.com/api/v3'),
     // Мастер-контракт USDT-джеттона (TON), decimals=6. ПУБЛИЧНЫЙ параметр (не секрет).
     'ton_usdt_jetton_master' => env('TON_USDT_JETTON_MASTER', ''),
-    // Wallet Pay — fallback-драйвер (не активен по умолчанию).
-    'walletpay_base_url' => env('WALLETPAY_BASE_URL', 'https://pay.wallet.tg'),
-    'walletpay_api_key' => env('WALLETPAY_API_KEY', ''),
+    // Секрет подписи входящего платёжного webhook (generic). Wallet Pay отключён, но
+    // ключ переиспользуется FakeGateway в тестах/dev для проверки подписи тела.
     'walletpay_webhook_secret' => env('WALLETPAY_WEBHOOK_SECRET', ''),
 
     // On-chain выплаты USDT (TON). Драйвер: ton_usdt (боевой) | fake. Ключ hot-wallet — из Key Vault

@@ -21,7 +21,6 @@ use Modules\Calculator\Services\Payment\FakeGateway;
 use Modules\Calculator\Services\Payment\FakeTonPayGateway;
 use Modules\Calculator\Services\Payment\PaymentGateway;
 use Modules\Calculator\Services\Payment\TonPayGateway;
-use Modules\Calculator\Services\Payment\WalletPayGateway;
 use Modules\Calculator\Services\Payout\FakePayoutGateway;
 use Modules\Calculator\Services\Payout\PayoutGateway;
 use Modules\Calculator\Services\Payout\UsdtTonPayoutGateway;
@@ -107,10 +106,11 @@ class CalculatorServiceProvider extends ServiceProvider
             return match ($cfg->get('calculator.payment_gateway', 'ton_pay')) {
                 'fake' => new FakeGateway($secret),
                 'ton_pay_fake' => new FakeTonPayGateway(),
-                'wallet_pay' => new WalletPayGateway(
-                    (string) $cfg->get('calculator.walletpay_base_url', ''),
-                    (string) $cfg->get('calculator.walletpay_api_key', ''),
-                    $secret,
+                // Wallet Pay полностью отключён (решение: приём — только TON Pay). Драйвер
+                // и класс удалены; явный fail-closed, чтобы случайная конфигурация не молча
+                // упала в дефолтный TonPay.
+                'wallet_pay' => throw new \RuntimeException(
+                    'Драйвер wallet_pay отключён и не используется — выберите ton_pay.'
                 ),
                 default => new TonPayGateway(
                     (string) $cfg->get('calculator.ton_merchant_address', ''),

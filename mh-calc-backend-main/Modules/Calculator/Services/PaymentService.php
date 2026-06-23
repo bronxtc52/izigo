@@ -44,7 +44,7 @@ class PaymentService
         $payment = Payment::query()->create([
             'order_id' => $order->id,
             'member_id' => $member->id,
-            'provider' => str_contains((string) config('calculator.payment_gateway'), 'ton') ? 'ton_pay' : 'wallet_pay',
+            'provider' => str_contains((string) config('calculator.payment_gateway'), 'ton') ? 'ton_pay' : 'fake',
             'purpose' => Payment::PURPOSE_ORDER,
             'amount_cents' => $order->total_usdt_cents,
             'currency' => config('calculator.commerce_currency', 'USDT'),
@@ -76,7 +76,7 @@ class PaymentService
             'order_id' => $order->id,
             'member_id' => null,
             'lead_id' => $lead->id,
-            'provider' => str_contains((string) config('calculator.payment_gateway'), 'ton') ? 'ton_pay' : 'wallet_pay',
+            'provider' => str_contains((string) config('calculator.payment_gateway'), 'ton') ? 'ton_pay' : 'fake',
             'purpose' => Payment::PURPOSE_ORDER,
             'amount_cents' => $order->total_usdt_cents,
             'currency' => config('calculator.commerce_currency', 'USDT'),
@@ -97,7 +97,7 @@ class PaymentService
         $payment = Payment::query()->create([
             'order_id' => null,
             'member_id' => $member->id,
-            'provider' => str_contains((string) config('calculator.payment_gateway'), 'ton') ? 'ton_pay' : 'wallet_pay',
+            'provider' => str_contains((string) config('calculator.payment_gateway'), 'ton') ? 'ton_pay' : 'fake',
             'purpose' => Payment::PURPOSE_TOPUP,
             'amount_cents' => $amountCents,
             'currency' => config('calculator.commerce_currency', 'USDT'),

@@ -101,7 +101,7 @@ Route::group([
     Route::post('/orders', [CommerceController::class, 'createOrder'])->name('orders-create');
     Route::get('/orders/{id}', [CommerceController::class, 'order'])->name('order')
         ->where('id', '[0-9]+');
-    // Оплата заказа и пополнение баланса (Фаза 4, S3) — инвойс Wallet Pay.
+    // Оплата заказа и пополнение баланса (Фаза 4, S3) — инвойс TON Pay (non-custodial).
     Route::post('/orders/{id}/pay', [CommerceController::class, 'payOrder'])->name('orders-pay')
         ->where('id', '[0-9]+');
     Route::post('/wallet/topup', [CommerceController::class, 'topup'])->name('wallet-topup');
