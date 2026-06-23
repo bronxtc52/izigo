@@ -58,7 +58,10 @@ class AgreementTest extends TestCase
         $this->assertTrue($this->getJson('/api/v1/cabinet/agreement', $this->tgHeaders($pData))->json('data.accepted'));
 
         // Owner обновил текст → v2.
-        $upd = $this->putJson('/api/v1/admin/agreement', ['text' => 'Новая редакция'], $this->adminHeaders($ownerData))->assertOk();
+        $upd = $this->putJson('/api/v1/admin/agreement', [
+            'text_ru' => 'Новая редакция',
+            'text_en' => 'New revision',
+        ], $this->adminHeaders($ownerData))->assertOk();
         $this->assertSame(2, $upd->json('data.version'));
 
         // Теперь партнёр должен принять заново.
@@ -91,11 +94,52 @@ class AgreementTest extends TestCase
 
         // support видит текст, но не правит.
         $this->getJson('/api/v1/admin/agreement', $this->adminHeaders($supportData))->assertOk();
-        $this->putJson('/api/v1/admin/agreement', ['text' => 'x'], $this->adminHeaders($supportData))->assertStatus(403);
+        $this->putJson('/api/v1/admin/agreement', [
+            'text_ru' => 'x',
+            'text_en' => 'x',
+        ], $this->adminHeaders($supportData))->assertStatus(403);
     }
 
     public function testAgreementRequiresInitData(): void
     {
         $this->getJson('/api/v1/cabinet/agreement', ['X-Requested-With' => 'XMLHttpRequest'])->assertStatus(401);
+    }
+
+    /** Текст соглашения отдаётся на языке запроса: ru по Accept-Language: ru, en — по en. */
+    public function testAgreementReturnsLocalizedText(): void
+    {
+        [$ownerData, $ownerRef] = $this->registerTg(440, name: 'Owner');
+        $this->grantRole(440, 'owner');
+        [$pData] = $this->registerTg(441, $ownerRef, 'P');
+
+        $this->putJson('/api/v1/admin/agreement', [
+            'text_ru' => 'Русский текст соглашения',
+            'text_en' => 'English agreement text',
+        ], $this->adminHeaders($ownerData))->assertOk();
+
+        $ru = $this->getJson('/api/v1/cabinet/agreement', $this->tgHeaders($pData) + ['Accept-Language' => 'ru'])->assertOk();
+        $this->assertSame('Русский текст соглашения', $ru->json('data.text'));
+
+        $en = $this->getJson('/api/v1/cabinet/agreement', $this->tgHeaders($pData) + ['Accept-Language' => 'en'])->assertOk();
+        $this->assertSame('English agreement text', $en->json('data.text'));
+    }
+
+    /** Обратная совместимость: старый строковый text в plan_settings отдаётся без падения. */
+    public function testLegacyStringTextIsBackwardCompatible(): void
+    {
+        [$pData] = $this->registerTg(450, name: 'P');
+
+        // Симулируем legacy-значение: text — строка, а не { ru, en }.
+        \Modules\Calculator\Models\PlanSetting::put('agreement', [
+            'version' => 1,
+            'text' => 'Старое строковое соглашение',
+        ]);
+
+        $ru = $this->getJson('/api/v1/cabinet/agreement', $this->tgHeaders($pData) + ['Accept-Language' => 'ru'])->assertOk();
+        $this->assertSame('Старое строковое соглашение', $ru->json('data.text'));
+
+        // en фолбэчится на ru (en=ru при legacy-строке).
+        $en = $this->getJson('/api/v1/cabinet/agreement', $this->tgHeaders($pData) + ['Accept-Language' => 'en'])->assertOk();
+        $this->assertSame('Старое строковое соглашение', $en->json('data.text'));
     }
 }

@@ -7,7 +7,8 @@ import * as api from '@/views/admin/webApi';
 const AgreementAdmin = () => {
     const isOwner = api.getRoles().includes('owner');
     const [data, setData] = useState(null);
-    const [text, setText] = useState('');
+    const [textRu, setTextRu] = useState('');
+    const [textEn, setTextEn] = useState('');
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [forbidden, setForbidden] = useState(false);
@@ -16,8 +17,11 @@ const AgreementAdmin = () => {
         setLoading(true);
         const res = await api.fetchAgreement(undefined);
         if (api.isForbidden(res)) { setForbidden(true); setLoading(false); return; }
-        setData(res?.data ?? null);
-        setText(res?.data?.text ?? '');
+        const d = res?.data ?? null;
+        setData(d);
+        // Бэкенд отдаёт texts:{ru,en}; legacy-фолбэк на одиночный text (=ru).
+        setTextRu(d?.texts?.ru ?? d?.text ?? '');
+        setTextEn(d?.texts?.en ?? '');
         setLoading(false);
     };
 
@@ -26,10 +30,10 @@ const AgreementAdmin = () => {
     if (forbidden) return <Result status="403" title="Недостаточно прав" />;
 
     const save = async () => {
-        if (!text.trim()) { message.error('Текст не может быть пустым'); return; }
+        if (!textRu.trim() || !textEn.trim()) { message.error('Заполните текст на обоих языках (RU и EN)'); return; }
         setSaving(true);
         try {
-            await api.updateAgreement(undefined, text);
+            await api.updateAgreement(undefined, textRu, textEn);
             message.success('Соглашение обновлено — версия повышена, участники примут заново');
             load();
         } catch (e) {
@@ -48,10 +52,19 @@ const AgreementAdmin = () => {
                 </Card></Col>
             </Row>
 
-            <Card size="small" title="Текст соглашения" loading={loading}>
+            <Card size="small" title="Текст соглашения (RU)" loading={loading}>
                 <Input.TextArea
-                    value={text}
-                    onChange={(e) => setText(e.target.value)}
+                    value={textRu}
+                    onChange={(e) => setTextRu(e.target.value)}
+                    autoSize={{ minRows: 8, maxRows: 24 }}
+                    disabled={!isOwner}
+                />
+            </Card>
+
+            <Card size="small" title="Agreement text (EN)" loading={loading}>
+                <Input.TextArea
+                    value={textEn}
+                    onChange={(e) => setTextEn(e.target.value)}
                     autoSize={{ minRows: 8, maxRows: 24 }}
                     disabled={!isOwner}
                 />

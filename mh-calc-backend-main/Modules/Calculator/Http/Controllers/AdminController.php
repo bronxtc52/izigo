@@ -40,13 +40,22 @@ class AdminController
         return $this->guarded(fn () => $this->agreement->adminSummary());
     }
 
-    /** B3: обновить текст соглашения (инкремент версии). owner-only. Пишется в аудит. */
+    /**
+     * B3: обновить двуязычный текст соглашения (инкремент версии). owner-only. В аудит.
+     * Принимает text_ru + text_en (оба обязательны); хранится как { version, text:{ru,en} }.
+     */
     public function updateAgreement(Request $request): JsonResponse
     {
-        $data = $request->validate(['text' => 'required|string|max:20000']);
+        $data = $request->validate([
+            'text_ru' => 'required|string|max:20000',
+            'text_en' => 'required|string|max:20000',
+        ]);
 
         return $this->guarded(fn () => DB::transaction(function () use ($request, $data) {
-            $result = $this->agreement->updateContent($data['text']);
+            $result = $this->agreement->updateContent([
+                'ru' => $data['text_ru'],
+                'en' => $data['text_en'],
+            ]);
             $this->audit->record($this->viewer($request)->id, 'agreement.update', 'plan_setting', null, null, [
                 'version' => $result['version'],
             ]);

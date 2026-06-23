@@ -37,6 +37,8 @@ class CabinetService
                 'name' => $member->name,
                 'ref_code' => $member->ref_code,
                 'status' => $member->status,
+                // Выбранный язык интерфейса (персист), чтобы Mini App знал текущий язык.
+                'language' => $member->language,
                 'package_id' => $member->package_id,
                 'rank' => $rank ? ['id' => $rank->id, 'alias' => $rank->alias] : null,
                 // Личные рефералы (по sponsor_id, любая глубина бинара) — НЕ бинар-ноги.

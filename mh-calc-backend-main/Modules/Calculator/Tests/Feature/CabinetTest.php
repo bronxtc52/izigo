@@ -105,4 +105,36 @@ class CabinetTest extends TestCase
         // Без initData (заход вне Telegram) — 401, «Откройте через Telegram».
         $this->getJson('/api/v1/cabinet/me', ['X-Requested-With' => 'XMLHttpRequest'])->assertStatus(401);
     }
+
+    public function testMeIncludesLanguage(): void
+    {
+        [$initData] = $this->registerTg(70, name: 'Root');
+
+        $res = $this->getJson('/api/v1/cabinet/me', $this->tgHeaders($initData))->assertOk();
+        // Ключ language присутствует в профиле (может быть null до явного выбора).
+        $this->assertTrue($res->json('data.member') !== null
+            && array_key_exists('language', $res->json('data.member')));
+    }
+
+    public function testUpdateLanguagePersistsAndReflectsInMe(): void
+    {
+        [$initData] = $this->registerTg(71, name: 'Root');
+
+        $res = $this->patchJson('/api/v1/cabinet/profile/language', ['language' => 'en'], $this->tgHeaders($initData))
+            ->assertOk();
+        $this->assertSame('en', $res->json('data.language'));
+
+        // Персист виден в profile и в БД.
+        $me = $this->getJson('/api/v1/cabinet/me', $this->tgHeaders($initData))->assertOk();
+        $this->assertSame('en', $me->json('data.member.language'));
+        $this->assertSame('en', $this->memberByTg(71)->fresh()->language);
+    }
+
+    public function testUpdateLanguageRejectsUnsupportedCode(): void
+    {
+        [$initData] = $this->registerTg(72, name: 'Root');
+
+        $this->patchJson('/api/v1/cabinet/profile/language', ['language' => 'fr'], $this->tgHeaders($initData))
+            ->assertStatus(422);
+    }
 }

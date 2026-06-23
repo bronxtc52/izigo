@@ -9,7 +9,7 @@ import Helpdesk from '../Helpdesk';
  */
 const helpdeskTab = {
     key: 'helpdesk',
-    label: 'Поддержка',
+    label: 'helpdesk.title', // i18n-ключ; MiniAppShell резолвит через t() при сборке таб-бара
     icon: <CustomerServiceOutlined />,
     flag: 'c2_helpdesk', // показ гейтится фиче-флагом (deny-by-default)
     render: (ctx) => (

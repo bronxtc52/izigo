@@ -1,29 +1,32 @@
 'use client';
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Card, Button, Tag, List, Spin, Segmented, Flex, Empty, Modal, Select, InputNumber, Popconfirm, message } from 'antd';
 import { tint, numFont, balanceFont } from './tokens';
 import { mmCatalog, mmOrders, mmCreateOrder, mmPayOrder, mmAutoship, mmAutoshipCreate, mmAutoshipAction } from './api';
 import { usd } from './format';
 import TonPayCheckout from './TonPayCheckout';
 
+// Значения label — i18n-ключи (переводятся t() при рендере), kind — цветовой тон.
 const ORDER_STATUS = {
-    pending_payment: { label: 'ожидает оплаты', kind: 'amber' },
-    paid: { label: 'оплачен', kind: 'blue' },
-    processing: { label: 'в обработке', kind: 'blue' },
-    shipped: { label: 'отправлен', kind: 'blue' },
-    delivered: { label: 'доставлен', kind: 'green' },
-    cancelled: { label: 'отменён', kind: 'neutral' },
-    refunded: { label: 'возврат', kind: 'neutral' },
+    pending_payment: { label: 'miniapp.shop_order_pending_payment', kind: 'amber' },
+    paid: { label: 'miniapp.shop_order_paid', kind: 'blue' },
+    processing: { label: 'miniapp.shop_order_processing', kind: 'blue' },
+    shipped: { label: 'miniapp.shop_order_shipped', kind: 'blue' },
+    delivered: { label: 'miniapp.shop_order_delivered', kind: 'green' },
+    cancelled: { label: 'miniapp.shop_order_cancelled', kind: 'neutral' },
+    refunded: { label: 'miniapp.shop_order_refunded', kind: 'neutral' },
 };
 
 const AUTOSHIP_STATUS = {
-    active: { label: 'активна', kind: 'green' },
-    paused: { label: 'на паузе', kind: 'amber' },
-    cancelled: { label: 'отменена', kind: 'neutral' },
+    active: { label: 'miniapp.shop_as_active', kind: 'green' },
+    paused: { label: 'miniapp.shop_as_paused', kind: 'amber' },
+    cancelled: { label: 'miniapp.shop_as_cancelled', kind: 'neutral' },
 };
 
 /** Вкладка «Магазин»: каталог товаров (цена USDT + PV) → заказ → оплата TON Pay → мои заказы. */
 export default function MiniAppShop({ initData, pal, isDark, wa, onUnauthorized, onAfterPaid, leadMode = false }) {
+    const { t } = useTranslation();
     const [view, setView] = useState('catalog'); // catalog | orders | autoship
     const [catalog, setCatalog] = useState([]);
     const [orders, setOrders] = useState([]);
@@ -73,16 +76,16 @@ export default function MiniAppShop({ initData, pal, isDark, wa, onUnauthorized,
     };
 
     // Имя товара по product_id (для карточки подписки — backend отдаёт только product_id).
-    const productName = (id) => catalog.find((p) => p.id === id)?.name ?? `товар #${id}`;
+    const productName = (id) => catalog.find((p) => p.id === id)?.name ?? t('miniapp.shop_product_fallback', { id });
 
     const onCreateAutoship = async () => {
-        if (!asProduct) { message.error('Выберите товар'); return; }
-        if (!asInterval || asInterval < 1 || asInterval > 365) { message.error('Интервал — от 1 до 365 дней'); return; }
+        if (!asProduct) { message.error(t('miniapp.shop_err_select_product')); return; }
+        if (!asInterval || asInterval < 1 || asInterval > 365) { message.error(t('miniapp.shop_err_interval_range')); return; }
         setAsSubmitting(true);
         const res = await mmAutoshipCreate(initData, asProduct, asInterval);
         setAsSubmitting(false);
-        if (res?.error) { message.error('Не удалось создать автозаказ'); return; }
-        message.success('Автозаказ создан');
+        if (res?.error) { message.error(t('miniapp.shop_err_create_as')); return; }
+        message.success(t('miniapp.shop_ok_as_created'));
         wa?.HapticFeedback?.notificationOccurred?.('success');
         setAsOpen(false);
         setAsProduct(null);
@@ -94,7 +97,7 @@ export default function MiniAppShop({ initData, pal, isDark, wa, onUnauthorized,
         setAsBusy(id);
         const res = await mmAutoshipAction(initData, id, action);
         setAsBusy(0);
-        if (res?.error) { message.error('Не удалось изменить автозаказ'); return; }
+        if (res?.error) { message.error(t('miniapp.shop_err_update_as')); return; }
         await reloadAutoship();
     };
 
@@ -102,10 +105,10 @@ export default function MiniAppShop({ initData, pal, isDark, wa, onUnauthorized,
         setBuying(product.id);
         const created = await mmCreateOrder(initData, product.id, 1);
         const order = created?.data;
-        if (created?.error || !order?.id) { setBuying(0); message.error('Не удалось создать заказ'); return; }
+        if (created?.error || !order?.id) { setBuying(0); message.error(t('miniapp.shop_err_create_order')); return; }
         const pay = await mmPayOrder(initData, order.id);
         setBuying(0);
-        if (pay?.error) { message.error('Не удалось создать счёт на оплату'); return; }
+        if (pay?.error) { message.error(t('miniapp.shop_err_create_invoice')); return; }
         wa?.HapticFeedback?.impactOccurred?.('light');
         setCheckout({ invoice: pay?.data, order });
     };
@@ -115,7 +118,7 @@ export default function MiniAppShop({ initData, pal, isDark, wa, onUnauthorized,
         setPaying(order.id);
         const pay = await mmPayOrder(initData, order.id);
         setPaying(0);
-        if (pay?.error) { message.error('Не удалось создать счёт на оплату'); return; }
+        if (pay?.error) { message.error(t('miniapp.shop_err_create_invoice')); return; }
         setCheckout({ invoice: pay?.data, order });
     };
 
@@ -138,12 +141,12 @@ export default function MiniAppShop({ initData, pal, isDark, wa, onUnauthorized,
             {/* Лид (ещё не купил) видит только каталог: «Мои заказы»/«Автозаказ» — member-only (404). */}
             {!leadMode && (
                 <Segmented block value={view} onChange={setView}
-                    options={[{ label: 'Каталог', value: 'catalog' }, { label: 'Мои заказы', value: 'orders' }, { label: 'Автозаказ', value: 'autoship' }]} />
+                    options={[{ label: t('miniapp.shop_seg_catalog'), value: 'catalog' }, { label: t('miniapp.shop_seg_orders'), value: 'orders' }, { label: t('miniapp.shop_seg_autoship'), value: 'autoship' }]} />
             )}
 
             {view === 'catalog' && (
                 catalog.length === 0
-                    ? <Empty description="Каталог пуст" style={{ marginTop: 40 }} />
+                    ? <Empty description={t('miniapp.shop_catalog_empty')} style={{ marginTop: 40 }} />
                     : catalog.map((p) => (
                         <Card key={p.id} size="small" styles={{ body: { padding: 14 } }}>
                             <Flex justify="space-between" align="flex-start" gap={10}>
@@ -158,7 +161,7 @@ export default function MiniAppShop({ initData, pal, isDark, wa, onUnauthorized,
                                         </Tag>
                                         {/* stock=null → безлимит; «нет в наличии» только при реальном 0/отрицательном */}
                                         {p.stock != null && Number(p.stock) <= 0 && (
-                                            <Tag style={{ background: tint('neutral', isDark).bg, color: tint('neutral', isDark).color, border: 'none' }}>нет в наличии</Tag>
+                                            <Tag style={{ background: tint('neutral', isDark).bg, color: tint('neutral', isDark).color, border: 'none' }}>{t('miniapp.shop_out_of_stock')}</Tag>
                                         )}
                                     </Flex>
                                 </div>
@@ -168,7 +171,7 @@ export default function MiniAppShop({ initData, pal, isDark, wa, onUnauthorized,
                                         style={{ marginTop: 8, ...(buying !== 0 || (p.stock != null && Number(p.stock) <= 0) ? {} : gradBtn) }}
                                         loading={buying === p.id}
                                         disabled={buying !== 0 || (p.stock != null && Number(p.stock) <= 0)}
-                                        onClick={() => onBuy(p)}>Купить</Button>
+                                        onClick={() => onBuy(p)}>{t('miniapp.shop_buy')}</Button>
                                 </div>
                             </Flex>
                         </Card>
@@ -176,24 +179,24 @@ export default function MiniAppShop({ initData, pal, isDark, wa, onUnauthorized,
             )}
 
             {view === 'orders' && (
-                <Card size="small" title="Мои заказы">
+                <Card size="small" title={t('miniapp.shop_seg_orders')}>
                     <List
                         dataSource={orders}
-                        locale={{ emptyText: 'Заказов пока нет' }}
+                        locale={{ emptyText: t('miniapp.shop_orders_empty') }}
                         renderItem={(o) => {
-                            const s = ORDER_STATUS[o.status] ?? { label: o.status, kind: 'neutral' };
-                            const t = tint(s.kind, isDark);
+                            const s = ORDER_STATUS[o.status];
+                            const tt = tint(s?.kind ?? 'neutral', isDark);
                             const names = (o.items ?? []).map((i) => `${i.name}${i.qty > 1 ? ` ×${i.qty}` : ''}`).join(', ');
                             return (
                                 <List.Item style={{ display: 'block' }}>
                                     <Flex justify="space-between" align="center">
                                         <span style={{ fontWeight: 600, fontSize: 13.5 }}>#{o.id} {names}</span>
-                                        <Tag style={{ background: t.bg, color: t.color, border: 'none', fontSize: 10.5, fontWeight: 600 }}>{s.label}</Tag>
+                                        <Tag style={{ background: tt.bg, color: tt.color, border: 'none', fontSize: 10.5, fontWeight: 600 }}>{s ? t(s.label) : o.status}</Tag>
                                     </Flex>
                                     <Flex justify="space-between" align="center" style={{ marginTop: 4 }}>
                                         <span style={{ fontSize: 11.5, color: pal.muted }}>
                                             {o.total_pv} PV{o.created_at ? ` · ${new Date(o.created_at).toLocaleDateString()}` : ''}
-                                            {o.tracking_no ? ` · трек ${o.tracking_no}` : ''}
+                                            {o.tracking_no ? ` · ${t('miniapp.shop_track_prefix')} ${o.tracking_no}` : ''}
                                         </span>
                                         <span style={{ ...balanceFont, fontWeight: 700 }}>${usd(o.total_usdt_cents)}</span>
                                     </Flex>
@@ -201,7 +204,7 @@ export default function MiniAppShop({ initData, pal, isDark, wa, onUnauthorized,
                                         <Button type="primary" size="small" block
                                             style={{ marginTop: 8, ...(paying !== 0 ? {} : gradBtn) }}
                                             loading={paying === o.id} disabled={paying !== 0}
-                                            onClick={() => onPayExisting(o)}>Оплатить</Button>
+                                            onClick={() => onPayExisting(o)}>{t('miniapp.shop_pay')}</Button>
                                     )}
                                 </List.Item>
                             );
@@ -214,39 +217,39 @@ export default function MiniAppShop({ initData, pal, isDark, wa, onUnauthorized,
                 <>
                     <Button type="primary" block disabled={catalog.length === 0}
                         onClick={() => { setAsProduct(null); setAsInterval(30); setAsOpen(true); }}>
-                        + Новый автозаказ
+                        {t('miniapp.shop_new_as_btn')}
                     </Button>
-                    <Card size="small" title="Мои автозаказы" style={{ marginTop: 12 }}>
+                    <Card size="small" title={t('miniapp.shop_my_as')} style={{ marginTop: 12 }}>
                         <List
                             dataSource={autoship}
-                            locale={{ emptyText: 'Автозаказов пока нет' }}
+                            locale={{ emptyText: t('miniapp.shop_as_empty') }}
                             renderItem={(s) => {
-                                const st = AUTOSHIP_STATUS[s.status] ?? { label: s.status, kind: 'neutral' };
-                                const t = tint(st.kind, isDark);
+                                const st = AUTOSHIP_STATUS[s.status];
+                                const tt = tint(st?.kind ?? 'neutral', isDark);
                                 return (
                                     <List.Item style={{ display: 'block' }}>
                                         <Flex justify="space-between" align="center">
                                             <span style={{ fontWeight: 600, fontSize: 13.5 }}>{productName(s.product_id)}</span>
-                                            <Tag style={{ background: t.bg, color: t.color, border: 'none', fontSize: 10.5, fontWeight: 600 }}>{st.label}</Tag>
+                                            <Tag style={{ background: tt.bg, color: tt.color, border: 'none', fontSize: 10.5, fontWeight: 600 }}>{st ? t(st.label) : s.status}</Tag>
                                         </Flex>
                                         <div style={{ fontSize: 11.5, color: pal.muted, marginTop: 4 }}>
-                                            каждые {s.interval_days} дн.
-                                            {s.next_charge_at ? ` · следующее ${new Date(s.next_charge_at).toLocaleDateString()}` : ''}
-                                            {s.retry_stage > 0 ? ` · повтор д.${s.retry_stage}` : ''}
+                                            {t('miniapp.shop_every_days', { n: s.interval_days })}
+                                            {s.next_charge_at ? ` · ${t('miniapp.shop_next_prefix')} ${new Date(s.next_charge_at).toLocaleDateString()}` : ''}
+                                            {s.retry_stage > 0 ? ` · ${t('miniapp.shop_retry_stage_prefix')}${s.retry_stage}` : ''}
                                         </div>
                                         <Flex gap={8} style={{ marginTop: 8 }}>
                                             {s.status === 'active' && (
                                                 <Button size="small" loading={asBusy === s.id} disabled={asBusy !== 0}
-                                                    onClick={() => onAutoshipAction(s.id, 'pause')}>Пауза</Button>
+                                                    onClick={() => onAutoshipAction(s.id, 'pause')}>{t('miniapp.shop_pause')}</Button>
                                             )}
                                             {s.status === 'paused' && (
                                                 <Button size="small" type="primary" loading={asBusy === s.id} disabled={asBusy !== 0}
-                                                    onClick={() => onAutoshipAction(s.id, 'resume')}>Возобновить</Button>
+                                                    onClick={() => onAutoshipAction(s.id, 'resume')}>{t('miniapp.shop_resume')}</Button>
                                             )}
                                             {s.status !== 'cancelled' && (
-                                                <Popconfirm title="Отменить автозаказ?" okText="Отменить" cancelText="Нет"
+                                                <Popconfirm title={t('miniapp.shop_cancel_as_confirm')} okText={t('miniapp.shop_cancel')} cancelText={t('miniapp.shop_no')}
                                                     onConfirm={() => onAutoshipAction(s.id, 'cancel')}>
-                                                    <Button size="small" danger disabled={asBusy !== 0}>Отменить</Button>
+                                                    <Button size="small" danger disabled={asBusy !== 0}>{t('miniapp.shop_cancel')}</Button>
                                                 </Popconfirm>
                                             )}
                                         </Flex>
@@ -258,16 +261,16 @@ export default function MiniAppShop({ initData, pal, isDark, wa, onUnauthorized,
                 </>
             )}
 
-            <Modal title="Новый автозаказ" open={asOpen} onOk={onCreateAutoship} confirmLoading={asSubmitting}
-                onCancel={() => setAsOpen(false)} okText="Создать">
-                <div style={{ fontSize: 12, color: pal.muted, marginBottom: 6 }}>Товар</div>
-                <Select style={{ width: '100%', marginBottom: 12 }} placeholder="Выберите товар" value={asProduct}
+            <Modal title={t('miniapp.shop_new_as_title')} open={asOpen} onOk={onCreateAutoship} confirmLoading={asSubmitting}
+                onCancel={() => setAsOpen(false)} okText={t('miniapp.shop_create')}>
+                <div style={{ fontSize: 12, color: pal.muted, marginBottom: 6 }}>{t('miniapp.shop_product')}</div>
+                <Select style={{ width: '100%', marginBottom: 12 }} placeholder={t('miniapp.shop_select_product')} value={asProduct}
                     onChange={setAsProduct}
                     options={catalog.map((p) => ({ value: p.id, label: `${p.name} — $${usd(p.price_usdt_cents)}` }))} />
-                <div style={{ fontSize: 12, color: pal.muted, marginBottom: 6 }}>Интервал, дней</div>
+                <div style={{ fontSize: 12, color: pal.muted, marginBottom: 6 }}>{t('miniapp.shop_interval_days')}</div>
                 <InputNumber style={{ width: '100%' }} min={1} max={365} value={asInterval} onChange={setAsInterval} />
                 <div style={{ fontSize: 11.5, color: pal.muted, marginTop: 10 }}>
-                    Списание — с внутреннего USDT-баланса. Пополните его во вкладке «Доход».
+                    {t('miniapp.shop_as_charge_hint')}
                 </div>
             </Modal>
 

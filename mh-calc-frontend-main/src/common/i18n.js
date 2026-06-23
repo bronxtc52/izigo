@@ -7,6 +7,7 @@ import az from '../locales/az/translation.json';
 import ky from '../locales/ky/translation.json';
 import uz from '../locales/uz/translation.json';
 import mn from '../locales/mn/translation.json';
+import en from '../locales/en/translation.json';
 import { API_SERVER_URL } from '@/common/utils/utils';
 
 
@@ -19,10 +20,13 @@ i18n
             az: { translation: az },
             ky: { translation: ky },
             uz: { translation: uz },
-            mn: { translation: mn }
+            mn: { translation: mn },
+            en: { translation: en }
         },
         fallbackLng: 'kk',
-        supportedLngs: ['kk', 'ru', 'mn', 'uz', 'ky', 'az'],
+        // en — второй основной язык Mini App (переключатель RU/EN в профиле). Витрина
+        // продолжает работать на своих 6 языках (список с бэка /api/v1/locales, en там нет).
+        supportedLngs: ['kk', 'ru', 'mn', 'uz', 'ky', 'az', 'en'],
         interpolation: {
             escapeValue: false,
         },
