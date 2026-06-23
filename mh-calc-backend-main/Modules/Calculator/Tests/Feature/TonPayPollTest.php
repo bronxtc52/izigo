@@ -3,6 +3,7 @@
 namespace Modules\Calculator\Tests\Feature;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Http;
 use Modules\Calculator\Models\MemberWallet;
 use Modules\Calculator\Models\Order;
 use Modules\Calculator\Models\Payment;
@@ -117,6 +118,88 @@ class TonPayPollTest extends TestCase
 
         $memberId = $this->memberByTg(1040)->id;
         $this->assertSame(5000, MemberWallet::where('member_id', $memberId)->first()->available_cents);
+    }
+
+    public function testPollExpiresStalePending(): void
+    {
+        $p = $this->makeProduct();
+        [$data] = $this->registerTg(1060, name: 'Buyer');
+        $ctx = $this->payOrder($data, $p->id);
+
+        // Платёж «висит» дольше TTL, оплата так и не пришла.
+        config(['calculator.payment_pending_ttl_minutes' => 30]);
+        Payment::where('id', $ctx['payment_id'])->update(['created_at' => now()->subHour()]);
+
+        $this->artisan('commerce:tonpay-poll')->assertExitCode(0);
+
+        $this->assertSame(Payment::STATUS_EXPIRED, Payment::find($ctx['payment_id'])->status);
+        // Заказ остаётся pending_payment — партнёр может оплатить заново (новый memo).
+        $this->assertSame(Order::STATUS_PENDING_PAYMENT, Order::find($ctx['order_id'])->status);
+    }
+
+    public function testFreshPendingNotExpired(): void
+    {
+        $p = $this->makeProduct();
+        [$data] = $this->registerTg(1061, name: 'Buyer');
+        $ctx = $this->payOrder($data, $p->id);
+
+        // Платёж только что создан — моложе TTL, не истекает.
+        config(['calculator.payment_pending_ttl_minutes' => 30]);
+        $this->artisan('commerce:tonpay-poll')->assertExitCode(0);
+
+        $this->assertSame(Payment::STATUS_PENDING, Payment::find($ctx['payment_id'])->status);
+    }
+
+    public function testPaidBeforeExpiryConfirmedNotExpired(): void
+    {
+        // Средства упали прямо перед отсечкой: опрос подтверждает раньше, чем сработает TTL.
+        $p = $this->makeProduct();
+        [$data] = $this->registerTg(1062, name: 'Buyer');
+        $ctx = $this->payOrder($data, $p->id);
+
+        config(['calculator.payment_pending_ttl_minutes' => 30]);
+        Payment::where('id', $ctx['payment_id'])->update(['created_at' => now()->subHour()]);
+        FakeTonPayGateway::fakePay($ctx['memo'], $ctx['amount']);
+
+        $this->artisan('commerce:tonpay-poll')->assertExitCode(0);
+
+        $this->assertSame(Payment::STATUS_PAID, Payment::find($ctx['payment_id'])->status);
+    }
+
+    public function testTtlDisabledKeepsStalePending(): void
+    {
+        $p = $this->makeProduct();
+        [$data] = $this->registerTg(1063, name: 'Buyer');
+        $ctx = $this->payOrder($data, $p->id);
+
+        // TTL=0 — экспирация выключена, даже древний pending остаётся.
+        config(['calculator.payment_pending_ttl_minutes' => 0]);
+        Payment::where('id', $ctx['payment_id'])->update(['created_at' => now()->subDays(30)]);
+
+        $this->artisan('commerce:tonpay-poll')->assertExitCode(0);
+
+        $this->assertSame(Payment::STATUS_PENDING, Payment::find($ctx['payment_id'])->status);
+    }
+
+    public function testActivationNotificationUsesProductName(): void
+    {
+        // Товар назван иначе, чем легаси-пакет (package_id 1). Уведомление об активации
+        // должно показать имя товара «Start», а не легаси-имя пакета.
+        $product = Product::query()->create([
+            'name' => 'Start', 'price_usdt_cents' => 9000, 'pv' => 90,
+            'package_id' => 1, 'sku' => 'TARIFF-START', 'is_active' => true, 'sort' => 1,
+        ]);
+        [$data] = $this->registerTg(1070, name: 'Buyer');
+        $ctx = $this->payOrder($data, $product->id);
+
+        // Уведомления включаем ПОСЛЕ API-вызовов: подмена bot_token ломала бы подпись initData.
+        Http::fake();
+        config(['calculator.telegram_notify_enabled' => true, 'calculator.telegram_bot_token' => 'TT']);
+        FakeTonPayGateway::fakePay($ctx['memo'], $ctx['amount']);
+        $this->artisan('commerce:tonpay-poll')->assertExitCode(0);
+
+        Http::assertSent(fn ($req) => $req['chat_id'] == 1070
+            && str_contains((string) $req['text'], 'Start'));
     }
 
     public function testPollIsIdempotent(): void

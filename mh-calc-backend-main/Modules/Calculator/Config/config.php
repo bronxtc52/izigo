@@ -27,6 +27,12 @@ return [
     // Приём оплаты. Драйвер: ton_pay (боевой, non-custodial) | wallet_pay (fallback) |
     // ton_pay_fake | fake (тесты/dev). Секреты — из Key Vault, инжектятся env, не хардкод.
     'payment_gateway' => env('PAYMENT_GATEWAY', 'ton_pay'),
+    // TTL «висящих» pending-платежей (минуты). commerce:tonpay-poll метит их expired ПОСЛЕ
+    // финального опроса, чтобы не копились бессрочно. Держим щедрым: приём non-custodial —
+    // поздняя оплата по тому же memo подхватывается poll'ом ТОЛЬКО пока платёж pending,
+    // поэтому ранняя экспирация = риск «осиротевших» средств на merchant-кошельке.
+    // Восстановление: заказ остаётся pending_payment, партнёр создаёт новый платёж. 0 = не истекать.
+    'payment_pending_ttl_minutes' => (int) env('PAYMENT_PENDING_TTL_MINUTES', 1440),
     // TON Pay (приём): наш merchant-адрес получателя (izigo--<env>--TON-MERCHANT-ADDRESS) и
     // ключ к TON API для опроса сети (izigo--<env>--TON-API-KEY). Приватный ключ приёма НЕ нужен.
     'ton_merchant_address' => env('TON_MERCHANT_ADDRESS', ''),
