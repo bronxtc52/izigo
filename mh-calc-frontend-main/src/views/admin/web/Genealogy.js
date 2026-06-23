@@ -22,6 +22,7 @@ const toTreeData = (node, onOpen, onMove) => {
                 <Typography.Text type="secondary" style={{ fontSize: 12 }}>#{node.id}</Typography.Text>
                 <Tag color={node.status === 'active' ? 'green' : 'default'} style={{ marginInlineEnd: 0 }}>{node.status}</Tag>
                 {node.position && <Tag style={{ marginInlineEnd: 0 }}>{node.position === 'left' ? 'L' : 'R'}</Tag>}
+                {node.package && <Tag color="blue" style={{ marginInlineEnd: 0 }}>{node.package}</Tag>}
                 <Typography.Link onClick={(e) => { e.stopPropagation(); onOpen(node.id); }}>карточка</Typography.Link>
                 {onMove && (
                     <Typography.Link onClick={(e) => { e.stopPropagation(); onMove(node.id); }}>перенести</Typography.Link>

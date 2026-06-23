@@ -1,6 +1,6 @@
 'use client';
 import React, { useEffect, useState } from 'react';
-import { Tabs, Table, DatePicker, Button, Space, Row, Col, Card, Statistic, Result, Tag, Typography } from 'antd';
+import { Tabs, Table, DatePicker, Button, Space, Row, Col, Card, Statistic, Result, Tag, Typography, Alert } from 'antd';
 import * as api from '@/views/admin/webApi';
 import { usd } from './format';
 
@@ -189,10 +189,11 @@ const BonusExpenseTab = () => {
 
     if (state.forbidden) return <Forbidden />;
     const d = state.data;
+    const rangeActive = !!(range && range[0] && range[1]);
 
     const columns = [
         { title: 'Тип бонуса', dataIndex: 'type' },
-        { title: 'Сумма (снимок)', dataIndex: 'amount_cents', render: usd },
+        { title: 'Сумма (текущий снимок)', dataIndex: 'amount_cents', render: usd },
     ];
 
     return (
@@ -205,9 +206,15 @@ const BonusExpenseTab = () => {
             <Card size="small" loading={state.loading}>
                 <Statistic title="Расход на бонусы за период (ledger)" value={usd(d?.total_expense_cents)} />
             </Card>
-            <Typography.Text type="secondary">
-                Разбивка по типам — снимок текущего состояния сети (не привязан к периоду).
-            </Typography.Text>
+            <Typography.Text strong>Структура расхода по типам (текущий снимок сети, без периода)</Typography.Text>
+            {rangeActive && (
+                <Alert
+                    type="warning"
+                    showIcon
+                    message="Таблица по типам не зависит от выбранного периода"
+                    description="Это снимок начислений всей сети на текущий момент. Сумма строк НЕ равна итогу «за период» выше — период фильтрует только итог из ledger."
+                />
+            )}
             <Table rowKey="type" loading={state.loading} columns={columns} dataSource={d?.by_type_snapshot ?? []} size="small" pagination={false} />
         </Space>
     );

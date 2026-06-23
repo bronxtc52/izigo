@@ -141,7 +141,7 @@ const MemberCard = ({ id, creds, api = tokenApi, onUnauthorized = () => {}, piiA
                     <Descriptions.Item label="Имя">{m.name ?? '—'}</Descriptions.Item>
                     <Descriptions.Item label="Статус"><Tag color={m.status === 'active' ? 'green' : 'default'}>{m.status}</Tag></Descriptions.Item>
                     <Descriptions.Item label="Ранг">{m.rank ?? '—'}</Descriptions.Item>
-                    <Descriptions.Item label="Пакет">{m.package_id ?? '—'}</Descriptions.Item>
+                    <Descriptions.Item label="Пакет">{m.package ?? m.package_id ?? '—'}</Descriptions.Item>
                     <Descriptions.Item label="Спонсор">{m.sponsor_id ?? '—'}</Descriptions.Item>
                     <Descriptions.Item label="Реф-код">{m.ref_code}</Descriptions.Item>
                     <Descriptions.Item label="Роли">

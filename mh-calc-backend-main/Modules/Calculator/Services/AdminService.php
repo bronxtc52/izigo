@@ -5,6 +5,7 @@ namespace Modules\Calculator\Services;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 use Modules\Calculator\Models\Member;
+use Modules\Calculator\Models\Package;
 use Modules\Calculator\Models\PlanSetting;
 use Modules\Calculator\Models\Role;
 use Modules\Calculator\Repositories\EloquentPlanRepository;
@@ -43,10 +44,11 @@ class AdminService
         $this->applyLeaderScope($query, $viewer);
 
         $ranks = $this->rankAliasMap();
+        $packages = $this->packageNameMap();
         $page = $query->paginate((int) ($filters['per_page'] ?? 25));
 
         return [
-            'data' => collect($page->items())->map(fn (Member $m) => $this->rowOf($m, $ranks))->all(),
+            'data' => collect($page->items())->map(fn (Member $m) => $this->rowOf($m, $ranks, $packages))->all(),
             'total' => $page->total(),
             'per_page' => $page->perPage(),
             'current_page' => $page->currentPage(),
@@ -59,9 +61,10 @@ class AdminService
         $this->assertVisible($viewer, $member);
 
         $ranks = $this->rankAliasMap();
+        $packages = $this->packageNameMap();
 
         return [
-            'member' => $this->rowOf($member, $ranks) + [
+            'member' => $this->rowOf($member, $ranks, $packages) + [
                 'parent_id' => $member->parent_id,
                 'position' => $member->position,
                 'ref_code' => $member->ref_code,
@@ -130,13 +133,15 @@ class AdminService
         return $this->getPlanSettings();
     }
 
-    private function rowOf(Member $m, array $ranks): array
+    private function rowOf(Member $m, array $ranks, array $packages = []): array
     {
         return [
             'id' => $m->id,
             'name' => $m->name,
             'status' => $m->status,
             'rank' => $m->rank_id ? ($ranks[$m->rank_id] ?? null) : null,
+            // Имя пакета (как в отчёте «Пользователи»); package_id оставляем для совместимости.
+            'package' => $m->package_id ? ($packages[$m->package_id] ?? "#{$m->package_id}") : null,
             'package_id' => $m->package_id,
             'sponsor_id' => $m->sponsor_id,
             'created_at' => $m->created_at?->toIso8601String(),
@@ -146,6 +151,12 @@ class AdminService
     private function rankAliasMap(): array
     {
         return DB::table('calculator_ranks')->pluck('alias', 'id')->all();
+    }
+
+    /** id пакета → отображаемое имя (accessor name локализован, потому через get()). */
+    private function packageNameMap(): array
+    {
+        return Package::query()->get()->mapWithKeys(fn (Package $p) => [$p->id => $p->name])->all();
     }
 
     /** Ограничить выборку поддеревом лидера (если viewer — лидер и не owner). */

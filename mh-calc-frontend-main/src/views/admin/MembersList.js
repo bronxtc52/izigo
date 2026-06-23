@@ -56,7 +56,7 @@ const MembersList = ({ creds, api = tokenApi, onUnauthorized = () => {}, onOpenM
             render: (s) => <Tag color={s === 'active' ? 'green' : 'default'}>{s}</Tag>,
         },
         { title: 'Ранг', dataIndex: 'rank', render: (r) => r ?? '—' },
-        { title: 'Пакет', dataIndex: 'package_id', render: (p) => p ?? '—' },
+        { title: 'Пакет', dataIndex: 'package', render: (p, r) => p ?? r.package_id ?? '—' },
         { title: 'Спонсор', dataIndex: 'sponsor_id', render: (s) => s ?? '—' },
         {
             title: 'Дата',
