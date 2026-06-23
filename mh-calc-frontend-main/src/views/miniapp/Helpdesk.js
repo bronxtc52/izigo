@@ -149,7 +149,7 @@ const Helpdesk = ({ initData, pal, isDark }) => {
                                     borderRadius: 12,
                                     whiteSpace: 'pre-wrap',
                                     wordBreak: 'break-word',
-                                    background: mine ? '#7C3AED' : (pal?.ghostBg ?? (isDark ? '#1f2733' : '#f0f0f0')),
+                                    background: mine ? (pal?.brand ?? '#7C3AED') : (pal?.ghostBg ?? (isDark ? '#1f2733' : '#f0f0f0')),
                                     color: mine ? '#fff' : pal?.fg,
                                 }}>
                                     {m.body}

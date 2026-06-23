@@ -78,7 +78,7 @@ export function miniAppPalette(theme, scheme) {
             bg: '#090C16', surface: 'rgba(255,255,255,0.045)', surface2: 'rgba(255,255,255,0.06)',
             sheet: '#141A2B', fg: '#E9ECF8', muted: '#9AA3C7',
             // accent — активные вкладки/ссылки; CTA primary — градиент primBg (см. components/экраны).
-            accent: '#8EE6FF', accent2: '#A78BFA', onAccent: '#0A0A16',
+            accent: '#8EE6FF', accent2: '#A78BFA', onAccent: '#0A0A16', brand: '#7C3AED',
             tabInactive: '#5F6890',
             border: 'rgba(255,255,255,0.09)', success: '#6FE0AE', warning: '#E6C06A', error: '#F0635E',
             pos: '#6FE9FF', ghostBg: 'rgba(255,255,255,0.06)',
@@ -97,7 +97,7 @@ export function miniAppPalette(theme, scheme) {
             isDark: false,
             bg: '#EFF1F9', surface: '#FFFFFF', surface2: '#F1EFFC',
             sheet: '#FFFFFF', fg: '#161A40', muted: '#6B7194',
-            accent: '#6D28D9', accent2: '#7C3AED', onAccent: '#FFFFFF',
+            accent: '#6D28D9', accent2: '#7C3AED', onAccent: '#FFFFFF', brand: '#7C3AED',
             tabInactive: '#9AA0BE',
             border: '#E7E4F6', success: '#0E7C5A', warning: '#9A6700', error: '#D33A36',
             pos: '#0E7C5A', ghostBg: '#F1EFFC',
@@ -105,7 +105,8 @@ export function miniAppPalette(theme, scheme) {
             heroBg: 'linear-gradient(165deg, rgba(124,58,237,.12), rgba(8,145,178,.07) 60%, rgba(124,58,237,0))',
             heroBorder: 'rgba(124,58,237,.24)',
             heroGlow: '0 12px 30px -16px rgba(124,58,237,.4)',
-            balGrad: 'linear-gradient(92deg,#6D28D9,#0E7490)',
+            // teal-конец затемнён (#155E75) ради запаса контраста AA балансного градиента на светлом фоне.
+            balGrad: 'linear-gradient(92deg,#6D28D9,#155E75)',
             primBg: 'linear-gradient(92deg,#7C3AED,#2563EB)', primTxt: '#FFFFFF',
             primGlow: '0 8px 20px -8px rgba(124,58,237,.5)',
             scrim: 'rgba(20,22,50,.4)',

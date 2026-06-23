@@ -355,11 +355,11 @@ const MiniAppShell = () => {
     const heroCardStyle = { background: pal.heroBg, border: `1px solid ${pal.heroBorder}`, boxShadow: pal.heroGlow };
     const gradBtnStyle = { background: pal.primBg, color: pal.primTxt, border: 'none', boxShadow: pal.primGlow };
     const balGradStyle = { ...balanceFont, fontWeight: 700, background: pal.balGrad, WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent' };
-    const progGrad = { '0%': '#7C3AED', '100%': isDark ? '#5EE3F5' : '#2563EB' };
+    const progGrad = { '0%': pal.brand, '100%': isDark ? '#5EE3F5' : '#2563EB' };
 
     return (
         <ConfigProvider theme={themeConfig}>
-            <div style={{ minHeight: '100vh', paddingBottom: stateScreen ? 0 : 74, background: pal.scrbg ?? pal.bg, backgroundColor: pal.bg, color: pal.fg, ['--tree-border']: pal.border }}>
+            <div style={{ minHeight: '100vh', paddingBottom: stateScreen ? 0 : 74, background: pal.scrbg, color: pal.fg, ['--tree-border']: pal.border }}>
                 {stateScreen ?? (
                 <>
                 <div style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 12 }}>
