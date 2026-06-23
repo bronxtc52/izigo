@@ -262,17 +262,21 @@ class AdminReportService
             ? Member::query()->find($rootId)
             : Member::query()->whereNull('parent_id')->orderBy('id')->first();
 
-        return ['tree' => $root ? $this->genealogyNode($root, 0) : null];
+        // Имя пакета (accessor локализован → через get()); пробрасываем в рекурсию.
+        $packageNames = Package::query()->get()->mapWithKeys(fn (Package $p) => [$p->id => $p->name])->all();
+
+        return ['tree' => $root ? $this->genealogyNode($root, 0, $packageNames) : null];
     }
 
     /** Узел генеалогии + рекурсивный спуск по детям (left раньше right). */
-    private function genealogyNode(Member $m, int $depth): array
+    private function genealogyNode(Member $m, int $depth, array $packageNames = []): array
     {
         $node = [
             'id' => $m->id,
             'name' => $m->name ?? "#{$m->id}",
             'status' => $m->status,
             'position' => $m->position,
+            'package' => $m->package_id ? ($packageNames[$m->package_id] ?? "#{$m->package_id}") : null,
             'package_id' => $m->package_id,
             'children' => [],
         ];
@@ -289,7 +293,7 @@ class AdminReportService
             ->get(['id', 'name', 'status', 'position', 'package_id', 'parent_id']);
 
         foreach ($children as $child) {
-            $node['children'][] = $this->genealogyNode($child, $depth + 1);
+            $node['children'][] = $this->genealogyNode($child, $depth + 1, $packageNames);
         }
 
         return $node;

@@ -41,6 +41,7 @@ class AdminUiDisplayTest extends TestCase
         $this->assertSame('izigo_v_ui', $db, "Тест должен идти ТОЛЬКО против izigo_v_ui, а не {$db}");
 
         config(['calculator.telegram_bot_token' => '123456:TEST_BOT_TOKEN']);
+        config(['app.locale' => 'ru']); // пакеты резолвятся в Bronze/Silver/Gold (lang ru)
 
         $this->members = app(MemberService::class);
         $this->activation = app(ActivationService::class);
@@ -104,9 +105,10 @@ class AdminUiDisplayTest extends TestCase
         $this->assertSame($this->root->id, $tree['id']);
         $this->assertSame('Owner', $tree['name']);
         $this->assertSame('active', $tree['status']);
-        // package_id присутствует в каждом узле (хоть фронт его и не показывает — см. Layer B).
+        // package_id присутствует в каждом узле; ФИКС: добавлено резолвнутое имя пакета.
         $this->assertArrayHasKey('package_id', $tree);
         $this->assertSame(2, $tree['package_id']);
+        $this->assertSame('Silver', $tree['package']);
 
         // Дети упорядочены left раньше right.
         $children = $tree['children'];
@@ -117,13 +119,16 @@ class AdminUiDisplayTest extends TestCase
         $this->assertSame($this->childR->id, $children[1]['id']);
         $this->assertSame(1, $children[0]['package_id']);
         $this->assertSame(3, $children[1]['package_id']);
+        $this->assertSame('Bronze', $children[0]['package']);
+        $this->assertSame('Gold', $children[1]['package']);
 
-        // grandchild под childL, registered, package_id null.
+        // grandchild под childL, registered, package_id null → package тоже null.
         $grand = $children[0]['children'];
         $this->assertCount(1, $grand);
         $this->assertSame($this->grandL->id, $grand[0]['id']);
         $this->assertSame('registered', $grand[0]['status']);
         $this->assertNull($grand[0]['package_id']);
+        $this->assertNull($grand[0]['package']);
 
         // Cross-check vs actual rows.
         foreach ([$this->root, $this->childL, $this->childR] as $m) {
@@ -205,9 +210,10 @@ class AdminUiDisplayTest extends TestCase
         $this->assertSame('Owner', $rootRow['name']);
         $this->assertSame('active', $rootRow['status']);
         $this->assertArrayHasKey('package_id', $rootRow);
-        // ДИСПЛЕЙ-БАГ КАНДИДАТ: package_id отдаётся как СЫРОЙ id (число), без имени пакета.
+        // ФИКС: рядом с сырым package_id теперь резолвнутое имя пакета (как в отчёте «Пользователи»).
         $this->assertSame(2, $rootRow['package_id']);
         $this->assertIsInt($rootRow['package_id']);
+        $this->assertSame('Silver', $rootRow['package']);
         $this->assertArrayHasKey('sponsor_id', $rootRow);
         $this->assertArrayHasKey('rank', $rootRow);
     }
@@ -220,9 +226,10 @@ class AdminUiDisplayTest extends TestCase
         $this->assertSame($this->childL->id, $m['id']);
         $this->assertSame('ChildL', $m['name']);
         $this->assertSame('active', $m['status']);
-        // package_id СЫРОЙ — фронт MemberCard.js:144 рендерит это число как «Пакет».
+        // ФИКС: фронт MemberCard.js теперь рендерит имя пакета (m.package), package_id оставлен.
         $this->assertSame(1, $m['package_id']);
         $this->assertIsInt($m['package_id']);
+        $this->assertSame('Bronze', $m['package']);
         $this->assertSame($this->root->id, $m['sponsor_id']);
         $this->assertArrayHasKey('ref_code', $m);
         $this->assertArrayHasKey('parent_id', $m);
