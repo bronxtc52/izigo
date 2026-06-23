@@ -30,7 +30,12 @@ class ActivationService
     ) {
     }
 
-    public function activate(int $memberId, int $packageId, string $idempotencyKey): ActivationEvent
+    /**
+     * $displayName — имя для уведомления об активации (имя купленного каталог-товара,
+     * напр. «Start»). Когда null (прямая активация по пакету), уведомление падает на
+     * легаси-имя пакета (Bronze/Silver/Gold). Не влияет на расчёт — только на текст пуша.
+     */
+    public function activate(int $memberId, int $packageId, string $idempotencyKey, ?string $displayName = null): ActivationEvent
     {
         $oldRank = null;
         $applied = false;
@@ -69,14 +74,14 @@ class ActivationService
         // вызове внутри внешней транзакции (webhook оплаты заказа) не выстрелить до её коммита;
         // вне транзакции (endpoint активации) колбэк выполнится немедленно.
         if ($applied) {
-            DB::afterCommit(fn () => $this->notifyActivation($memberId, (int) $oldRank, $packageId));
+            DB::afterCommit(fn () => $this->notifyActivation($memberId, (int) $oldRank, $packageId, $displayName));
         }
 
         return $event;
     }
 
     /** Best-effort Telegram-уведомления по факту активации (вне транзакции). */
-    private function notifyActivation(int $memberId, int $oldRank, int $packageId): void
+    private function notifyActivation(int $memberId, int $oldRank, int $packageId, ?string $displayName = null): void
     {
         if (!$this->notifier->isEnabled()) {
             return; // быстрый выход без лишних запросов, когда уведомления выключены
@@ -89,11 +94,15 @@ class ActivationService
 
         $package = $this->planRepository->load()->package($packageId);
         $total = (string) (MemberEarning::query()->where('member_id', $memberId)->value('total') ?? '0.00');
+        // Имя купленного товара приоритетнее легаси-имени пакета («две вселенные пакетов»).
+        $activatedName = ($displayName !== null && $displayName !== '')
+            ? $displayName
+            : ($package?->name ?? ('#' . $packageId));
 
         if ($member->telegram_id) {
             $this->notifier->notify(
                 (int) $member->telegram_id,
-                TelegramNotifications::packageActivated($package?->name ?? ('#' . $packageId), $total),
+                TelegramNotifications::packageActivated($activatedName, $total),
             );
 
             if ($member->rank_id && (int) $member->rank_id > $oldRank) {
