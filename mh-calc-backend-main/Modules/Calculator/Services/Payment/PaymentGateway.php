@@ -5,8 +5,8 @@ namespace Modules\Calculator\Services\Payment;
 use Illuminate\Http\Request;
 
 /**
- * Абстракция платёжного шлюза приёма (Фаза 4). Боевой драйвер — Wallet Pay (USDT/TON),
- * тестовый — Fake. Новый провайдер = новый драйвер, ядро/сервис не трогаем.
+ * Абстракция платёжного шлюза приёма (Фаза 4). Боевой драйвер — TON Pay (USDT/TON,
+ * non-custodial), тестовый — Fake. Новый провайдер = новый драйвер, ядро/сервис не трогаем.
  */
 interface PaymentGateway
 {
