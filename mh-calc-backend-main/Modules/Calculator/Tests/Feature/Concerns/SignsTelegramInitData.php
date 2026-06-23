@@ -4,6 +4,7 @@ namespace Modules\Calculator\Tests\Feature\Concerns;
 
 use Modules\Calculator\Models\Member;
 use Modules\Calculator\Models\Role;
+use Modules\Calculator\Services\MemberService;
 
 /**
  * Хелперы для тестов авторизации платформы через Telegram initData (единственный
@@ -73,16 +74,36 @@ trait SignsTelegramInitData
     }
 
     /**
-     * «Регистрация» = первый вызов /cabinet/me с данным initData (middleware создаёт
-     * участника). Возвращает [initData, ref_code].
+     * Создать УЧАСТНИКА (member) в дереве — фикстура для тестов, которым нужен готовый
+     * партнёр. В боевой воронке участник появляется только при первой покупке (промоушн
+     * лида); тут создаём напрямую через MemberService (как при оплате/сидировании), чтобы
+     * не гонять весь чекаут. Возвращает [initData, ref_code].
      */
     protected function registerTg(int $tgId, ?string $sponsorRef = null, ?string $name = null): array
     {
+        $member = app(MemberService::class)->registerTelegram(
+            $tgId,
+            $name ?? "U{$tgId}",
+            "u{$tgId}",
+            $sponsorRef,
+            null,
+        );
         $initData = $this->initData($tgId, $sponsorRef, $name);
-        $ref = $this->getJson('/api/v1/cabinet/me', $this->tgHeaders($initData))
-            ->assertOk()->json('data.member.ref_code');
 
-        return [$initData, $ref];
+        return [$initData, $member->ref_code];
+    }
+
+    /**
+     * Создать ЛИДА через боевой путь (первый заход в Mini App по реф-ссылке спонсора).
+     * Возвращает [initData, data] (data — leadState из /cabinet/me).
+     */
+    protected function makeLead(int $tgId, string $sponsorRef, ?string $name = null): array
+    {
+        $initData = $this->initData($tgId, $sponsorRef, $name);
+        $data = $this->getJson('/api/v1/cabinet/me', $this->tgHeaders($initData))
+            ->assertOk()->json('data');
+
+        return [$initData, $data];
     }
 
     protected function memberByTg(int $tgId): Member

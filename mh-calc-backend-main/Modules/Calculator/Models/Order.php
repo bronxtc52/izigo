@@ -32,6 +32,7 @@ class Order extends Model
 
     protected $fillable = [
         'member_id',
+        'lead_id',
         'package_id',
         'total_usdt_cents',
         'total_pv',

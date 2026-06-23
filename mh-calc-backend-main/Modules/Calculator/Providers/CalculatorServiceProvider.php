@@ -6,6 +6,7 @@ use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\ServiceProvider;
 use Modules\Calculator\Console\AutoshipRunCommand;
+use Modules\Calculator\Console\ExpireLeadsCommand;
 use Modules\Calculator\Console\OutboxDispatchCommand;
 use Modules\Calculator\Console\PayoutsPollCommand;
 use Modules\Calculator\Console\RemoveOldEmptyStructuresCommand;
@@ -132,6 +133,7 @@ class CalculatorServiceProvider extends ServiceProvider
             PayoutsPollCommand::class,
             TonPayPollCommand::class,
             OutboxDispatchCommand::class,
+            ExpireLeadsCommand::class,
         ]);
     }
 
@@ -153,6 +155,8 @@ class CalculatorServiceProvider extends ServiceProvider
             // C1 (Block C): диспетчер outbox уведомлений — фон проекта = планировщик,
             // НЕ Laravel queue. TTL мьютекса 5 мин, чтобы зависший тик не блокировал.
             $schedule->command('notifications:outbox-dispatch')->everyMinute()->withoutOverlapping(5);
+            // Открепление просроченных лидов: окно 7 дней, ежечасной гранулярности достаточно.
+            $schedule->command('leads:expire')->hourly()->withoutOverlapping(10);
         });
     }
 

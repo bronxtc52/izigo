@@ -29,7 +29,25 @@ class CabinetController
 
     public function me(Request $request): JsonResponse
     {
-        return $this->guarded(fn () => $this->service->profile($this->member($request)));
+        // Идентичность резолвит middleware: участник, лид (ещё не купил) или никто.
+        $member = $request->attributes->get('member');
+        if ($member !== null) {
+            return $this->guarded(fn () => $this->service->profile($member));
+        }
+
+        $lead = $request->attributes->get('lead');
+        if ($lead !== null) {
+            return $this->guarded(fn () => $this->service->leadState($lead));
+        }
+
+        // Валидный Telegram-юзер без спонсора — нужна реф-ссылка для входа в воронку.
+        return response()->json(['status' => 'success', 'data' => ['need_referral' => true]]);
+    }
+
+    /** Личные рефералы (по sponsor_id, любая глубина) — отдельно от бинар-дерева (team-tree). */
+    public function personalReferrals(Request $request): JsonResponse
+    {
+        return $this->guarded(fn () => $this->service->personalReferrals($this->member($request)));
     }
 
     public function dashboard(Request $request): JsonResponse
@@ -116,10 +134,18 @@ class CabinetController
         return $this->guarded(fn () => $this->agreement->accept($this->member($request)));
     }
 
-    /** Текущий участник, резолвленный telegram.auth. */
+    /**
+     * Текущий участник (telegram.auth). Лид (ещё не купил) участником НЕ является:
+     * member-only эндпоинты для него дают доменную ошибку (gateway → 404).
+     */
     private function member(Request $request): Member
     {
-        return $request->attributes->get('member');
+        $member = $request->attributes->get('member');
+        if ($member === null) {
+            throw new RuntimeException('Доступно после активации пакета');
+        }
+
+        return $member;
     }
 
     /** Единый формат успеха + аккуратный 404 при доменной ошибке. */

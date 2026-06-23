@@ -4,6 +4,7 @@ namespace Modules\Calculator\Services;
 
 use Modules\Calculator\Domain\Model\MemberNode;
 use Modules\Calculator\Domain\Plan\Plan;
+use Modules\Calculator\Models\Lead;
 use Modules\Calculator\Models\Member;
 use Modules\Calculator\Models\MemberBonusLine;
 use Modules\Calculator\Models\MemberEarning;
@@ -38,11 +39,80 @@ class CabinetService
                 'status' => $member->status,
                 'package_id' => $member->package_id,
                 'rank' => $rank ? ['id' => $rank->id, 'alias' => $rank->alias] : null,
+                // Личные рефералы (по sponsor_id, любая глубина бинара) — НЕ бинар-ноги.
+                // Источник истины для счётчика «Личных»/«Приглашено» в Mini App.
+                'personal_count' => Member::query()->where('sponsor_id', $member->id)->count(),
                 // Роли — чтобы Mini App показал админ-раздел владельцу/админам.
                 'roles' => $member->roles()->pluck('name')->all(),
             ],
             'ref_link' => $this->refLink($member->ref_code),
         ];
+    }
+
+    /**
+     * Состояние лида (ещё не купил пакет) для Mini App: спонсор, срок привязки, окно.
+     * У лида нет дерева/дохода/реф-ссылки — экран «активируйте пакет, чтобы вступить».
+     */
+    public function leadState(Lead $lead): array
+    {
+        $sponsor = $lead->sponsor;
+
+        return [
+            'is_lead' => true,
+            'status' => 'lead',
+            'sponsor' => $sponsor ? [
+                'name' => $sponsor->name ?? ('#' . $sponsor->id),
+                'ref_code' => $sponsor->ref_code,
+            ] : null,
+            'expires_at' => $lead->expires_at?->toIso8601String(),
+            'window_days' => (int) config('calculator.lead_window_days', 7),
+        ];
+    }
+
+    /**
+     * Личные рефералы участника = все, у кого sponsor_id = я (зарегались и купили по моей
+     * рефке), на ЛЮБОЙ глубине бинар-дерева. Это спонсорство, НЕ бинар-команда (та — дерево
+     * placement, где сверху по спилловеру встают чужие). Глубина в бинаре показывается, чтобы
+     * было видно: личный реферал может стоять глубоко.
+     */
+    public function personalReferrals(Member $member): array
+    {
+        $plan = $this->planRepository->load();
+        $myDepth = $this->nlevel($member->path);
+
+        return Member::query()
+            ->where('sponsor_id', $member->id)
+            ->orderBy('created_at')
+            ->orderBy('id')
+            ->get()
+            ->map(function (Member $m) use ($plan, $myDepth) {
+                $rank = $this->rankById($plan, $m->rank_id);
+                $depth = $this->nlevel($m->path);
+
+                return [
+                    'id' => $m->id,
+                    'name' => $m->name ?? ('#' . $m->id),
+                    'status' => $m->status,
+                    'rank' => $rank ? ['id' => $rank->id, 'alias' => $rank->alias] : null,
+                    'position' => $m->position,
+                    'binary_depth' => $depth,
+                    // Глубина в МОЁМ поддереве (спилловер ставит личных под спонсора).
+                    'depth_from_me' => ($myDepth !== null && $depth !== null)
+                        ? max(0, $depth - $myDepth)
+                        : null,
+                    'created_at' => optional($m->created_at)->toIso8601String(),
+                ];
+            })->all();
+    }
+
+    /** Глубина узла в бинар-дереве из materialized path (ids через точку). */
+    private function nlevel(?string $path): ?int
+    {
+        if ($path === null || $path === '') {
+            return null;
+        }
+
+        return substr_count($path, '.') + 1;
     }
 
     public function dashboard(Member $member): array

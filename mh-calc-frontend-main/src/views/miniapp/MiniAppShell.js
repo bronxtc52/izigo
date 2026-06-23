@@ -7,7 +7,7 @@ import {
 } from 'antd';
 import {
     WalletOutlined, TeamOutlined, TrophyOutlined, UserOutlined,
-    ExportOutlined, CopyOutlined, ShoppingOutlined,
+    ExportOutlined, CopyOutlined, ShoppingOutlined, SwapOutlined, ClockCircleOutlined,
 } from '@ant-design/icons';
 import { useTelegram, antdThemeFromTelegram, miniAppPalette } from './telegram';
 import { tint, bonusTint, statusTint, roleTint, bonusDot, numFont, balanceFont } from './tokens';
@@ -15,7 +15,7 @@ import {
     mmMe, mmDashboard, mmRank, mmTree, mmWallet, mmWalletTx, mmWalletStatement, mmWithdrawals, mmWithdrawCreate,
     mmTopup, mmKyc, mmKycSubmit, mmAgreement, mmAgreementAccept, PACKAGES,
     mmCopartners, mmCopartnerCreate, mmCopartnerUpdate, mmCopartnerDelete,
-    mmFeatureFlags,
+    mmFeatureFlags, mmPersonalReferrals, mmChangeSponsor,
 } from './api';
 import MiniAppShop from './MiniAppShop';
 import TonPayCheckout from './TonPayCheckout';
@@ -111,6 +111,14 @@ const MiniAppShell = () => {
     const [tab, setTab] = useState('income');
     const [me, setMe] = useState(null);
     const [refLink, setRefLink] = useState('');
+    // Лид (ещё не купил пакет): спонсор/окно/смена. needReferral — валидный юзер без спонсора.
+    const [leadInfo, setLeadInfo] = useState(null);
+    const [needReferral, setNeedReferral] = useState(false);
+    const [csOpen, setCsOpen] = useState(false);
+    const [csRef, setCsRef] = useState('');
+    const [csBusy, setCsBusy] = useState(false);
+    // Личные рефералы (sponsor_id, любая глубина) — отдельно от бинар-дерева.
+    const [personalReferrals, setPersonalReferrals] = useState([]);
     const [dash, setDash] = useState(null);
     const [rank, setRank] = useState(null);
     const [tree, setTree] = useState(null);
@@ -159,23 +167,46 @@ const MiniAppShell = () => {
     const load = async () => {
         setAuthError(false);
         setServerError(false);
+        setNeedReferral(false);
+        setLeadInfo(null);
         setLoading(true);
-        // Критичные данные кабинета: их сбой = экран ошибки/«Откройте через Telegram».
-        const [m, d, r, t] = await Promise.all([
-            mmMe(initData), mmDashboard(initData), mmRank(initData), mmTree(initData),
+
+        // Сначала идентичность: участник / лид (ещё не купил) / никто (нужна реф-ссылка).
+        const m = await mmMe(initData);
+        if (m?.error === 401) { setAuthError(true); setLoading(false); return; }
+        if (m?.error) { setServerError(true); setLoading(false); return; }
+        const data = m?.data ?? {};
+
+        if (data.is_lead) {
+            // Лид: дерева/дохода/кошелька нет — отдельный экран «активируйте пакет».
+            setLeadInfo(data);
+            setMe(null);
+            setLoading(false);
+            return;
+        }
+        if (data.need_referral) {
+            setNeedReferral(true);
+            setMe(null);
+            setLoading(false);
+            return;
+        }
+
+        // Участник: профиль + критичные данные кабинета (их сбой = экран ошибки).
+        setMe(data.member ?? null);
+        setRefLink(data.ref_link ?? '');
+        const [d, r, t] = await Promise.all([
+            mmDashboard(initData), mmRank(initData), mmTree(initData),
         ]);
-        const errors = [m, d, r, t].map((x) => x?.error).filter((e) => e !== undefined);
+        const errors = [d, r, t].map((x) => x?.error).filter((e) => e !== undefined);
         if (errors.includes(401)) { setAuthError(true); setLoading(false); return; }
         if (errors.length) { setServerError(true); setLoading(false); return; }
-        setMe(m?.data?.member ?? null);
-        setRefLink(m?.data?.ref_link ?? '');
         setDash(d?.data ?? null);
         setRank(r?.data ?? null);
         setTree(t?.data ?? null);
-        // Кошелёк/выводы (Фаза 3) + KYC (Фаза 4) + соглашение (B3) + флаги (C3) — опциональны: их сбой НЕ роняет кабинет.
-        const [w, wtx, wd, k, ag, cp, ff] = await Promise.all([
+        // Кошелёк/выводы + KYC + соглашение + флаги + личные рефералы — опциональны: их сбой НЕ роняет кабинет.
+        const [w, wtx, wd, k, ag, cp, ff, pr] = await Promise.all([
             mmWallet(initData), mmWalletTx(initData), mmWithdrawals(initData), mmKyc(initData), mmAgreement(initData),
-            mmCopartners(initData), mmFeatureFlags(initData),
+            mmCopartners(initData), mmFeatureFlags(initData), mmPersonalReferrals(initData),
         ]);
         setWallet(w?.error ? null : (w?.data ?? null));
         setWalletTx(wtx?.error ? [] : (wtx?.data?.items ?? []));
@@ -183,6 +214,7 @@ const MiniAppShell = () => {
         setKyc(k?.error ? null : (k?.data ?? null));
         setAgreement(ag?.error ? null : (ag?.data ?? null));
         setCopartners(Array.isArray(cp?.data) ? cp.data : []);
+        setPersonalReferrals(Array.isArray(pr?.data) ? pr.data : []);
         // Deny-by-default: сбой/невалидный ответ (или не-объект/массив) => пустая карта => blockC-фичи скрыты.
         setFlags(ff?.error || !ff?.data || typeof ff.data !== 'object' || Array.isArray(ff.data) ? {} : ff.data);
         setLoading(false);
@@ -319,9 +351,35 @@ const MiniAppShell = () => {
         );
     };
 
+    // Лид: сменить спонсора по ref-коду (доступно, пока окно не истекло и пакет не куплен).
+    const onChangeSponsor = async () => {
+        const code = csRef.trim();
+        if (!code) { message.error('Введите реф-код спонсора'); return; }
+        setCsBusy(true);
+        const res = await mmChangeSponsor(initData, code);
+        setCsBusy(false);
+        if (res?.error || res?.status === 'error') {
+            message.error('Не удалось сменить спонсора (проверьте код, срок не истёк)');
+            return;
+        }
+        message.success('Спонсор обновлён');
+        wa?.HapticFeedback?.notificationOccurred?.('success');
+        setCsOpen(false);
+        setCsRef('');
+        setLeadInfo(res?.data ?? leadInfo);
+    };
+
+    // Остаток лид-окна в днях (для подсказки лиду).
+    const leadDaysLeft = (() => {
+        if (!leadInfo?.expires_at) return null;
+        const ms = new Date(leadInfo.expires_at).getTime() - Date.now();
+        return ms > 0 ? Math.ceil(ms / 86400000) : 0;
+    })();
+
     const byType = dash?.by_type ?? {};
     const teamCount = useMemo(() => (tree ? countTeam(tree) : { total: 0, active: 0 }), [tree]);
-    const personalCount = (tree?.children ?? []).length;
+    // «Личные» = по спонсорству (sponsor_id), любая глубина бинара — НЕ две прямые ноги дерева.
+    const personalCount = me?.personal_count ?? 0;
 
     const TABS = [
         { key: 'income', label: 'Доход', icon: <WalletOutlined /> },
@@ -346,7 +404,10 @@ const MiniAppShell = () => {
                 ? <Result status="error" title="Ошибка загрузки"
                     subTitle="Не удалось получить данные. Попробуйте позже."
                     extra={<Button type="primary" onClick={() => { setServerError(false); setLoading(true); load(); }}>Повторить</Button>} />
-                : null;
+                : needReferral
+                    ? <Result status="info" title="Нужна реферальная ссылка"
+                        subTitle="Откройте приложение по приглашению партнёра, чтобы присоединиться к команде." />
+                    : null;
 
     const SectionLabel = ({ children }) => (
         <div style={{ fontSize: 12, fontWeight: 700, color: pal.muted, margin: '2px 2px 8px' }}>{children}</div>
@@ -363,7 +424,46 @@ const MiniAppShell = () => {
             <div style={{ minHeight: '100vh', paddingBottom: stateScreen ? 0 : 74, background: pal.scrbg, color: pal.fg, ['--tree-border']: pal.border }}>
                 {/* Aurora-сплэш запуска: висит, пока грузимся (loading=true до ready+данных), затем crossfade. */}
                 <SplashScreen active={loading} pal={pal} />
-                {stateScreen ?? (
+                {stateScreen ?? (leadInfo ? (
+                <div style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    {/* Экран ЛИДА: ещё не купил пакет → вне дерева. Может купить (промоушн в Member)
+                        или сменить спонсора, пока не активировал. */}
+                    <Card size="small" style={heroCardStyle} styles={{ body: { padding: 18 } }}>
+                        <div style={{ ...numFont, fontSize: 18, fontWeight: 800 }}>Добро пожаловать 👋</div>
+                        <div style={{ fontSize: 13.5, color: pal.muted, marginTop: 6 }}>
+                            Активируйте любой пакет, чтобы вступить в команду и получить свою реферальную ссылку.
+                        </div>
+                        <Divider style={{ margin: '14px 0' }} />
+                        <Flex justify="space-between" align="center" gap={8}>
+                            <div style={{ minWidth: 0 }}>
+                                <div style={{ fontSize: 11.5, color: pal.muted }}>Ваш спонсор</div>
+                                <div style={{ ...numFont, fontWeight: 700, fontSize: 16 }}>{leadInfo.sponsor?.name ?? '—'}</div>
+                                {leadInfo.sponsor?.ref_code && (
+                                    <div style={{ fontSize: 11, color: pal.muted }}>код {leadInfo.sponsor.ref_code}</div>
+                                )}
+                            </div>
+                            <Button icon={<SwapOutlined />} onClick={() => { setCsRef(''); setCsOpen(true); }}>Сменить</Button>
+                        </Flex>
+                        {leadDaysLeft != null && (
+                            <div style={{ fontSize: 11.5, color: pal.muted, marginTop: 10 }}>
+                                <ClockCircleOutlined /> Привязка к спонсору активна ещё {leadDaysLeft} дн. — сменить спонсора можно до первой покупки.
+                            </div>
+                        )}
+                    </Card>
+
+                    <MiniAppShop initData={initData} pal={pal} isDark={isDark} wa={wa}
+                        leadMode onUnauthorized={() => setAuthError(true)} onAfterPaid={load} />
+
+                    <Modal title="Сменить спонсора" open={csOpen} onOk={onChangeSponsor} confirmLoading={csBusy}
+                        onCancel={() => setCsOpen(false)} okText="Сменить">
+                        <div style={{ fontSize: 12, color: pal.muted, marginBottom: 8 }}>
+                            Введите реф-код нового спонсора. Сменить можно, пока вы не активировали пакет.
+                        </div>
+                        <Input placeholder="Реф-код (например A1B2C3D4)" value={csRef} maxLength={16}
+                            onChange={(e) => setCsRef(e.target.value.trim().toUpperCase())} />
+                    </Modal>
+                </div>
+                ) : (
                 <>
                 <div style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 12 }}>
 
@@ -587,8 +687,44 @@ const MiniAppShell = () => {
                                         onClick={() => setTeamFilter(k)} style={{ flex: 1 }}>{lbl}</Button>
                                 ))}
                             </div>
-                            <Card size="small" title="Моя команда">
+                            <Card size="small" title="Бинарная команда">
+                                <div style={{ fontSize: 11.5, color: pal.muted, marginBottom: 8 }}>
+                                    Структура размещения (2 ветки). Сюда по спилловеру встают и не ваши личные рефералы.
+                                </div>
                                 {tree?.name ? <TreeNode node={tree} depth={0} isDark={isDark} filter={teamFilter} /> : 'Команда пуста'}
+                            </Card>
+
+                            <Card size="small" title="Личные рефералы">
+                                <div style={{ fontSize: 11.5, color: pal.muted, marginBottom: 8 }}>
+                                    Кого вы лично пригласили (по реф-ссылке) и кто купил. Могут стоять на любой глубине бинара.
+                                </div>
+                                <List
+                                    dataSource={personalReferrals}
+                                    locale={{ emptyText: 'Личных рефералов пока нет' }}
+                                    renderItem={(p) => {
+                                        const t = statusTint(p.status, isDark);
+                                        return (
+                                            <List.Item>
+                                                <Flex align="center" gap={9} style={{ flex: 1, minWidth: 0 }}>
+                                                    <Avatar size={28} style={{ background: t.bg, color: t.color, fontSize: 11, fontWeight: 700 }}>
+                                                        {initials(p.name)}
+                                                    </Avatar>
+                                                    <span style={{ fontSize: 13.5, fontWeight: 600, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</span>
+                                                </Flex>
+                                                <Flex gap={6} align="center">
+                                                    {p.depth_from_me != null && (
+                                                        <Tag style={{ background: tint('blue', isDark).bg, color: tint('blue', isDark).color, border: 'none', fontSize: 10.5 }}>
+                                                            глубина {p.depth_from_me}
+                                                        </Tag>
+                                                    )}
+                                                    <Tag style={{ background: t.bg, color: t.color, border: 'none', fontSize: 10.5, fontWeight: 600, marginInlineEnd: 0 }}>
+                                                        {p.status === 'active' ? 'активен' : 'нов'}
+                                                    </Tag>
+                                                </Flex>
+                                            </List.Item>
+                                        );
+                                    }}
+                                />
                             </Card>
                         </>
                     )}
@@ -902,7 +1038,7 @@ const MiniAppShell = () => {
                     </div>
                 </Modal>
                 </>
-                )}
+                ))}
             </div>
         </ConfigProvider>
     );

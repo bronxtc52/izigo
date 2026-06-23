@@ -52,22 +52,54 @@ class CommerceController
             'idempotency_key' => 'nullable|string|max:255',
         ]);
 
-        return $this->guarded(fn () => $this->orders->create(
-            $this->member($request),
-            (int) $validated['product_id'],
-            (int) ($validated['qty'] ?? 1),
-            $validated['idempotency_key'] ?? null,
-        ));
+        $member = $request->attributes->get('member');
+        $lead = $request->attributes->get('lead');
+        $productId = (int) $validated['product_id'];
+        $qty = (int) ($validated['qty'] ?? 1);
+        $key = $validated['idempotency_key'] ?? null;
+
+        return $this->guarded(function () use ($member, $lead, $productId, $qty, $key) {
+            if ($member !== null) {
+                return $this->orders->create($member, $productId, $qty, $key);
+            }
+            if ($lead !== null) {
+                // Первая покупка лида: заказ привязан к лиду, member появится при оплате.
+                return $this->orders->createForLead($lead, $productId, $qty, $key);
+            }
+            throw new RuntimeException('Откройте по реферальной ссылке');
+        });
     }
 
     public function payOrder(Request $request, int $id): JsonResponse
     {
-        return $this->guarded(fn () => $this->payments->startOrderPayment($this->member($request), $id));
+        $member = $request->attributes->get('member');
+        $lead = $request->attributes->get('lead');
+
+        return $this->guarded(function () use ($member, $lead, $id) {
+            if ($member !== null) {
+                return $this->payments->startOrderPayment($member, $id);
+            }
+            if ($lead !== null) {
+                return $this->payments->startOrderPaymentForLead($lead, $id);
+            }
+            throw new RuntimeException('Откройте по реферальной ссылке');
+        });
     }
 
     public function checkPayment(Request $request, int $id): JsonResponse
     {
-        return $this->guarded(fn () => $this->payments->checkForMember($this->member($request), $id));
+        $member = $request->attributes->get('member');
+        $lead = $request->attributes->get('lead');
+
+        return $this->guarded(function () use ($member, $lead, $id) {
+            if ($member !== null) {
+                return $this->payments->checkForMember($member, $id);
+            }
+            if ($lead !== null) {
+                return $this->payments->checkForLead($lead, $id);
+            }
+            throw new RuntimeException('Откройте по реферальной ссылке');
+        });
     }
 
     public function topup(Request $request): JsonResponse
@@ -134,7 +166,13 @@ class CommerceController
 
     private function member(Request $request): Member
     {
-        return $request->attributes->get('member');
+        $member = $request->attributes->get('member');
+        if ($member === null) {
+            // Лид (ещё не купил): заказы-история/topup/autoship/kyc — только для участника.
+            throw new RuntimeException('Доступно после активации пакета');
+        }
+
+        return $member;
     }
 
     private function guarded(callable $fn): JsonResponse

@@ -8,6 +8,7 @@ use Modules\Calculator\Http\Controllers\CabinetController;
 use Modules\Calculator\Http\Controllers\CalculatorController;
 use Modules\Calculator\Http\Controllers\CommerceAdminController;
 use Modules\Calculator\Http\Controllers\CommerceController;
+use Modules\Calculator\Http\Controllers\LeadController;
 use Modules\Calculator\Http\Controllers\PackageController;
 use Modules\Calculator\Http\Controllers\RankController;
 use Modules\Calculator\Http\Controllers\WebhookController;
@@ -77,6 +78,10 @@ Route::group([
     Route::get('/dashboard', [CabinetController::class, 'dashboard'])->name('dashboard');
     Route::get('/rank-progress', [CabinetController::class, 'rankProgress'])->name('rank-progress');
     Route::get('/team-tree', [CabinetController::class, 'teamTree'])->name('team-tree');
+    // Личные рефералы (sponsor_id, любая глубина) — отдельно от бинар-дерева (team-tree).
+    Route::get('/personal-referrals', [CabinetController::class, 'personalReferrals'])->name('personal-referrals');
+    // Действие лида (ещё не купил): сменить спонсора в пределах окна.
+    Route::post('/lead/change-sponsor', [LeadController::class, 'changeSponsor'])->name('lead-change-sponsor');
     Route::post('/activate-package', [CabinetController::class, 'activate'])->name('activate-package');
     // Кошелёк (Фаза 3): баланс из кэша + лента движений доступного баланса.
     Route::get('/wallet', [CabinetController::class, 'wallet'])->name('wallet');

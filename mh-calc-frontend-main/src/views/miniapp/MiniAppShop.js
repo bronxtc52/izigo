@@ -23,7 +23,7 @@ const AUTOSHIP_STATUS = {
 };
 
 /** Вкладка «Магазин»: каталог товаров (цена USDT + PV) → заказ → оплата TON Pay → мои заказы. */
-export default function MiniAppShop({ initData, pal, isDark, wa, onUnauthorized }) {
+export default function MiniAppShop({ initData, pal, isDark, wa, onUnauthorized, onAfterPaid, leadMode = false }) {
     const [view, setView] = useState('catalog'); // catalog | orders | autoship
     const [catalog, setCatalog] = useState([]);
     const [orders, setOrders] = useState([]);
@@ -41,6 +41,14 @@ export default function MiniAppShop({ initData, pal, isDark, wa, onUnauthorized 
 
     const load = async () => {
         setLoading(true);
+        // Лид: только каталог (orders/autoship — member-only). Не дёргаем заведомо-404.
+        if (leadMode) {
+            const c = await mmCatalog(initData);
+            if (c?.error === 401) { onUnauthorized?.(); setLoading(false); return; }
+            setCatalog(Array.isArray(c?.data) ? c.data : []);
+            setLoading(false);
+            return;
+        }
         const [c, o, a] = await Promise.all([mmCatalog(initData), mmOrders(initData), mmAutoship(initData)]);
         if (c?.error === 401 || o?.error === 401 || a?.error === 401) { onUnauthorized?.(); setLoading(false); return; }
         setCatalog(Array.isArray(c?.data) ? c.data : []);
@@ -114,6 +122,9 @@ export default function MiniAppShop({ initData, pal, isDark, wa, onUnauthorized 
     const onPaid = async () => {
         await reloadOrders();
         setView('orders');
+        // Лид → Member: после первой оплаты идентичность меняется на участника —
+        // даём шеллу перезагрузить профиль (выйти из лид-экрана в полный кабинет).
+        onAfterPaid?.();
     };
 
     // Aurora: градиентный CTA (Купить/Оплатить) и градиентная цена.
@@ -124,8 +135,11 @@ export default function MiniAppShop({ initData, pal, isDark, wa, onUnauthorized 
 
     return (
         <>
-            <Segmented block value={view} onChange={setView}
-                options={[{ label: 'Каталог', value: 'catalog' }, { label: 'Мои заказы', value: 'orders' }, { label: 'Автозаказ', value: 'autoship' }]} />
+            {/* Лид (ещё не купил) видит только каталог: «Мои заказы»/«Автозаказ» — member-only (404). */}
+            {!leadMode && (
+                <Segmented block value={view} onChange={setView}
+                    options={[{ label: 'Каталог', value: 'catalog' }, { label: 'Мои заказы', value: 'orders' }, { label: 'Автозаказ', value: 'autoship' }]} />
+            )}
 
             {view === 'catalog' && (
                 catalog.length === 0
