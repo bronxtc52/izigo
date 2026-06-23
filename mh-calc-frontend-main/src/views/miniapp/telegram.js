@@ -32,13 +32,21 @@ export function useTelegram() {
             }
             tg.ready();
             tg.expand?.();
+            // Aurora: красим фон/хедер Telegram под тему, чтобы системная плашка не мелькала
+            // светлой до/во время сплэша. setHeaderColor (Bot API 6.9+) может бросить на старых — try/catch.
+            const applyChrome = () => {
+                const dark = pickDark(tg.themeParams, tg.colorScheme);
+                const bg = dark ? '#090C16' : '#EFF1F9';
+                try { tg.setBackgroundColor?.(bg); tg.setHeaderColor?.(bg); } catch { /* старый клиент — игнор */ }
+            };
+            applyChrome();
             setWa(tg);
             setInitData(tg.initData || '');
             setTheme(tg.themeParams || {});
             setScheme(tg.colorScheme || null);
             setReady(true);
 
-            const onTheme = () => { setTheme({ ...tg.themeParams }); setScheme(tg.colorScheme || null); };
+            const onTheme = () => { setTheme({ ...tg.themeParams }); setScheme(tg.colorScheme || null); applyChrome(); };
             tg.onEvent?.('themeChanged', onTheme);
             cleanup = () => tg.offEvent?.('themeChanged', onTheme);
         };
