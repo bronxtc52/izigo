@@ -3,7 +3,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Modal, Button, Flex, Spin, Result, message } from 'antd';
 import { CopyOutlined } from '@ant-design/icons';
 import { useTonConnectUI, useTonWallet, TonConnectButton } from '@tonconnect/ui-react';
-import { numFont } from './tokens';
+import { numFont, balanceFont } from './tokens';
 import { mmCheckPayment } from './api';
 import { sendTonPayment, tonConfigured } from './tonPay';
 import { usd } from './format';
@@ -88,6 +88,10 @@ export default function TonPayCheckout({ open, invoice, order, initData, pal, wa
 
     const close = () => { stopPoll(); onClose?.(); };
 
+    // Aurora: градиентная сумма к оплате + градиентный CTA «Оплатить».
+    const gradBtn = { background: pal.primBg, color: pal.primTxt, border: 'none', boxShadow: pal.primGlow };
+    const amtGrad = { ...balanceFont, fontWeight: 800, background: pal.balGrad, WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent' };
+
     const Row = ({ label, value, mono }) => (
         <Flex justify="space-between" align="center" gap={8} style={{ padding: '7px 0' }}>
             <span style={{ fontSize: 12, color: pal.muted }}>{label}</span>
@@ -113,9 +117,9 @@ export default function TonPayCheckout({ open, invoice, order, initData, pal, wa
         body = (
             <>
                 <div style={{ textAlign: 'center', margin: '4px 0 12px' }}>
-                    <div style={{ fontSize: 12, color: pal.muted }}>К оплате</div>
-                    <div style={{ ...numFont, fontWeight: 800, fontSize: 30, lineHeight: 1.1 }}>
-                        {usd(invoice?.amount_cents)} <span style={{ fontSize: 16, color: pal.muted }}>{invoice?.currency || 'USDT'}</span>
+                    <div style={{ fontSize: 11, color: pal.muted, letterSpacing: '.1em', textTransform: 'uppercase' }}>К оплате</div>
+                    <div style={{ ...amtGrad, fontSize: 30, lineHeight: 1.1, marginTop: 4 }}>
+                        {usd(invoice?.amount_cents)} <span style={{ fontSize: 16, color: pal.muted, WebkitTextFillColor: pal.muted }}>{invoice?.currency || 'USDT'}</span>
                     </div>
                 </div>
 
@@ -140,6 +144,7 @@ export default function TonPayCheckout({ open, invoice, order, initData, pal, wa
                         </Flex>
                     ) : (
                         <Button type="primary" block loading={phase === 'sending'}
+                            style={(!wallet || !tonConfigured()) ? undefined : gradBtn}
                             disabled={!wallet || !tonConfigured()} onClick={onPay}>
                             Оплатить через кошелёк
                         </Button>

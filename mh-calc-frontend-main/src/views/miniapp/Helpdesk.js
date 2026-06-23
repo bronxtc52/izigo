@@ -149,8 +149,8 @@ const Helpdesk = ({ initData, pal, isDark }) => {
                                     borderRadius: 12,
                                     whiteSpace: 'pre-wrap',
                                     wordBreak: 'break-word',
-                                    background: mine ? (isDark ? '#2563eb' : '#dbeafe') : (isDark ? '#1f2733' : '#f0f0f0'),
-                                    color: mine ? (isDark ? '#fff' : '#0b3d91') : pal?.text,
+                                    background: mine ? (pal?.brand ?? '#7C3AED') : (pal?.ghostBg ?? (isDark ? '#1f2733' : '#f0f0f0')),
+                                    color: mine ? '#fff' : pal?.fg,
                                 }}>
                                     {m.body}
                                 </div>
@@ -198,11 +198,11 @@ const Helpdesk = ({ initData, pal, isDark }) => {
                     renderItem={(tk) => (
                         <List.Item
                             onClick={() => openTicket(tk)}
-                            style={{ cursor: 'pointer', borderRadius: 8, padding: '10px 12px', marginBottom: 6, border: 'none', background: isDark ? '#1f2733' : '#f7f9fc' }}
+                            style={{ cursor: 'pointer', borderRadius: 8, padding: '10px 12px', marginBottom: 6, border: 'none', background: pal?.ghostBg ?? (isDark ? '#1f2733' : '#f7f9fc') }}
                         >
                             <div style={{ width: '100%' }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                    <span style={{ fontWeight: 600, color: pal?.text }}>{tk.subject}</span>
+                                    <span style={{ fontWeight: 600, color: pal?.fg }}>{tk.subject}</span>
                                     <Tag color={statusColor[tk.status] || 'default'}>{t(`helpdesk.status_${tk.status}`)}</Tag>
                                 </div>
                                 {tk.last_message_at ? (

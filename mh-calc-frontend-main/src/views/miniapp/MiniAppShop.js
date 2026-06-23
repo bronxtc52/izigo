@@ -1,7 +1,7 @@
 'use client';
 import React, { useEffect, useState } from 'react';
 import { Card, Button, Tag, List, Spin, Segmented, Flex, Empty, Modal, Select, InputNumber, Popconfirm, message } from 'antd';
-import { tint, numFont } from './tokens';
+import { tint, numFont, balanceFont } from './tokens';
 import { mmCatalog, mmOrders, mmCreateOrder, mmPayOrder, mmAutoship, mmAutoshipCreate, mmAutoshipAction } from './api';
 import { usd } from './format';
 import TonPayCheckout from './TonPayCheckout';
@@ -116,6 +116,10 @@ export default function MiniAppShop({ initData, pal, isDark, wa, onUnauthorized 
         setView('orders');
     };
 
+    // Aurora: градиентный CTA (Купить/Оплатить) и градиентная цена.
+    const gradBtn = { background: pal.primBg, color: pal.primTxt, border: 'none', boxShadow: pal.primGlow };
+    const priceGrad = { ...balanceFont, fontWeight: 800, background: pal.balGrad, WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent' };
+
     if (loading) return <Spin size="large" style={{ display: 'block', margin: '60px auto' }} />;
 
     return (
@@ -145,8 +149,9 @@ export default function MiniAppShop({ initData, pal, isDark, wa, onUnauthorized 
                                     </Flex>
                                 </div>
                                 <div style={{ textAlign: 'right' }}>
-                                    <div style={{ ...numFont, fontWeight: 800, fontSize: 18 }}>${usd(p.price_usdt_cents)}</div>
-                                    <Button type="primary" size="small" style={{ marginTop: 8 }}
+                                    <div style={{ ...priceGrad, fontSize: 18 }}>${usd(p.price_usdt_cents)}</div>
+                                    <Button type="primary" size="small"
+                                        style={{ marginTop: 8, ...(buying !== 0 || (p.stock != null && Number(p.stock) <= 0) ? {} : gradBtn) }}
                                         loading={buying === p.id}
                                         disabled={buying !== 0 || (p.stock != null && Number(p.stock) <= 0)}
                                         onClick={() => onBuy(p)}>Купить</Button>
@@ -176,10 +181,11 @@ export default function MiniAppShop({ initData, pal, isDark, wa, onUnauthorized 
                                             {o.total_pv} PV{o.created_at ? ` · ${new Date(o.created_at).toLocaleDateString()}` : ''}
                                             {o.tracking_no ? ` · трек ${o.tracking_no}` : ''}
                                         </span>
-                                        <span style={{ ...numFont, fontWeight: 700 }}>${usd(o.total_usdt_cents)}</span>
+                                        <span style={{ ...balanceFont, fontWeight: 700 }}>${usd(o.total_usdt_cents)}</span>
                                     </Flex>
                                     {o.status === 'pending_payment' && (
-                                        <Button type="primary" size="small" block style={{ marginTop: 8 }}
+                                        <Button type="primary" size="small" block
+                                            style={{ marginTop: 8, ...(paying !== 0 ? {} : gradBtn) }}
                                             loading={paying === o.id} disabled={paying !== 0}
                                             onClick={() => onPayExisting(o)}>Оплатить</Button>
                                     )}

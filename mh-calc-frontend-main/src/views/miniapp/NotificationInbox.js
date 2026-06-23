@@ -61,7 +61,7 @@ const NotificationInbox = ({ initData, pal, isDark, onUnreadChange }) => {
                         onClick={() => markRead(n.id)}
                         style={{
                             cursor: n.read ? 'default' : 'pointer',
-                            background: n.read ? 'transparent' : (isDark ? '#1f2733' : '#eef5ff'),
+                            background: n.read ? 'transparent' : (pal?.ghostBg ?? (isDark ? '#1f2733' : '#eef5ff')),
                             borderRadius: 8,
                             padding: '10px 12px',
                             marginBottom: 6,
@@ -73,7 +73,7 @@ const NotificationInbox = ({ initData, pal, isDark, onUnreadChange }) => {
                                 <div style={{ fontWeight: n.read ? 500 : 700, marginBottom: 2 }}>{n.title}</div>
                             ) : null}
                             <div
-                                style={{ fontWeight: n.read ? 400 : 600, whiteSpace: 'pre-wrap', color: pal?.text }}
+                                style={{ fontWeight: n.read ? 400 : 600, whiteSpace: 'pre-wrap', color: pal?.fg }}
                                 // body — серверный Telegram-HTML, экранированный на бэке (htmlspecialchars).
                                 dangerouslySetInnerHTML={{ __html: n.body || '' }}
                             />

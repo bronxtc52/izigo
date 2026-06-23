@@ -39,5 +39,13 @@ const BONUS_DOT = {
 /** Цвет точки бонуса по типу и теме. */
 export const bonusDot = (type, isDark) => (BONUS_DOT[type] ?? BONUS_DOT.binary)[isDark ? 'dark' : 'light'];
 
-/** Стиль Manrope для крупных цифр/заголовков (next/font переменная + табличные цифры). */
+/** Стиль Manrope для крупных кирилличных заголовков/имён (next/font + табличные цифры). */
 export const numFont = { fontFamily: "var(--font-manrope), -apple-system, system-ui, sans-serif", fontFeatureSettings: "'tnum'" };
+
+// Aurora: Space Grotesk — ТОЛЬКО для чисто-числовых узлов ($суммы, PV, счётчики). Кириллицы
+// в шрифте нет, поэтому к тексту не применять (Manrope-фолбэк сохраняет ru/kk). Табличные цифры.
+export const balanceFont = {
+    fontFamily: "var(--font-space-grotesk), var(--font-manrope), -apple-system, system-ui, sans-serif",
+    fontVariantNumeric: 'tabular-nums',
+    fontFeatureSettings: "'tnum'",
+};

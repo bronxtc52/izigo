@@ -1,13 +1,22 @@
 import localFont from "next/font/local";
-import { Manrope } from "next/font/google";
+import { Manrope, Space_Grotesk } from "next/font/google";
 import "@/project/styles/globals.css";
 import GlobalMiddleware from "@/middleware/GlobalLayout";
 
-// Manrope — крупные цифры/заголовки Mini App (handoff). next/font self-host на билде.
+// Manrope — кирилличные заголовки/имена Mini App (есть кириллица). next/font self-host на билде.
 const manrope = Manrope({
   subsets: ["latin", "cyrillic"],
   weight: ["500", "600", "700", "800"],
   variable: "--font-manrope",
+  display: "swap",
+});
+
+// Space Grotesk — ТОЛЬКО числа (баланс/суммы/PV) в редизайне Aurora. Кириллицы НЕ содержит,
+// поэтому к тексту не применяется (иначе ru/kk ломается на фолбэк) — см. tokens.js::balanceFont.
+const spaceGrotesk = Space_Grotesk({
+  subsets: ["latin"],
+  weight: ["500", "600", "700"],
+  variable: "--font-space-grotesk",
   display: "swap",
 });
 
@@ -105,7 +114,7 @@ export default function RootLayout({ children }) {
             </noscript>
           </head>
         ) : null}
-        <body className={`${geistSans.variable} ${geistMono.variable} ${mullerFont.variable} ${manrope.variable}`}>
+        <body className={`${geistSans.variable} ${geistMono.variable} ${mullerFont.variable} ${manrope.variable} ${spaceGrotesk.variable}`}>
           <GlobalMiddleware>
             {children}
           </GlobalMiddleware>
