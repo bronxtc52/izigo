@@ -3,9 +3,11 @@
 namespace Modules\Calculator\Tests\Unit;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Modules\Calculator\Dto\NodeCreateData;
 use Modules\Calculator\Dto\Resource\Bonus\BonusDataReferral;
 use Modules\Calculator\Dto\UserNodeData;
+use Modules\Calculator\Models\CalculatorUser;
 use Modules\Calculator\Models\CalculatorUserToken;
 use Modules\Calculator\Models\Package;
 use Modules\Calculator\Models\Rank;
@@ -29,6 +31,23 @@ class StructureTest extends TestCase
     public function __construct(string $name)
     {
         parent::__construct($name);
+    }
+
+    /**
+     * Легаси-флоу витрины ожидает существующий CalculatorUserToken с привязанным
+     * пользователем (его id уходит в StructureService::create). В тест-БД его никто
+     * не сеет, поэтому создаём здесь — иначе CalculatorUserToken::first() = null.
+     */
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $user = CalculatorUser::query()->create(['email' => 'super@izigo.test']);
+        CalculatorUserToken::query()->create([
+            'calculator_user_id' => $user->id,
+            'token' => 'unit-calculator-token',
+            'expires_at' => Carbon::now()->addYear(),
+        ]);
     }
 
     /**

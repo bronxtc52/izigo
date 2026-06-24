@@ -7,6 +7,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Testing\TestResponse;
 use Modules\Calculator\Dto\UserNodeData;
 use Modules\Calculator\Facades\CalculatorAuth;
+use Modules\Calculator\Models\CalculatorUser;
 use Modules\Calculator\Models\CalculatorUserToken;
 use Tests\TestCase;
 
@@ -14,7 +15,26 @@ class StructureTest extends TestCase
 {
     use RefreshDatabase;
 
-    private ?string $calculatorUserToken = null;
+    private ?CalculatorUserToken $superToken = null;
+
+    /**
+     * Легаси-флоу витрины требует существующий валидный CalculatorUserToken
+     * (его читает SetCalculatorUserMiddleware по заголовку CalculatorAuthToken).
+     * В тест-БД его никто не сеет — создаём здесь. Раньше тест искал токен по
+     * колонке email, которой больше нет (перенесена в calculator_users), поэтому
+     * падал с «column "email" does not exist».
+     */
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $user = CalculatorUser::query()->create(['email' => 'super@izigo.test']);
+        $this->superToken = CalculatorUserToken::query()->create([
+            'calculator_user_id' => $user->id,
+            'token' => 'feature-calculator-token',
+            'expires_at' => Carbon::now()->addMonth(),
+        ]);
+    }
 
     /**
      * Создание структуры
@@ -38,18 +58,10 @@ class StructureTest extends TestCase
 
     private function getAuthHeaders():array
     {
-        CalculatorUserToken::query()
-            ->where('email', config('app.calculator_super_email'))
-            ->update(['expires_at' => Carbon::now()->addMonth()]);
-
-        if (!$this->calculatorUserToken)
-        {
-            $this->calculatorUserToken = CalculatorUserToken::query()
-                ->where('email', config('app.calculator_super_email'))->value('token');
-        }
+        $this->superToken->update(['expires_at' => Carbon::now()->addMonth()]);
 
         return [
-            'CalculatorAuthToken' => $this->calculatorUserToken
+            'CalculatorAuthToken' => $this->superToken->token
         ];
     }
 
@@ -105,9 +117,7 @@ class StructureTest extends TestCase
             return;
         }
 
-        CalculatorUserToken::query()
-            ->where('email', config('app.calculator_super_email'))
-            ->update(['expires_at' => Carbon::now()->subHour()]);
+        $this->superToken->update(['expires_at' => Carbon::now()->subHour()]);
 
         CalculatorAuth::setToken(null);
         $response = $this->createNode($content->data->token_view, $content->data->root->id,
