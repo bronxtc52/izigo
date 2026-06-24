@@ -70,4 +70,13 @@ return [
     // одобренный KYC для вывода. null (env не задан) = гейт выключен (поведение Фазы 3).
     'kyc_threshold_cents' => env('KYC_THRESHOLD_CENTS') !== null ? (int) env('KYC_THRESHOLD_CENTS') : null,
     'passport_private_key' => env('PASSPORT_PRIVATE_KEY', ''),
+
+    // ── AI-ассистент ─────────────────────────────────────────────────────────
+    // API-ключ Anthropic — ТОЛЬКО из Key Vault (izigo--prod--ANTHROPIC-API-KEY).
+    // В рантайме тянем через managed identity; в local-разработке — через .env (placeholder).
+    'anthropic_api_key' => env('ANTHROPIC_API_KEY', ''),
+    // Модель вынесена в конфиг: смена без правки кода.
+    'anthropic_model' => env('ANTHROPIC_MODEL', 'claude-haiku-4-5-20251001'),
+    // Rate limit: запросов в минуту на одного партнёра.
+    'assistant_rate_per_minute' => (int) env('ASSISTANT_RATE_PER_MINUTE', 10),
 ];

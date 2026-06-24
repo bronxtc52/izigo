@@ -9,3 +9,4 @@ storage/framework/views/*
 .git/
 tests/
 *.md
+!resources/knowledge-base/*.md

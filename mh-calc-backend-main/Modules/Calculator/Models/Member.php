@@ -92,6 +92,11 @@ class Member extends Model
         return $this->belongsTo(Package::class, 'package_id');
     }
 
+    public function rank(): BelongsTo
+    {
+        return $this->belongsTo(Rank::class, 'rank_id');
+    }
+
     /** C6 (Block C): справочные со-партнёры/наследники участника. Аддитивно, на логику не влияет. */
     public function copartners(): HasMany
     {

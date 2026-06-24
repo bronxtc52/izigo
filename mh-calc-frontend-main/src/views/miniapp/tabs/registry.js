@@ -19,11 +19,13 @@
 
 import notificationsTab from './notifications.tab'; // C1 notifications — inbox
 import helpdeskTab from './helpdesk.tab'; // C2 helpdesk — tickets
+import assistantTab from './assistant.tab'; // AI assistant — knowledge base Q&A
 
 // >>> Block C tabs
 export const blockCTabs = [
     notificationsTab, // C1 notifications — inbox (колокольчик)
     helpdeskTab, // C2 helpdesk — поддержка (тикеты + чат)
+    assistantTab, // AI-ассистент — вопросы по KB (за флагом ai_assistant)
     // C6 copartners — profile-extra
 ];
 // <<< Block C tabs

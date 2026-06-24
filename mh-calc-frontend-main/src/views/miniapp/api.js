@@ -133,3 +133,10 @@ export const mmTicketMessage = (i, id, body) =>
 export const mmTicketPoll = (i, id, since = 0) =>
     req(`/api/v1/cabinet/tickets/${id}/poll?since=${since}`, i);
 // <<< Block C helpdesk
+
+// >>> AI assistant
+// Задать вопрос AI-ассистенту (за feature flag ai_assistant).
+// locale: 'ru' | 'en'. Бэкенд проверяет flag и rate limit.
+export const mmAssistantAsk = (i, question, locale) =>
+    req('/api/v1/cabinet/assistant/ask', i, 'POST', { question, locale });
+// <<< AI assistant

@@ -23,6 +23,7 @@ class FeatureFlagSeeder extends Seeder
             'c5_pii_export' => 'Экспорт данных с PII',
             'c6_copartners' => 'Со-партнёры участника',
             'c7_jobs_monitor' => 'Мониторинг очередей/outbox',
+            'ai_assistant' => 'AI-ассистент партнёра (вопросы по KB через Claude API)',
         ];
 
         foreach ($flags as $key => $description) {

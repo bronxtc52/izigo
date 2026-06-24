@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use Modules\Calculator\Http\Controllers\AdminController;
 use Modules\Calculator\Http\Controllers\AdminReportController;
+use Modules\Calculator\Http\Controllers\AiAssistantController;
 use Modules\Calculator\Http\Controllers\AuthController;
 use Modules\Calculator\Http\Controllers\CabinetController;
 use Modules\Calculator\Http\Controllers\CalculatorController;
@@ -120,6 +121,9 @@ Route::group([
     // KYC-intake (Фаза 4, S8): подача Telegram Passport + статус.
     Route::get('/kyc', [CommerceController::class, 'kycStatus'])->name('kyc');
     Route::post('/kyc/passport', [CommerceController::class, 'kycSubmit'])->name('kyc-submit');
+
+    // AI-ассистент партнёра: вопросы по KB, за feature flag ai_assistant.
+    Route::post('/assistant/ask', [AiAssistantController::class, 'ask'])->name('assistant-ask');
 });
 
 // Публичные webhook'и платёжных шлюзов (Фаза 4, S3). Без telegram.auth — проверка
