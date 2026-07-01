@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Маркетинговая политика IziGo</title>
+<style>
+  :root{
+    --ton:#0098ea;            /* TON blue */
+    --ton-deep:#0062d6;
+    --aurora-1:#6a5cff;       /* violet */
+    --aurora-2:#00d3b8;       /* teal */
+    --aurora-3:#ff5c8a;       /* pink accent */
+    --ink:#111726;
+    --ink-soft:#3a4356;
+    --muted:#697089;
+    --line:#e6e9f2;
+    --bg-soft:#f5f7fc;
+    --gold:#d9a441;
+    --silver:#8a93a6;
+    --bronze:#b7793f;
+    --ok:#0f9d76;
+  }
+
+  *{box-sizing:border-box;}
+  html{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+  body{
+    margin:0;
+    font-family:"Manrope","Segoe UI",Roboto,-apple-system,Helvetica,Arial,sans-serif;
+    color:var(--ink);
+    background:#dfe4ef;
+    font-size:11pt;
+    line-height:1.6;
+  }
+
+  /* ---- Page model (A4) ---- */
+  .page{
+    width:210mm;
+    min-height:297mm;
+    margin:10mm auto;
+    padding:20mm 18mm;
+    background:#fff;
+    box-shadow:0 6px 30px rgba(20,30,60,.14);
+    position:relative;
+    overflow:hidden;
+  }
+  @page{ size:A4; margin:0; }
+  @media print{
+    body{background:#fff;}
+    .page{margin:0;box-shadow:none;page-break-after:always;}
+    .page:last-child{page-break-after:auto;}
+  }
+
+  /* ---- Cover ---- */
+  .cover{
+    color:#fff;
+    padding:0;
+    background:
+      radial-gradient(1200px 500px at 80% -10%, rgba(0,211,184,.35), transparent 60%),
+      radial-gradient(900px 500px at -10% 110%, rgba(255,92,138,.30), transparent 55%),
+      linear-gradient(150deg,#0b1030 0%,#161a55 45%,#0a2a6b 100%);
+    display:flex;flex-direction:column;
+  }
+  .cover-inner{padding:26mm 20mm;display:flex;flex-direction:column;height:100%;flex:1;}
+  .brand{display:flex;align-items:center;gap:12px;font-weight:800;letter-spacing:.5px;}
+  .brand .dot{width:34px;height:34px;border-radius:11px;
+    background:linear-gradient(135deg,var(--ton),var(--aurora-1));
+    box-shadow:0 0 24px rgba(106,92,255,.7);}
+  .brand span{font-size:20pt;}
+  .cover h1{
+    margin:auto 0 6px;font-size:46pt;line-height:1.03;font-weight:800;
+    background:linear-gradient(120deg,#fff 30%,#8fd8ff 70%,#8affea);
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+  }
+  .cover .sub{font-size:15pt;color:#c8d2f0;font-weight:600;max-width:130mm;}
+  .cover .meta{margin-top:auto;display:flex;gap:26px;flex-wrap:wrap;
+    border-top:1px solid rgba(255,255,255,.18);padding-top:16px;}
+  .cover .meta div{font-size:10pt;color:#aeb9e0;}
+  .cover .meta b{display:block;color:#fff;font-size:12pt;font-weight:700;margin-top:2px;}
+  .chip{display:inline-block;padding:5px 13px;border-radius:999px;font-size:9.5pt;font-weight:700;
+    background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);color:#eaf0ff;}
+
+  /* ---- Headings ---- */
+  h2.section{
+    font-size:19pt;margin:0 0 4px;color:var(--ink);font-weight:800;line-height:1.15;
+    display:flex;align-items:center;gap:12px;
+  }
+  h2.section .num{
+    flex:none;width:38px;height:38px;border-radius:11px;color:#fff;font-size:13pt;
+    display:flex;align-items:center;justify-content:center;font-weight:800;
+    background:linear-gradient(135deg,var(--ton),var(--aurora-1));
+    box-shadow:0 4px 14px rgba(0,152,234,.35);
+  }
+  .rule{height:4px;border-radius:4px;margin:10px 0 18px;
+    background:linear-gradient(90deg,var(--ton),var(--aurora-1) 45%,var(--aurora-2));}
+  h3{font-size:13pt;margin:22px 0 8px;color:var(--ton-deep);font-weight:800;}
+  p{margin:0 0 11px;color:var(--ink-soft);}
+  .lead{font-size:12pt;color:var(--ink);}
+  small{color:var(--muted);}
+
+  ul{margin:0 0 12px;padding-left:20px;color:var(--ink-soft);}
+  li{margin:4px 0;}
+
+  /* ---- Tables ---- */
+  table{width:100%;border-collapse:collapse;margin:6px 0 18px;font-size:10pt;
+    border-radius:12px;overflow:hidden;box-shadow:0 0 0 1px var(--line);}
+  thead th{
+    background:linear-gradient(135deg,#171c4a,#0a2a6b);color:#fff;font-weight:700;
+    text-align:left;padding:10px 12px;font-size:9.5pt;letter-spacing:.2px;
+  }
+  tbody td{padding:9px 12px;border-top:1px solid var(--line);color:var(--ink-soft);vertical-align:top;}
+  tbody tr:nth-child(even){background:var(--bg-soft);}
+  tbody td b{color:var(--ink);}
+  td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;}
+
+  /* ---- Callouts ---- */
+  .box{border-radius:14px;padding:14px 16px 14px 18px;margin:14px 0;position:relative;
+    border:1px solid var(--line);background:#fff;}
+  .box .t{font-weight:800;font-size:10pt;text-transform:uppercase;letter-spacing:.6px;margin-bottom:5px;}
+  .box p:last-child{margin-bottom:0;}
+  .box.example{background:linear-gradient(180deg,#f0fbf8,#ffffff);border-color:#bfeee2;}
+  .box.example .t{color:var(--ok);}
+  .box.important{background:linear-gradient(180deg,#fff5f7,#ffffff);border-color:#ffcdd9;}
+  .box.important .t{color:var(--aurora-3);}
+  .box.note{background:linear-gradient(180deg,#f3f6ff,#ffffff);border-color:#cdd8ff;}
+  .box.note .t{color:var(--ton-deep);}
+  .box::before{content:"";position:absolute;left:0;top:0;bottom:0;width:5px;border-radius:14px 0 0 14px;}
+  .box.example::before{background:var(--aurora-2);}
+  .box.important::before{background:var(--aurora-3);}
+  .box.note::before{background:var(--ton);}
+
+  /* ---- Bonus overview cards ---- */
+  .cards{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:8px 0 6px;}
+  .card{border-radius:14px;padding:14px 16px;color:#fff;position:relative;overflow:hidden;min-height:96px;}
+  .card h4{margin:0 0 4px;font-size:12.5pt;}
+  .card .pct{font-size:22pt;font-weight:800;line-height:1;}
+  .card small{color:rgba(255,255,255,.85);}
+  .card.b1{background:linear-gradient(135deg,#0098ea,#0062d6);}
+  .card.b2{background:linear-gradient(135deg,#6a5cff,#8b45ff);}
+  .card.b3{background:linear-gradient(135deg,#00b39a,#00846f);}
+  .card.b4{background:linear-gradient(135deg,#d9a441,#b7793f);}
+
+  /* ---- Package pills ---- */
+  .pk{display:inline-flex;align-items:center;gap:6px;font-weight:700;}
+  .pk::before{content:"";width:10px;height:10px;border-radius:50%;}
+  .pk.bronze::before{background:var(--bronze);}
+  .pk.silver::before{background:var(--silver);}
+  .pk.gold::before{background:var(--gold);}
+
+  /* ---- TOC ---- */
+  .toc{columns:2;column-gap:30px;margin-top:8px;}
+  .toc a{display:flex;justify-content:space-between;gap:8px;text-decoration:none;color:var(--ink-soft);
+    padding:6px 0;border-bottom:1px dotted var(--line);break-inside:avoid;font-size:10.5pt;}
+  .toc a b{color:var(--ton-deep);}
+  .toc a .p{color:var(--muted);font-variant-numeric:tabular-nums;}
+
+  /* ---- Footer ---- */
+  .foot{position:absolute;left:18mm;right:18mm;bottom:10mm;display:flex;justify-content:space-between;
+    font-size:8.5pt;color:var(--muted);border-top:1px solid var(--line);padding-top:6px;}
+  .foot .brand-mini{font-weight:800;color:var(--ink);}
+
+  /* Compact glossary to fit a single A4 page */
+  table.glossary{font-size:8.7pt;}
+  table.glossary tbody td{padding:5.2px 10px;line-height:1.42;}
+  table.glossary thead th{padding:7px 10px;}
+
+  .avoid{break-inside:avoid;}
+  .disclaimer{font-size:9pt;color:var(--muted);font-style:italic;border-top:1px solid var(--line);padding-top:12px;margin-top:20px;}
+</style>
+</head>
+<body>
+
+<!-- ================= COVER ================= -->
+<section class="page cover">
+  <div class="cover-inner">
+    <div class="brand"><div class="dot"></div><span>IziGo</span></div>
+    <h1>Маркетинговая<br>политика</h1>
+    <div class="sub">Система вознаграждения партнёров: бинарный, реферальный, лидерский и ранговый бонусы</div>
+    <div style="margin-top:18px"><span class="chip">Бинарный маркетинг‑план</span>
+      <span class="chip">Расчёты в USDT · 1 PV = 1 USD</span></div>
+    <div class="meta">
+      <div>Версия<b>1.0</b></div>
+      <div>Дата вступления в силу<b>01.07.2026</b></div>
+      <div>Сети выплат<b>TON · TRC‑20 (USDT)</b></div>
+      <div>Документ<b>Информационно‑разъяснительный</b></div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= TOC ================= -->
+<section class="page">
+  <h2 class="section"><span class="num">≡</span>Содержание</h2>
+  <div class="rule"></div>
+  <nav class="toc">
+    <a href="#s1"><span><b>1.</b> О документе</span><span class="p">3</span></a>
+    <a href="#s2"><span><b>2.</b> Отказ от гарантий дохода</span><span class="p">3</span></a>
+    <a href="#s3"><span><b>3.</b> Условия начисления и право на изменения</span><span class="p">4</span></a>
+    <a href="#s4"><span><b>4.</b> Ключевые термины и определения</span><span class="p">5</span></a>
+    <a href="#s5"><span><b>5.</b> Пакеты активации</span><span class="p">6</span></a>
+    <a href="#s6"><span><b>6.</b> Форматы участия: Лид и Партнёр</span><span class="p">6</span></a>
+    <a href="#s7"><span><b>7.</b> Бинарная структура</span><span class="p">7</span></a>
+    <a href="#s8"><span><b>8.</b> Объёмы: PV, малая и большая ветка</span><span class="p">7</span></a>
+    <a href="#s9"><span><b>9.</b> Статусы (ранги) партнёра</span><span class="p">8</span></a>
+    <a href="#s10"><span><b>10.</b> Компрессия рангов</span><span class="p">8</span></a>
+    <a href="#s11"><span><b>11.</b> Обзор системы вознаграждения</span><span class="p">9</span></a>
+    <a href="#s12"><span><b>12.</b> Бонус 1 — Бинарный</span><span class="p">10</span></a>
+    <a href="#s13"><span><b>13.</b> Бонус 2 — Реферальный</span><span class="p">11</span></a>
+    <a href="#s14"><span><b>14.</b> Бонус 3 — Лидерский</span><span class="p">12</span></a>
+    <a href="#s15"><span><b>15.</b> Бонус 4 — Ранговый</span><span class="p">13</span></a>
+    <a href="#s16"><span><b>16.</b> Кошелёк, начисление и вывод</span><span class="p">13</span></a>
+    <a href="#s17"><span><b>17.</b> Общие положения</span><span class="p">14</span></a>
+  </nav>
+  <div class="foot"><span class="brand-mini">IziGo · Маркетинговая политика</span><span>Содержание</span></div>
+</section>
+
+<!-- ================= PAGE 3: s1 + s2 ================= -->
+<section class="page">
+  <h2 class="section" id="s1"><span class="num">1</span>О документе</h2>
+  <div class="rule"></div>
+  <p class="lead"><b>Маркетинговая политика IziGo</b> — основной документ, определяющий систему
+  вознаграждения партнёров: основания, порядок и размеры начисления бонусов за результаты
+  по продвижению продукта и развитию партнёрской структуры.</p>
+  <p>Политика описывает ставки вознаграждения, статусы (ранги) партнёров и критерии их
+  присвоения, а также правила построения структуры, учёта объёмов и распределения
+  вознаграждения. Настоящая версия вступает в силу с даты, указанной в шапке, и полностью
+  описывает применяемые с этого момента процессы. Все предыдущие версии автоматически
+  утрачивают силу с момента вступления в силу настоящей редакции.</p>
+  <div class="box note"><div class="t">Источник параметров</div>
+    <p>Все числовые значения (ставки, пороги, условия) соответствуют конфигурации
+    компенсационного движка IziGo и могут изменяться Компанией через панель
+    администрирования — с применением к будущим расчётам.</p></div>
+
+  <h2 class="section" id="s2" style="margin-top:26px"><span class="num">2</span>Отказ от гарантий дохода</h2>
+  <div class="rule"></div>
+  <p>Маркетинговая политика регулирует правила взаимодействия партнёров и Компании, порядок
+  построения структуры, расчёта объёмов и распределения вознаграждения, основанного
+  исключительно на фактическом обороте продукта.</p>
+  <ul>
+    <li>Компания <b>не гарантирует</b> какого‑либо дохода, прибыли или финансового результата.</li>
+    <li>Участие в плане <b>не является инвестиционной деятельностью</b>, не подразумевает
+      пассивного дохода и не связано с вознаграждением без реальной экономической активности.</li>
+    <li>Любые примеры и расчёты приведены <b>исключительно в пояснительных целях</b> и не
+      являются обещаниями, прогнозами или гарантиями дохода.</li>
+    <li>Вознаграждение начисляется только за подтверждённый оборот (оплаченные активации).</li>
+  </ul>
+  <div class="box important"><div class="t">Важно</div>
+    <p>Получение дохода исключительно за факт привлечения (регистрации) других лиц без
+    соответствующего оборота продукта не предусмотрено и Компанией не вознаграждается.</p></div>
+  <div class="foot"><span class="brand-mini">IziGo · Маркетинговая политика</span><span>3</span></div>
+</section>
+
+<!-- ================= PAGE 4: s3 ================= -->
+<section class="page">
+  <h2 class="section" id="s3"><span class="num">3</span>Условия начисления вознаграждения<br>и право Компании вносить изменения</h2>
+  <div class="rule"></div>
+  <p>Начисление и выплата бонусов осуществляются в соответствии с Маркетинговой политикой,
+  действующей на момент расчёта, при условии выполнения партнёром установленных требований.</p>
+  <p>Компания оставляет за собой право изменять, дополнять или отменять положения политики,
+  включая размеры, виды и условия начисления вознаграждения, в целях развития, соответствия
+  законодательству и обеспечения устойчивости бизнеса. Такие изменения применяются к
+  <b>будущим расчётным событиям</b> и не направлены на произвольное ограничение прав партнёров.</p>
+  <p>Все параметры плана (пакеты, ранги, ставки, пороги) редактируются через панель
+  администрирования с сохранением истории изменений (аудит‑лог).</p>
+  <div class="box important"><div class="t">Вознаграждение не начисляется, если</div>
+    <p>отсутствует фактический оборот продукта либо нарушены правила Маркетинговой политики.</p></div>
+  <div class="box note"><div class="t">Принципы</div>
+    <p>Политика основана на прозрачности, равных условиях для всех партнёров и добросовестной
+    деловой практике. Размер и доступность вознаграждения — результат выполненных условий и
+    фактической активности партнёра.</p></div>
+  <div class="foot"><span class="brand-mini">IziGo · Маркетинговая политика</span><span>4</span></div>
+</section>
+
+<!-- ================= PAGE 5: s4 ================= -->
+<section class="page">
+  <h2 class="section" id="s4"><span class="num">4</span>Ключевые термины и определения</h2>
+  <div class="rule"></div>
+  <table class="glossary">
+    <thead><tr><th style="width:34%">Термин</th><th>Определение</th></tr></thead>
+    <tbody>
+      <tr><td><b>Партнёр (Member)</b></td><td>Физлицо, заключившее соглашение и активировавшее пакет. Участвует в плане и строит структуру.</td></tr>
+      <tr><td><b>Лид (Lead)</b></td><td>Пользователь, перешедший по реферальной ссылке, но не оплативший пакет. Вне бинарного дерева; действует лид‑окно (§6).</td></tr>
+      <tr><td><b>Спонсор</b></td><td>Партнёр, по чьей реферальной ссылке зарегистрирован участник. Определяет линию реферального и лидерского бонусов.</td></tr>
+      <tr><td><b>Реферальная ссылка</b></td><td>Персональный диплинк на Mini App в Telegram (<code>t.me/&lt;bot&gt;/&lt;app&gt;?startapp=&lt;код&gt;</code>).</td></tr>
+      <tr><td><b>Бинарное дерево</b></td><td>Структура размещения: у каждого партнёра не более двух прямых позиций — левая и правая ветка.</td></tr>
+      <tr><td><b>Малая / большая ветка</b></td><td>Ветки с меньшим / бо́льшим накопленным объёмом PV. По малой считается бинарный бонус; остаток большой переносится.</td></tr>
+      <tr><td><b>Личные приглашённые</b></td><td>Партнёры, лично приглашённые данным партнёром (1‑й уровень спонсорской линии). Используются в условиях рангов.</td></tr>
+      <tr><td><b>PV (Partner Volume)</b></td><td>Объём в баллах, привязанный к пакету. Единица учёта и расчёта бонусов. <b>1 PV = 1 USD.</b></td></tr>
+      <tr><td><b>Ранг (статус)</b></td><td>Показатель уровня партнёра; присваивается автоматически при выполнении условий.</td></tr>
+      <tr><td><b>Компрессия рангов</b></td><td>Механизм, при котором лидерский бонус не передаётся спонсору, обойдённому по рангу нижестоящим партнёром на заданный порог.</td></tr>
+      <tr><td><b>Кошелёк (Main Account)</b></td><td>Внутренний счёт партнёра для накопления бонусов и вывода средств.</td></tr>
+      <tr><td><b>KYC</b></td><td>Верификация личности, обязательная для вывода средств.</td></tr>
+      <tr><td><b>Расчётное событие</b></td><td>Подтверждение оплаты активации пакета, запускающее начисление бонусов.</td></tr>
+    </tbody>
+  </table>
+  <div class="foot"><span class="brand-mini">IziGo · Маркетинговая политика</span><span>5</span></div>
+</section>
+
+<!-- ================= PAGE 6: s5 + s6 ================= -->
+<section class="page">
+  <h2 class="section" id="s5"><span class="num">5</span>Пакеты активации</h2>
+  <div class="rule"></div>
+  <p>Активация партнёра происходит через оплату одного из трёх пакетов. Пакет определяет
+  цену (в USDT) и объём PV, засчитываемый в обороте структуры.</p>
+  <table>
+    <thead><tr><th>Пакет</th><th class="num">Цена</th><th class="num">Объём (PV)</th></tr></thead>
+    <tbody>
+      <tr><td><span class="pk bronze">Bronze</span></td><td class="num">90 USDT</td><td class="num">90 PV</td></tr>
+      <tr><td><span class="pk silver">Silver</span></td><td class="num">180 USDT</td><td class="num">180 PV</td></tr>
+      <tr><td><span class="pk gold">Gold</span></td><td class="num">540 USDT</td><td class="num">540 PV</td></tr>
+    </tbody>
+  </table>
+  <div class="box note"><div class="t">Роль пакета</div>
+    <p>Пакет партнёра влияет на доступные ему ставки реферального и лидерского бонусов
+    (§13, §14): более старший пакет открывает вознаграждение на большей глубине.</p></div>
+
+  <h2 class="section" id="s6" style="margin-top:24px"><span class="num">6</span>Форматы участия: Лид и Партнёр</h2>
+  <div class="rule"></div>
+  <h3>Лид</h3>
+  <p>Пользователь, перешедший по реферальной ссылке и открывший Mini App, но <b>не оплативший
+  пакет</b>, регистрируется как Лид. Лид находится <b>вне бинарного дерева</b>, имеет
+  закреплённого спонсора и действует в рамках <b>лид‑окна 7 дней</b>: до первой оплаты
+  спонсор может измениться по правилу «последний клик»; по истечении окна закрепление снимается.</p>
+  <h3>Переход в Партнёры</h3>
+  <p>Партнёр создаётся <b>в момент подтверждения оплаты</b>: размещается в бинарном дереве под
+  своим спонсором, заказ и платёж привязываются к нему, лид удаляется, запускается расчёт
+  бонусов. С момента оплаты <b>спонсор фиксируется окончательно</b>.</p>
+  <div class="foot"><span class="brand-mini">IziGo · Маркетинговая политика</span><span>6</span></div>
+</section>
+
+<!-- ================= PAGE 7: s7 + s8 ================= -->
+<section class="page">
+  <h2 class="section" id="s7"><span class="num">7</span>Бинарная структура</h2>
+  <div class="rule"></div>
+  <p>IziGo использует <b>бинарную модель</b>: под каждым партнёром размещаются не более двух
+  прямых позиций — <b>левая</b> и <b>правая ветка</b>. Приглашённые сверх двух позиций
+  размещаются глубже, формируя дерево неограниченной глубины.</p>
+  <div class="box note"><div class="t">Две разные линии</div>
+    <p><b>Спонсорская линия</b> (кто кого лично пригласил) и <b>позиция в дереве</b> — не одно
+    и то же. Реферальный и лидерский бонусы идут по спонсорской линии; бинарный — по позициям
+    в бинарном дереве. Объём PV каждой оплаты накапливается вверх по дереву в ту ветку, под
+    которой находится покупатель.</p></div>
+
+  <h2 class="section" id="s8" style="margin-top:24px"><span class="num">8</span>Объёмы: PV, малая и большая ветка</h2>
+  <div class="rule"></div>
+  <p><b>PV (Partner Volume)</b> — единый внутренний показатель объёма, привязанный к пакету
+  (Bronze 90, Silver 180, Gold 540). В модели IziGo <b>1 PV = 1 USD</b>, поэтому бонусы в виде
+  процента от PV выражаются в долларах напрямую.</p>
+  <p>Для каждого партнёра система непрерывно ведёт накопленный объём левой и правой ветки:</p>
+  <ul>
+    <li><b>Малая ветка</b> — с меньшим объёмом PV. По ней рассчитывается бинарный бонус.</li>
+    <li><b>Большая ветка</b> — с большим объёмом PV. Остаток объёма переносится (carryover).</li>
+  </ul>
+  <div class="box important"><div class="t">Обе ветки обязательны</div>
+    <p>Если в одной из веток объём равен нулю, бинарная пара не закрывается и бонус не начисляется.</p></div>
+  <div class="foot"><span class="brand-mini">IziGo · Маркетинговая политика</span><span>7</span></div>
+</section>
+
+<!-- ================= PAGE 8: s9 + s10 ================= -->
+<section class="page">
+  <h2 class="section" id="s9"><span class="num">9</span>Статусы (ранги) партнёра</h2>
+  <div class="rule"></div>
+  <p>Ранг отражает уровень партнёра и присваивается <b>автоматически</b> при выполнении
+  <b>всех</b> условий. Рассчитывается вверх по бинарной линии при каждом расчётном событии.</p>
+  <table>
+    <thead><tr><th>Ранг</th><th class="num">Личных пригл.</th><th class="num">Малая ветка (PV)</th><th>Доп. условие</th></tr></thead>
+    <tbody>
+      <tr><td><b>Consultant</b></td><td class="num">—</td><td class="num">—</td><td>Базовый статус активированного партнёра</td></tr>
+      <tr><td><b>Manager</b></td><td class="num">4</td><td class="num">1 000</td><td>—</td></tr>
+      <tr><td><b>Manager Bronze</b></td><td class="num">8</td><td class="num">3 000</td><td>—</td></tr>
+      <tr><td><b>Manager Silver</b></td><td class="num">—</td><td class="num">8 000</td><td>3 партнёра ранга Manager+ среди личных приглашённых</td></tr>
+    </tbody>
+  </table>
+  <div class="box note"><div class="t">Все условия — одновременно</div>
+    <p>Для присвоения ранга должны выполняться все его условия сразу. Ранг не понижается
+    автоматически. При повышении может начисляться разовый ранговый бонус (§15).</p></div>
+
+  <h2 class="section" id="s10" style="margin-top:22px"><span class="num">10</span>Компрессия рангов</h2>
+  <div class="rule"></div>
+  <p>Применяется при расчёте <b>лидерского бонуса</b> и защищает доход активных лидеров.
+  Спонсор <b>не получает</b> лидерский бонус, если в цепочке от партнёра, сгенерировавшего
+  бинарный бонус, до этого спонсора есть участник, обогнавший спонсора по рангу на
+  <b>2 ранга и более</b>. Тогда override переходит к следующему квалифицированному лидеру
+  выше. Порог учитывается включительно (A‑inclusive).</p>
+  <div class="box example"><div class="t">Пример</div>
+    <p>Партнёр ранга <b>Manager Silver</b> (4) генерирует бинарный бонус. Его непосредственный
+    спонсор — <b>Consultant</b> (1). Разница 4 − 1 = 3 ≥ 2 → спонсор пропускается, бонус
+    переходит следующему подходящему лидеру выше.</p></div>
+  <div class="foot"><span class="brand-mini">IziGo · Маркетинговая политика</span><span>8</span></div>
+</section>
+
+<!-- ================= PAGE 9: s11 ================= -->
+<section class="page">
+  <h2 class="section" id="s11"><span class="num">11</span>Обзор системы вознаграждения</h2>
+  <div class="rule"></div>
+  <p>Система вознаграждения IziGo включает <b>четыре типа бонусов</b>. Все начисляются
+  <b>событийно</b> — в момент подтверждения оплаты активации (а не в конце периода).</p>
+  <div class="cards">
+    <div class="card b1"><h4>Бинарный</h4><div class="pct">5%</div><small>от объёма малой ветки · вверх по дереву</small></div>
+    <div class="card b2"><h4>Реферальный</h4><div class="pct">до 10%</div><small>от PV пакета приглашённого · 2 уровня</small></div>
+    <div class="card b3"><h4>Лидерский</h4><div class="pct">до 20%</div><small>от бинарного бонуса · 2 уровня · компрессия</small></div>
+    <div class="card b4"><h4>Ранговый</h4><div class="pct">fix</div><small>разово за достижение ранга</small></div>
+  </div>
+  <table>
+    <thead><tr><th>Бонус</th><th>Начисление</th><th>База расчёта</th><th>Кому</th></tr></thead>
+    <tbody>
+      <tr><td><b>Бинарный</b></td><td>Мгновенно</td><td>Объём малой ветки (PV)</td><td>Вышестоящим по бинарному дереву</td></tr>
+      <tr><td><b>Реферальный</b></td><td>Мгновенно</td><td>PV пакета приглашённого</td><td>Вверх по спонсорской линии (до 2 ур.)</td></tr>
+      <tr><td><b>Лидерский</b></td><td>Мгновенно</td><td>Сумма бинарного бонуса</td><td>Вверх по спонсорской линии (до 2 ур.)</td></tr>
+      <tr><td><b>Ранговый</b></td><td>Разово</td><td>Фикс. сумма за ранг</td><td>Партнёру при достижении ранга</td></tr>
+    </tbody>
+  </table>
+  <div class="box note"><div class="t">Порядок расчёта на событие</div>
+    <p>Объёмы → квалификация рангов (и ранговый бонус) → реферальный бонус → бинарный бонус
+    (с триггером лидерского).</p></div>
+  <div class="foot"><span class="brand-mini">IziGo · Маркетинговая политика</span><span>9</span></div>
+</section>
+
+<!-- ================= PAGE 10: s12 ================= -->
+<section class="page">
+  <h2 class="section" id="s12"><span class="num">12</span>Бонус 1 — Бинарный</h2>
+  <div class="rule"></div>
+  <p><small><b>Тип начисления:</b> мгновенно, в момент подтверждения оплаты.</small></p>
+  <p>Вознаграждение за сбалансированное развитие двух веток структуры. Начисляется
+  вышестоящим партнёрам по бинарному дереву. <b>Ставка — 5 % от объёма малой ветки</b> (PV),
+  единая для всех рангов.</p>
+  <h3>Механика</h3>
+  <ul>
+    <li>Объём PV каждой оплаты поднимается вверх по дереву, накапливаясь в левой или правой ветке.</li>
+    <li>Малая ветка = меньший из объёмов двух ветвей (обе ветки обязательны).</li>
+    <li>Бонус = 5 % × объём малой ветки.</li>
+    <li>После выплаты спаренный объём списывается с обеих веток; <b>остаток большой ветки
+      сохраняется</b> (carryover). Верхнего ограничения (cap) нет.</li>
+  </ul>
+  <div class="box example"><div class="t">Пример расчёта</div>
+    <p>Левая ветка накопила <b>200 PV</b>, правая — <b>100 PV</b>.<br>
+    Малая ветка = min(200, 100) = <b>100 PV</b>.<br>
+    Бинарный бонус = 5 % × 100 = <b>5 USD</b>.<br>
+    После выплаты: левая = 100 PV (carryover), правая = 0 PV.</p></div>
+  <div class="box note"><div class="t">Связь с лидерским</div>
+    <p>Каждая выплата бинарного бонуса дополнительно запускает расчёт лидерского бонуса (§14).</p></div>
+  <div class="foot"><span class="brand-mini">IziGo · Маркетинговая политика</span><span>10</span></div>
+</section>
+
+<!-- ================= PAGE 11: s13 ================= -->
+<section class="page">
+  <h2 class="section" id="s13"><span class="num">13</span>Бонус 2 — Реферальный</h2>
+  <div class="rule"></div>
+  <p><small><b>Тип начисления:</b> мгновенно, в момент подтверждения оплаты.</small></p>
+  <p>Вознаграждение за личное приглашение партнёров и развитие первых двух уровней
+  спонсорской линии. Начисляется вверх по линии <b>личных пригласивших</b> на глубину до
+  <b>2 уровней</b>. <b>База</b> — объём PV пакета, купленного приглашённым партнёром.
+  <b>Ставка</b> зависит от <b>вашего собственного пакета</b> и уровня приглашённого.</p>
+  <table>
+    <thead><tr><th>Ваш пакет</th><th class="num">Уровень 1<br><small style="color:#cfe">ваш личный реферал</small></th><th class="num">Уровень 2<br><small style="color:#cfe">реферал вашего реферала</small></th></tr></thead>
+    <tbody>
+      <tr><td><span class="pk bronze">Bronze</span></td><td class="num">10 %</td><td class="num">—</td></tr>
+      <tr><td><span class="pk silver">Silver</span></td><td class="num">10 %</td><td class="num">5 %</td></tr>
+      <tr><td><span class="pk gold">Gold</span></td><td class="num">10 %</td><td class="num">8 %</td></tr>
+    </tbody>
+  </table>
+  <div class="box important"><div class="t">Глубина зависит от вашего пакета</div>
+    <p>Вознаграждение на <b>втором уровне</b> открывается только партнёрам с пакетом
+    <b>Silver</b> или <b>Gold</b>. С пакетом Bronze реферальный бонус начисляется только с
+    первого уровня.</p></div>
+  <div class="box example"><div class="t">Пример расчёта</div>
+    <p>Вы приобрели пакет <b>Gold</b>.<br>
+    — Ваш личный реферал (ур. 1) покупает <b>Gold</b> (540 PV) → 10 % × 540 = <b>54 USD</b>.<br>
+    — Реферал вашего реферала (ур. 2) покупает <b>Silver</b> (180 PV) → ставка ур. 2 для Gold =
+    8 % → 8 % × 180 = <b>14,40 USD</b>.</p></div>
+  <div class="foot"><span class="brand-mini">IziGo · Маркетинговая политика</span><span>11</span></div>
+</section>
+
+<!-- ================= PAGE 12: s14 ================= -->
+<section class="page">
+  <h2 class="section" id="s14"><span class="num">14</span>Бонус 3 — Лидерский</h2>
+  <div class="rule"></div>
+  <p><small><b>Тип начисления:</b> мгновенно, вслед за начислением бинарного бонуса.</small></p>
+  <p>Вознаграждение по принципу «бонус с бонуса»: процент от начисленного <b>бинарного</b>
+  бонуса нижестоящего партнёра. Начисляется вверх по спонсорской линии на глубину до
+  <b>2 уровней</b> и рассчитывается с учётом <b>компрессии рангов</b> (§10).
+  <b>База</b> — сумма бинарного бонуса нижестоящего партнёра. <b>Ставка</b> зависит от вашего
+  пакета, вашего ранга (Manager и выше) и уровня.</p>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+    <div>
+      <h3>Уровень 1</h3>
+      <table>
+        <thead><tr><th>Ваш пакет</th><th class="num">Manager и выше</th></tr></thead>
+        <tbody>
+          <tr><td><span class="pk bronze">Bronze</span></td><td class="num">10 %</td></tr>
+          <tr><td><span class="pk silver">Silver</span></td><td class="num">15 %</td></tr>
+          <tr><td><span class="pk gold">Gold</span></td><td class="num">20 %</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div>
+      <h3>Уровень 2</h3>
+      <table>
+        <thead><tr><th>Ваш пакет</th><th class="num">Manager Silver</th></tr></thead>
+        <tbody>
+          <tr><td><span class="pk gold">Gold</span></td><td class="num">10 %</td></tr>
+        </tbody>
+      </table>
+      <p><small>Лидерский бонус доступен с ранга <b>Manager</b>. Второй уровень — только пакет
+      <b>Gold</b> и ранг <b>Manager Silver</b>.</small></p>
+    </div>
+  </div>
+  <div class="box example"><div class="t">Пример расчёта</div>
+    <p>Нижестоящему партнёру начислен бинарный бонус <b>100 USD</b>.<br>
+    — Спонсор ур. 1 (пакет <b>Gold</b>, ранг <b>Manager</b>) → 20 % × 100 = <b>20 USD</b>.<br>
+    — Спонсор ур. 2 (пакет <b>Gold</b>, ранг <b>Manager Silver</b>) → 10 % × 100 = <b>10 USD</b>.<br>
+    Итого лидерский бонус: <b>30 USD</b>. При наличии в цепочке партнёра, обогнавшего спонсора
+    по рангу на 2+, соответствующий спонсор был бы пропущен по правилу компрессии.</p></div>
+  <div class="foot"><span class="brand-mini">IziGo · Маркетинговая политика</span><span>12</span></div>
+</section>
+
+<!-- ================= PAGE 13: s15 + s16 ================= -->
+<section class="page">
+  <h2 class="section" id="s15"><span class="num">15</span>Бонус 4 — Ранговый</h2>
+  <div class="rule"></div>
+  <p><small><b>Тип начисления:</b> разово, при достижении нового ранга.</small></p>
+  <p>Единовременное фиксированное вознаграждение, начисляемое на кошелёк при первом
+  достижении соответствующего ранга (условия рангов — §9). Начисляется один раз за каждый
+  достигнутый ранг.</p>
+  <table style="max-width:70%">
+    <thead><tr><th>Ранг</th><th class="num">Ранговый бонус</th></tr></thead>
+    <tbody>
+      <tr><td><b>Consultant</b></td><td class="num">—</td></tr>
+      <tr><td><b>Manager</b></td><td class="num">100 USD</td></tr>
+      <tr><td><b>Manager Bronze</b></td><td class="num">200 USD</td></tr>
+      <tr><td><b>Manager Silver</b></td><td class="num">300 USD</td></tr>
+    </tbody>
+  </table>
+  <div class="box note"><div class="t">Настройка сумм</div>
+    <p>Суммы рангового бонуса задаются настройками платформы и могут изменяться Компанией в
+    порядке, описанном в §3.</p></div>
+  <h3>Условия получения</h3>
+  <ul>
+    <li>достигнуть соответствующего ранга согласно §9;</li>
+    <li>выполнение условий фиксируется автоматически при расчётном событии — бонус
+      начисляется в момент повышения ранга.</li>
+  </ul>
+
+  <h2 class="section" id="s16" style="margin-top:22px"><span class="num">16</span>Кошелёк, начисление и вывод средств</h2>
+  <div class="rule"></div>
+  <ul>
+    <li>Все бонусы начисляются на <b>внутренний кошелёк (Main Account)</b> в USD (1 PV = 1 USD).</li>
+    <li>Начисление — <b>в момент подтверждения платежа</b> (статус «Оплачено»).</li>
+    <li>Начисленные средства отображаются в разделе <b>«Кошелёк»</b> личного кабинета (Telegram Mini App).</li>
+    <li><b>Вывод средств</b> доступен после прохождения <b>KYC</b>; партнёр указывает TON‑адрес, вывод — в USDT.</li>
+  </ul>
+  <div class="foot"><span class="brand-mini">IziGo · Маркетинговая политика</span><span>13</span></div>
+</section>
+
+<!-- ================= PAGE 14: s17 ================= -->
+<section class="page">
+  <h2 class="section" id="s17"><span class="num">17</span>Общие положения</h2>
+  <div class="rule"></div>
+  <ul>
+    <li>Маркетинговая политика IziGo основана на принципах прозрачности, равных условий для
+      всех партнёров и добросовестной деловой практики.</li>
+    <li>Размер и доступность вознаграждения — результат выполненных условий и фактической
+      активности партнёра.</li>
+    <li>Все объёмы, статусы и начисления рассчитываются автоматически детерминированным
+      движком на основании подтверждённых оплат.</li>
+    <li>Компания вправе изменять параметры плана в порядке, описанном в §3; изменения
+      применяются к последующим расчётам.</li>
+  </ul>
+  <div class="disclaimer">
+    Настоящий документ носит информационно‑разъяснительный характер и описывает механику
+    системы вознаграждения IziGo по состоянию на дату вступления в силу. Числовые примеры
+    приведены для пояснения расчётов и не являются обещанием или гарантией дохода.
+  </div>
+  <div style="margin-top:40px;text-align:center;color:var(--muted);">
+    <div class="brand" style="justify-content:center;color:var(--ink);"><div class="dot"></div><span style="font-size:16pt;">IziGo</span></div>
+    <p style="margin-top:8px;">© 2026 IziGo. Маркетинговая политика · Версия 1.0</p>
+  </div>
+  <div class="foot"><span class="brand-mini">IziGo · Маркетинговая политика</span><span>14</span></div>
+</section>
+
+</body>
+</html>
