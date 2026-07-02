@@ -196,6 +196,7 @@ class PaymentService
         $pending = Payment::query()
             ->where('status', Payment::STATUS_PENDING)
             ->whereNotNull('external_ref')
+            ->orderBy('id')
             ->get();
 
         $confirmed = 0;
@@ -242,6 +243,9 @@ class PaymentService
         if ($ttlMinutes > 0 && $allPollsFailed) {
             Log::warning('tonpay-poll: все опросы завершились ошибкой — TTL-экспирация пропущена');
         } elseif ($ttlMinutes > 0) {
+            // orWhereNull — защитная ветка: PENDING сегодня всегда идёт с external_ref
+            // (issueInvoice), но если инвариант сломается, неопрашиваемый и неоплачиваемый
+            // платёж не должен зависнуть навечно.
             $expireIds = Payment::query()
                 ->where('status', Payment::STATUS_PENDING)
                 ->where('created_at', '<', now()->subMinutes($ttlMinutes))
@@ -369,12 +373,18 @@ class PaymentService
         return ['payment_status' => $payment->fresh()->status];
     }
 
-    /** Подтвердить платёж по данным сети (идемпотентно, под локом). */
+    /**
+     * Подтвердить платёж по данным сети (идемпотентно, под локом). Подтверждается только
+     * из PENDING/EXPIRED: перепроверка статуса ПОД локом закрывает гонку «во время опроса
+     * платёж стал failed/paid другим путём» — конфликтующий терминальный статус не
+     * перетирается тихо (failed→paid руками — только через разбор инцидента).
+     */
     public function confirmPayment(int $paymentId): void
     {
         DB::transaction(function () use ($paymentId) {
             $locked = Payment::query()->where('id', $paymentId)->lockForUpdate()->first();
-            if ($locked === null || $locked->status === Payment::STATUS_PAID) {
+            if ($locked === null
+                || !in_array($locked->status, [Payment::STATUS_PENDING, Payment::STATUS_EXPIRED], true)) {
                 return;
             }
             $this->applyPaid($locked);

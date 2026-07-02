@@ -117,10 +117,7 @@ class BroadcastService
      */
     public function resume(int $actorMemberId, int $broadcastId): array
     {
-        $broadcast = NotificationBroadcast::query()->find($broadcastId);
-        if ($broadcast === null) {
-            throw new \RuntimeException('Рассылка не найдена');
-        }
+        $broadcast = NotificationBroadcast::query()->findOrFail($broadcastId); // 404 через guarded
         if ($broadcast->status !== NotificationBroadcast::STATUS_PROCESSING) {
             throw new InvalidArgumentException('Допоставить можно только зависшую processing-рассылку');
         }

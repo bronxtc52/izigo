@@ -94,6 +94,25 @@ class BroadcastHardeningTest extends TestCase
         $this->assertSame(3, NotificationInbox::query()->count());
     }
 
+    public function testSegmentGrowthAcrossSingleRecipientBoundaryDoesNotDuplicate(): void
+    {
+        // Регресс на ревью-находку: сегмент из 1 получателя → dedup-ключ рассылки обязан
+        // иметь ту же форму (:m{id}), что и у пачки — иначе рост сегмента 1→2 между
+        // dispatch и повтором задваивает доставку первому получателю.
+        [, $ownerId] = $this->bootNetwork(5050, 0); // сегмент = только owner
+        $svc = app(BroadcastService::class);
+
+        $first = $svc->dispatch($ownerId, 'all', null, 'Пограничный случай');
+        $this->assertSame(1, $first['enqueued']);
+
+        $this->registerTg(5051, $this->memberByTg(5050)->ref_code, 'Novice');
+
+        $second = $svc->dispatch($ownerId, 'all', null, 'Пограничный случай');
+        $this->assertSame(1, $second['enqueued']); // только новичок
+        $this->assertSame(1, NotificationOutbox::query()
+            ->where('member_id', $this->memberByTg(5050)->id)->count());
+    }
+
     public function testResumeRejectedForDoneBroadcast(): void
     {
         [$ownerData, $ownerId] = $this->bootNetwork(5030, 1);

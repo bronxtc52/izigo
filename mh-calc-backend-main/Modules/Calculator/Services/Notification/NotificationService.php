@@ -84,7 +84,7 @@ class NotificationService
             foreach ($chunk as $memberId) {
                 $memberId = (int) $memberId;
                 $perMemberDedup = $dedupKey !== null
-                    ? $this->scopedDedupKey($dedupKey, $memberId, $total)
+                    ? $this->scopedDedupKey($dedupKey, $memberId, $total, $broadcastId !== null)
                     : null;
 
                 $outboxRows[] = [
@@ -134,13 +134,16 @@ class NotificationService
     }
 
     /**
-     * Для одиночной постановки dedup_key используется как есть (вызывающий уже сделал
-     * его уникальным, напр. 'payout.status:wd:5:paid'); для пачки добавляем :m<id>,
-     * чтобы unique-ключ не коллизился между участниками.
+     * Для одиночной событийной постановки dedup_key используется как есть (вызывающий уже
+     * сделал его уникальным, напр. 'payout.status:wd:5:paid'); для пачки добавляем :m<id>,
+     * чтобы unique-ключ не коллизился между участниками. Для рассылок ($forceScope) суффикс
+     * ставится ВСЕГДА, даже при одном получателе: иначе сегмент, менявший размер через
+     * границу 1↔2+ между dispatch и resume, даёт тому же участнику ключ другой формы —
+     * и «идемпотентный» повтор вставляет дубль.
      */
-    private function scopedDedupKey(string $dedupKey, int $memberId, int $count): string
+    private function scopedDedupKey(string $dedupKey, int $memberId, int $count, bool $forceScope = false): string
     {
-        if ($count <= 1) {
+        if (!$forceScope && $count <= 1) {
             return $dedupKey;
         }
 

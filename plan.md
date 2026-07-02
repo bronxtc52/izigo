@@ -23,50 +23,50 @@
 Все пути — `mh-calc-backend-main/Modules/Calculator/`.
 
 ### B1. Poison-платёж не валит конвейер — `Services/PaymentService.php:202-212`
-- [ ] try/catch (`\Throwable`) вокруг тела итерации `foreach ($pending as $payment)`: `Log::error` с payment id + Sentry `captureException`, `continue`. Разведение с B4: сетевые/API-ошибки идут путём `'error'` (не исключение → не Sentry-flood); catch ловит только неожиданное (битые данные)
-- [ ] Guard от системной аварии: если **все** опросы прогона завершились `'error'` → TTL-блок пропустить целиком (лог warning); иначе TTL выполняется всегда
-- [ ] Тест: два pending-платежа, у первого битый order (`markPaid` бросает) → второй подтверждён, команда не упала
+- [x] try/catch (`\Throwable`) вокруг тела итерации `foreach ($pending as $payment)`: `Log::error` с payment id + Sentry `captureException`, `continue`. Разведение с B4: сетевые/API-ошибки идут путём `'error'` (не исключение → не Sentry-flood); catch ловит только неожиданное (битые данные)
+- [x] Guard от системной аварии: если **все** опросы прогона завершились `'error'` → TTL-блок пропустить целиком (лог warning); иначе TTL выполняется всегда
+- [x] Тест: два pending-платежа, у первого битый order (`markPaid` бросает) → второй подтверждён, команда не упала
 
 ### B2. Сериализация активаций — `Services/ActivationService.php:38-81`
-- [ ] В начале `DB::transaction` в `activate()` (до `insertOrIgnore`): `DB::statement('SELECT pg_advisory_xact_lock(?)', [self::ACTIVATION_LOCK_KEY])`, фиксированная константа класса (задокументировать: глобальная сериализация всех пересчётов сети)
-- [ ] Зафиксировано разведкой: `recompute()` вызывается внутри той же транзакции `activate()` (:67) и своей не открывает — лок покрывает delete/rewrite снапшота и ledger-дельты. В код — assert/комментарий, что recompute нельзя выносить из транзакции
-- [ ] Единый порядок локов (анти-дедлок): любая транзакция, которая в итоге зовёт `activate()`, берёт advisory-lock **до** первых ledger-записей → в autoship лок берётся в начале транзакции `processOne`, перед `charge` (см. B3)
-- [ ] Подтвердить `withoutOverlapping()` на `commerce:tonpay-poll` (два поллера параллельно не ходят); лок блокирующий — активации короткие, отдельный lock_timeout поллеру не закладываем (упрощение, задокументировать)
-- [ ] Тесты: (а) вспомогательный — вторым DB-коннектом взять лок, на основном `SET LOCAL lock_timeout` внутри транзакции (не загрязнять коннект) → `activate()` падает по таймауту; (б) **основной денежный** — две конкурентные активации (второй PHP-процесс через artisan-команду) → ledger/earnings не задвоены; если конкурентный прогон в CI нестабилен — зафиксировать ограничение в плане и оставить (а) + существующие идемпотентность/аккруалы
+- [x] В начале `DB::transaction` в `activate()` (до `insertOrIgnore`): `DB::statement('SELECT pg_advisory_xact_lock(?)', [self::ACTIVATION_LOCK_KEY])`, фиксированная константа класса (задокументировать: глобальная сериализация всех пересчётов сети)
+- [x] Зафиксировано разведкой: `recompute()` вызывается внутри той же транзакции `activate()` (:67) и своей не открывает — лок покрывает delete/rewrite снапшота и ledger-дельты. В код — assert/комментарий, что recompute нельзя выносить из транзакции
+- [x] Единый порядок локов (анти-дедлок): любая транзакция, которая в итоге зовёт `activate()`, берёт advisory-lock **до** первых ledger-записей → в autoship лок берётся в начале транзакции `processOne`, перед `charge` (см. B3)
+- [x] Подтвердить `withoutOverlapping()` на `commerce:tonpay-poll` (два поллера параллельно не ходят); лок блокирующий — активации короткие, отдельный lock_timeout поллеру не закладываем (упрощение, задокументировать)
+- [x] Тесты: (а) вспомогательный — вторым DB-коннектом взять лок, на основном `SET LOCAL lock_timeout` внутри транзакции (не загрязнять коннект) → `activate()` падает по таймауту; (б) **основной денежный** — две конкурентные активации (второй PHP-процесс через artisan-команду) → ledger/earnings не задвоены; если конкурентный прогон в CI нестабилен — зафиксировать ограничение в плане и оставить (а) + существующие идемпотентность/аккруалы
 
 ### B3. Autoship атомарен — `Services/AutoshipService.php:113-160`
-- [ ] `processOne`: advisory-lock активаций (см. B2) + charge (:140-142) + `orders->create` + `markPaid` (:151-153) + advance подписки (:155-158) — в **одну** `DB::transaction`; `InsufficientFundsException` → rollback, затем `advanceRetry` отдельной транзакцией (как сейчас)
-- [ ] Аудит `LedgerService::charge`: убедиться, что он на той же connection и не коммитит сам (вложенный `DB::transaction` в Laravel = savepoint — ок; ручной commit/иная connection — переделать вызов)
-- [ ] `runDue` (:105-107): try/catch (`\Throwable`) per-подписка — лог+Sentry, прогон продолжается (закрывает P2-7)
-- [ ] Тест: на **реальном** LedgerService подмена, роняющая `markPaid` после charge → в ledger нет записи списания (rollback); poison-подписка не мешает следующей
+- [x] `processOne`: advisory-lock активаций (см. B2) + charge (:140-142) + `orders->create` + `markPaid` (:151-153) + advance подписки (:155-158) — в **одну** `DB::transaction`; `InsufficientFundsException` → rollback, затем `advanceRetry` отдельной транзакцией (как сейчас)
+- [x] Аудит `LedgerService::charge`: убедиться, что он на той же connection и не коммитит сам (вложенный `DB::transaction` в Laravel = savepoint — ок; ручной commit/иная connection — переделать вызов)
+- [x] `runDue` (:105-107): try/catch (`\Throwable`) per-подписка — лог+Sentry, прогон продолжается (закрывает P2-7)
+- [x] Тест: на **реальном** LedgerService подмена, роняющая `markPaid` после charge → в ledger нет записи списания (rollback); poison-подписка не мешает следующей
 
 ### B4. TTL не съедает оплаченное — `Services/PaymentService.php` + `Services/Payment/*`
-- [ ] Контракт `PaymentGateway::pollStatus`: новый возврат `'error'`; `TonPayGateway` (:70-76): exception и `!successful()` → `'error'`; `FakeTonPayGateway` — режим `failNext()`/`failFor($memo)` для тестов
-- [ ] Перечислить **всех** потребителей `pollStatus` (grep: pollPending, `checkForMember`/`checkForLead`, recheck) — каждому явная обработка `'error'` (для user-facing check — вести себя как `'pending'`); `'error'` **никогда** не пишется в `payments.status`
-- [ ] `pollPending`: TTL-экспирация по **белому списку** — только платежи, успешно опрошенные в этом прогоне с результатом «перевода нет» (`whereIn('id', $polledOkIds)` + старше TTL), а не blacklist errored (персистентный `last_poll_result` в БД — вне скоупа, не заводим)
-- [ ] Перед TTL-update: выбрать id кандидатов → `Log::warning` с полным списком; в Sentry — count + первые 10 id (не флудить)
-- [ ] Админ-ручка `POST /admin/payments/{id}/recheck` в `Routes/api.php` (admin-группа :135+): `middleware('calculator.role:owner,finance')`, метод в `CommerceAdminController` по паттерну `guarded()` + `audit->recordSafe(..., 'payment.recheck', 'payment', $id, ['old_status' => ..., 'result' => ...])`. Порядок: `pollStatus` **вне** DB-транзакции (не держать row-lock во время HTTP к tonapi) → при `'paid'` короткая транзакция: lock платежа → перепроверить статус ∈ {PENDING, EXPIRED} → `applyPaid`-путь напрямую (без промежуточного возврата в PENDING — меньше состояний; переход `{pending,expired}→paid` идемпотентен, активация внутри берёт advisory-lock B2)
-- [ ] Тесты: платёж старше TTL + гейтвей в error-режиме → НЕ экспирирован; recheck expired-платежа с деньгами (`FakeTonPayGateway::fakePay`) → PAID + активация; recheck конкурентно с тиком поллера → одна активация (идемпотентность по event-ключу)
+- [x] Контракт `PaymentGateway::pollStatus`: новый возврат `'error'`; `TonPayGateway` (:70-76): exception и `!successful()` → `'error'`; `FakeTonPayGateway` — режим `failNext()`/`failFor($memo)` для тестов
+- [x] Перечислить **всех** потребителей `pollStatus` (grep: pollPending, `checkForMember`/`checkForLead`, recheck) — каждому явная обработка `'error'` (для user-facing check — вести себя как `'pending'`); `'error'` **никогда** не пишется в `payments.status`
+- [x] `pollPending`: TTL-экспирация по **белому списку** — только платежи, успешно опрошенные в этом прогоне с результатом «перевода нет» (`whereIn('id', $polledOkIds)` + старше TTL), а не blacklist errored (персистентный `last_poll_result` в БД — вне скоупа, не заводим)
+- [x] Перед TTL-update: выбрать id кандидатов → `Log::warning` с полным списком; в Sentry — count + первые 10 id (не флудить)
+- [x] Админ-ручка `POST /admin/payments/{id}/recheck` в `Routes/api.php` (admin-группа :135+): `middleware('calculator.role:owner,finance')`, метод в `CommerceAdminController` по паттерну `guarded()` + `audit->recordSafe(..., 'payment.recheck', 'payment', $id, ['old_status' => ..., 'result' => ...])`. Порядок: `pollStatus` **вне** DB-транзакции (не держать row-lock во время HTTP к tonapi) → при `'paid'` короткая транзакция: lock платежа → перепроверить статус ∈ {PENDING, EXPIRED} → `applyPaid`-путь напрямую (без промежуточного возврата в PENDING — меньше состояний; переход `{pending,expired}→paid` идемпотентен, активация внутри берёт advisory-lock B2)
+- [x] Тесты: платёж старше TTL + гейтвей в error-режиме → НЕ экспирирован; recheck expired-платежа с деньгами (`FakeTonPayGateway::fakePay`) → PAID + активация; recheck конкурентно с тиком поллера → одна активация (идемпотентность по event-ключу)
 
 ### B5. Enforcement флагов c1..c7 — новый middleware
-- [ ] `Http/Middleware/EnsureFeatureFlag.php`: параметр-алиас, `FeatureFlagService::isEnabled($alias)` → иначе 403 `{message: 'Feature is not available.', code: 'FEATURE_DISABLED'}` (контракт как в AiAssistantController:28-31)
-- [ ] Алиас `feature.flag` в `Providers/CalculatorServiceProvider.php:registerMiddlewares()` (:53-63)
-- [ ] Повесить на группы в `Routes/api/`: `notifications.php`→`c1_notifications` (cabinet+admin), `helpdesk.php`→`c2_helpdesk`, `exports.php`→`c5_pii_export`, `copartners.php`→`c6_copartners`, `monitoring.php`→`c7_jobs_monitor`, `i18n.php`→`c4_i18n_admin` **только admin-группа**
-- [ ] Аудит покрытия: пройти все 7 роут-файлов + `api.php` — каждый роут Блока C либо в гейченной группе, либо в явном списке исключений с обоснованием (одиночный роут вне группы = дыра)
-- [ ] Исключения (by design): `feature_flags.php` (c3) — owner-only без флага; cabinet `GET /feature-flags/active` — без флага (фронт по нему узнаёт табы); публичный `GET /i18n/overrides` — без флага (c4 выключает админ-управление переводами, не runtime-serving) — **допущения, см. лог**; закрепить тестом, что эти роуты сознательно не-403 при выключенных флагах
-- [ ] Тест-страховка от осиротевшего алиаса: все алиасы из `feature.flag:*` в роутах существуют в `FeatureFlagSeeder` (опечатка в алиасе = перманентный 403 при deny-by-default)
-- [ ] Тест (параметризованный): по каждому флагу — выключен → 403 на характерный роут, включён → не-403; между кейсами сбрасывать кэш флагов (TTL 60с в `FeatureFlagService`)
+- [x] `Http/Middleware/EnsureFeatureFlag.php`: параметр-алиас, `FeatureFlagService::isEnabled($alias)` → иначе 403 `{message: 'Feature is not available.', code: 'FEATURE_DISABLED'}` (контракт как в AiAssistantController:28-31)
+- [x] Алиас `feature.flag` в `Providers/CalculatorServiceProvider.php:registerMiddlewares()` (:53-63)
+- [x] Повесить на группы в `Routes/api/`: `notifications.php`→`c1_notifications` (cabinet+admin), `helpdesk.php`→`c2_helpdesk`, `exports.php`→`c5_pii_export`, `copartners.php`→`c6_copartners`, `monitoring.php`→`c7_jobs_monitor`, `i18n.php`→`c4_i18n_admin` **только admin-группа**
+- [x] Аудит покрытия: пройти все 7 роут-файлов + `api.php` — каждый роут Блока C либо в гейченной группе, либо в явном списке исключений с обоснованием (одиночный роут вне группы = дыра)
+- [x] Исключения (by design): `feature_flags.php` (c3) — owner-only без флага; cabinet `GET /feature-flags/active` — без флага (фронт по нему узнаёт табы); публичный `GET /i18n/overrides` — без флага (c4 выключает админ-управление переводами, не runtime-serving) — **допущения, см. лог**; закрепить тестом, что эти роуты сознательно не-403 при выключенных флагах
+- [x] Тест-страховка от осиротевшего алиаса: все алиасы из `feature.flag:*` в роутах существуют в `FeatureFlagSeeder` (опечатка в алиасе = перманентный 403 при deny-by-default)
+- [x] Тест (параметризованный): по каждому флагу — выключен → 403 на характерный роут, включён → не-403; между кейсами сбрасывать кэш флагов (TTL 60с в `FeatureFlagService`)
 
 ### B6. Рассылка: bulk + идемпотентность — `Services/Notification/`
-- [ ] Канонизация контент-ключа: базовый dedup-ключ = `'broadcast:v1:' . sha1(canonical($segment) . "\n" . $bodyRaw)`, где `canonical` = рекурсивный `ksort` + `json_encode(..., JSON_UNESCAPED_UNICODE)`; включить в хэш все влияющие на доставку поля (title, если есть). `broadcast_id` в outbox остаётся FK для трассировки
-- [ ] `NotificationService::enqueueForMembers` (:51-131): двухфазный bulk в **одной** транзакции — (1) `insertOrIgnore` outbox чанками по 500; (2) select outbox id по этим dedup-ключам → bulk-достройка inbox (проверить схему inbox: если нет ключа идемпотентности — добавить nullable `dedup_key` + unique миграцией, иначе повтор задваивает inbox). Счётчик «поставлено» — по фактически вставленным строкам
-- [ ] Повтор застрявшей рассылки: ручка `resume` в `BroadcastAdminController` — `calculator.role:owner,support` (как send), audit-event, разрешена только из `processing`; повторный enqueue тем же контент-ключом допоставляет недостающих. `DONE` = «постановка завершена» (существующая семантика; доставку отслеживает outbox/мониторинг C7, не resume)
-- [ ] Тест: dispatch → эмуляция зависания (processing) → resume → у уже поставленных по одной записи outbox+inbox, недостающие достроены; тот же логический сегмент с другим порядком ключей → тот же dedup-ключ; новый контент → новые записи
+- [x] Канонизация контент-ключа: базовый dedup-ключ = `'broadcast:v1:' . sha1(canonical($segment) . "\n" . $bodyRaw)`, где `canonical` = рекурсивный `ksort` + `json_encode(..., JSON_UNESCAPED_UNICODE)`; включить в хэш все влияющие на доставку поля (title, если есть). `broadcast_id` в outbox остаётся FK для трассировки
+- [x] `NotificationService::enqueueForMembers` (:51-131): двухфазный bulk в **одной** транзакции — (1) `insertOrIgnore` outbox чанками по 500; (2) select outbox id по этим dedup-ключам → bulk-достройка inbox (проверить схему inbox: если нет ключа идемпотентности — добавить nullable `dedup_key` + unique миграцией, иначе повтор задваивает inbox). Счётчик «поставлено» — по фактически вставленным строкам
+- [x] Повтор застрявшей рассылки: ручка `resume` в `BroadcastAdminController` — `calculator.role:owner,support` (как send), audit-event, разрешена только из `processing`; повторный enqueue тем же контент-ключом допоставляет недостающих. `DONE` = «постановка завершена» (существующая семантика; доставку отслеживает outbox/мониторинг C7, не resume)
+- [x] Тест: dispatch → эмуляция зависания (processing) → resume → у уже поставленных по одной записи outbox+inbox, недостающие достроены; тот же логический сегмент с другим порядком ключей → тот же dedup-ключ; новый контент → новые записи
 
 ### B7. Валидация TON-адреса — `Services/WithdrawalService.php:91-93`
-- [ ] Новый `Support/TonAddress.php`: `validate(string $addr): bool` — base64/base64url decode → длина 36, CRC16-CCITT (poly 0x1021, init 0x0000) первых 34 байт == последние 2 (**big-endian**); **testnet-бит (`tag & 0x80`) → невалиден**; после снятия testnet-бита tag ∈ {0x11 bounceable, 0x51 non-bounceable}
-- [ ] `WithdrawalService::create`: невалидный `payout_details` → `ValidationException::withMessages()` (честный 422; RuntimeException через `guarded()` дал бы 404)
-- [ ] **Общий файл тест-векторов** (JSON в репо: валидный EQ/UQ mainnet, битая CRC, testnet kQ/0Q, мусор/длина) — на него ссылаются и юнит-тесты B7 (PHP), и F3 (JS): самопис бэка и `@ton/core` фронта не должны расходиться
+- [x] Новый `Support/TonAddress.php`: `validate(string $addr): bool` — base64/base64url decode → длина 36, CRC16-CCITT (poly 0x1021, init 0x0000) первых 34 байт == последние 2 (**big-endian**); **testnet-бит (`tag & 0x80`) → невалиден**; после снятия testnet-бита tag ∈ {0x11 bounceable, 0x51 non-bounceable}
+- [x] `WithdrawalService::create`: невалидный `payout_details` → `ValidationException::withMessages()` (честный 422; RuntimeException через `guarded()` дал бы 404)
+- [x] **Общий файл тест-векторов** (JSON в репо: валидный EQ/UQ mainnet, битая CRC, testnet kQ/0Q, мусор/длина) — на него ссылаются и юнит-тесты B7 (PHP), и F3 (JS): самопис бэка и `@ton/core` фронта не должны расходиться
 
 ## PR-3 — Ops (`chore/p1-hardening-ops`) — мерджится вторым
 
@@ -76,10 +76,10 @@
 - [ ] Страховка `route:cache`: после роут-правок PR-1 (`feature.flag`, recheck) `php artisan route:cache` гоняется в CI-джобе (см. O2) — некешируемый роут ловится до прод-старта
 
 ### O2. Тесты в CI — `.github/workflows/deploy.yml`
-- [ ] **Job `test` добавляется уже в PR-1** (на `pull_request` + push main) — денежный PR не уезжает в прод без гейта; enforcement `needs: test` у деплой-jobs — в PR-3
-- [ ] `services: postgres:16` c healthcheck (`pg_isready`) и `ports: 5432:5432`; env: `DB_CONNECTION=pgsql, DB_HOST=127.0.0.1` (**не** `localhost`/имя сервиса — job на runner-хосте), `DB_DATABASE=izigo_test`; ltree в official-образе есть, миграция сама делает `CREATE EXTENSION` (сервисный юзер — суперюзер)
-- [ ] Bootstrap явно: setup-php 8.3 + extensions `pdo_pgsql,pgsql` → `composer install` → `cp .env.example .env` + `php artisan key:generate` → `php artisan config:cache && php artisan route:cache` (smoke O1) → `php artisan test` (последовательно; замерить время, `--parallel` — отдельно, чтобы не флейкал lock-тест B2)
-- [ ] Фронт в том же гейте: node 20, `npm ci && npm run lint && npm run build` (проверить, что билд переживает пустые NEXT_PUBLIC_*)
+- [x] **Job `test` добавляется уже в PR-1** (на `pull_request` + push main) — денежный PR не уезжает в прод без гейта; enforcement `needs: test` у деплой-jobs — в PR-3
+- [x] `services: postgres:16` c healthcheck (`pg_isready`) и `ports: 5432:5432`; env: `DB_CONNECTION=pgsql, DB_HOST=127.0.0.1` (**не** `localhost`/имя сервиса — job на runner-хосте), `DB_DATABASE=izigo_test`; ltree в official-образе есть, миграция сама делает `CREATE EXTENSION` (сервисный юзер — суперюзер)
+- [x] Bootstrap явно: setup-php 8.3 + extensions `pdo_pgsql,pgsql` → `composer install` → `cp .env.example .env` + `php artisan key:generate` → `php artisan config:cache && php artisan route:cache` (smoke O1) → `php artisan test` (последовательно; замерить время, `--parallel` — отдельно, чтобы не флейкал lock-тест B2)
+- [x] Фронт в том же гейте: node 20, `npm ci && npm run lint && npm run build` (проверить, что билд переживает пустые NEXT_PUBLIC_*)
 - [ ] Проверка приёмки №4: на ветке намеренно красный тест → job падает → убрать
 
 ### O3. `bot.catch()` + тест бота — `mh-calc-bot/src/`
@@ -112,6 +112,23 @@
 
 PR-1 (job `test` в CI + B1→B4 деньги, потом B5→B7) → PR-3 (O1 + enforcement `needs: test` + O3, прогон CI на ветке) → PR-2 (F1-F5).
 Тесты — рядом с каждым фиксом (паттерны: `TonPayPollTest` + `FakeTonPayGateway`, `SignsTelegramInitData`, `NotificationServiceTest`).
+
+## Гейт 4 (PR-1): итоги ревью reviewer-агента (2026-07-02)
+
+Блокеров нет. Применено: `orderBy('id')` в pollPending (детерминизм + честность B1-теста);
+`confirmPayment` подтверждает только из {PENDING, EXPIRED} — гонка «failed во время опроса»
+не перетирается тихо; dedup-ключ рассылки всегда со суффиксом `:m{id}` (граница сегмента 1↔2+
+между dispatch и resume, регресс-тест добавлен); resume несуществующей рассылки → 404.
+
+Зафиксированные ограничения:
+- **B2(б):** конкурентный денежный тест двумя PHP-процессами НЕ реализован (нестабилен в CI);
+  захват лока на обоих путях доказан вторым DB-коннектом (ActivationLockTest), задвоение
+  ловят существующие идемпотентность/аккруал-тесты. Осознанный компромисс плана.
+- **B6, окно апгрейда:** рассылка, зависшая в processing ДО деплоя PR-1, имеет старый формат
+  ключей — её resume может задвоить. Проверить перед деплоем: `SELECT id FROM
+  notification_broadcasts WHERE status='processing'` (ожидаемо пусто).
+- **PR-3:** если включать branch-protection required check `test` — учесть `paths-ignore`
+  (docs-only PR не запускает job).
 
 ## Ревизия по /fusion-челленджу (2026-07-02, panel: opus-4.8 + gpt-5.5 + deepseek-v4-pro, $0.81)
 
