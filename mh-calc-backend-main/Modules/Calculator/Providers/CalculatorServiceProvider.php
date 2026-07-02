@@ -10,6 +10,7 @@ use Modules\Calculator\Console\ExpireLeadsCommand;
 use Modules\Calculator\Console\OutboxDispatchCommand;
 use Modules\Calculator\Console\PayoutsPollCommand;
 use Modules\Calculator\Console\RemoveOldEmptyStructuresCommand;
+use Modules\Calculator\Console\SchedulerHeartbeatCommand;
 use Modules\Calculator\Console\TonPayPollCommand;
 use Modules\Calculator\Http\Middleware\SetCalculatorUserMiddleware;
 use Modules\Calculator\Http\Middleware\CheckUserTokenMiddleware;
@@ -136,6 +137,7 @@ class CalculatorServiceProvider extends ServiceProvider
             TonPayPollCommand::class,
             OutboxDispatchCommand::class,
             ExpireLeadsCommand::class,
+            SchedulerHeartbeatCommand::class,
         ]);
     }
 
@@ -147,6 +149,10 @@ class CalculatorServiceProvider extends ServiceProvider
         $this->app->booted(function () {
             /** @var Schedule $schedule */
             $schedule = $this->app->make(Schedule::class);
+            // B-5: прямой heartbeat живости планировщика. Ежеминутный тик оставляет свежую
+            // метку; /api/health отдаёт 503, если она протухла (планировщик умер/завис).
+            // Без withoutOverlapping — операция мгновенная, мьютекс тут только мешал бы.
+            $schedule->command('scheduler:heartbeat')->everyMinute();
             $schedule->command('calculator:remove-old-empty')->daily();
             $schedule->command('commerce:autoship-run')->dailyAt('03:00')->withoutOverlapping(60);
             $schedule->command('commerce:payouts-poll')->everyThirtyMinutes()->withoutOverlapping(25);
