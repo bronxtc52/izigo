@@ -36,7 +36,7 @@ class WebAdminReportTest extends TestCase
 
         // Owner заработал реферал ($9), создаёт заявку на $5 (холд 500).
         $this->postJson('/api/v1/cabinet/withdrawals',
-            ['amount' => '5.00', 'payout_details' => 'IBAN'], $this->tgHeaders($ownerData))->assertOk();
+            ['amount' => '5.00', 'payout_details' => 'EQABAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAc3j'], $this->tgHeaders($ownerData))->assertOk();
 
         return [$ownerData, $this->memberByTg(700)->id];
     }

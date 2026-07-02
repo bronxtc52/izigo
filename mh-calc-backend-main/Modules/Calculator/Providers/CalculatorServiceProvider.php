@@ -13,6 +13,7 @@ use Modules\Calculator\Console\RemoveOldEmptyStructuresCommand;
 use Modules\Calculator\Console\TonPayPollCommand;
 use Modules\Calculator\Http\Middleware\SetCalculatorUserMiddleware;
 use Modules\Calculator\Http\Middleware\CheckUserTokenMiddleware;
+use Modules\Calculator\Http\Middleware\EnsureFeatureFlag;
 use Modules\Calculator\Http\Middleware\ResolveTelegramMember;
 use Modules\Calculator\Http\Middleware\RoleMiddleware;
 use Modules\Calculator\Http\Middleware\WebAdminAuth;
@@ -60,6 +61,7 @@ class CalculatorServiceProvider extends ServiceProvider
         $router->aliasMiddleware('telegram.auth', ResolveTelegramMember::class);
         $router->aliasMiddleware('web.admin', WebAdminAuth::class);
         $router->aliasMiddleware('calculator.role', RoleMiddleware::class);
+        $router->aliasMiddleware('feature.flag', EnsureFeatureFlag::class);
     }
 
     private function registerFacades():void

@@ -1,0 +1,65 @@
+{
+  "_comment": "Общие тест-векторы user-friendly TON-адресов (B7/F3). Сгенерированы @ton/core 0.59.1 — той же библиотекой, которой фронт валидирует адреса (F3): согласованность PHP-валидатора бэка и фронта by construction. Генератор: docs/specs/2026-07-02-p1-production-hardening.md, скрипт в истории PR.",
+  "valid": [
+    {
+      "address": "EQABAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAc3j",
+      "note": "EQ bounceable wc0"
+    },
+    {
+      "address": "UQABAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAZAm",
+      "note": "UQ non-bounceable wc0"
+    },
+    {
+      "address": "EQDA_-4AESIzRFVmd4iZAKq7zN3u_wARIjNEVWZ3iJmqu3SV",
+      "note": "EQ bounceable wc0 (b)"
+    },
+    {
+      "address": "UQDA/+4AESIzRFVmd4iZAKq7zN3u/wARIjNEVWZ3iJmquylQ",
+      "note": "non-urlsafe base64 (+/)"
+    },
+    {
+      "address": "Ef_A_-4AESIzRFVmd4iZAKq7zN3u_wARIjNEVWZ3iJmqu4vd",
+      "note": "masterchain wc=-1"
+    }
+  ],
+  "testnet_rejected": [
+    {
+      "address": "kQABAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAXZp",
+      "note": "kQ testnet bounceable"
+    },
+    {
+      "address": "0QABAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBASus",
+      "note": "0Q testnet non-bounceable"
+    }
+  ],
+  "invalid": [
+    {
+      "address": "EQABAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAc3A",
+      "note": "битая CRC16"
+    },
+    {
+      "address": "EQABAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEB",
+      "note": "обрезанный (длина)"
+    },
+    {
+      "address": "EQABAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAc3jAA",
+      "note": "слишком длинный"
+    },
+    {
+      "address": "не-адрес вовсе",
+      "note": "мусор"
+    },
+    {
+      "address": "",
+      "note": "пустая строка"
+    },
+    {
+      "address": "c0ffee0011223344556677889900aabbccddeeff00112233445566778899aabb",
+      "note": "raw hex вместо friendly"
+    },
+    {
+      "address": "0:c0ffee0011223344556677889900aabbccddeeff00112233445566778899aabb",
+      "note": "raw формат wc:hex"
+    }
+  ]
+}

@@ -25,6 +25,7 @@ class HelpdeskTest extends TestCase
     {
         parent::setUp();
         $this->bootTelegram();
+        $this->enableFeatureFlags('c2_helpdesk');
     }
 
     // --- Cabinet: свои тикеты ---

@@ -17,7 +17,7 @@ use Modules\Calculator\Http\Controllers\MonitoringController;
 Route::group([
     'prefix' => 'admin',
     'as' => 'admin.',
-    'middleware' => ['web.admin'],
+    'middleware' => ['web.admin', 'feature.flag:c7_jobs_monitor'],
 ], function () {
     // owner-only сводка по outbox (counts/застрявшие/планировщик/failed_jobs справочно).
     Route::get('/monitoring/outbox', [MonitoringController::class, 'outbox'])

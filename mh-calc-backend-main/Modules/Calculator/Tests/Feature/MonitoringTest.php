@@ -26,6 +26,7 @@ class MonitoringTest extends TestCase
     {
         parent::setUp();
         $this->bootTelegram();
+        $this->enableFeatureFlags('c7_jobs_monitor');
     }
 
     /** Создать outbox-запись напрямую, с контролем времён (для тестов застрявших). */

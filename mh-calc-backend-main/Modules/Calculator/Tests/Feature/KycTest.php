@@ -36,7 +36,7 @@ class KycTest extends TestCase
     private function withdraw(string $data, string $amount): \Illuminate\Testing\TestResponse
     {
         return $this->postJson('/api/v1/cabinet/withdrawals',
-            ['amount' => $amount, 'payout_details' => 'EQ_addr'], $this->tgHeaders($data));
+            ['amount' => $amount, 'payout_details' => 'EQABAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAc3j'], $this->tgHeaders($data));
     }
 
     public function testSubmitSetsPendingStatus(): void

@@ -3,6 +3,7 @@
 namespace Modules\Calculator\Services;
 
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use InvalidArgumentException;
 use Modules\Calculator\Models\Member;
 use Modules\Calculator\Models\MemberWallet;
@@ -11,6 +12,7 @@ use Modules\Calculator\Models\WithdrawalRequest;
 use Modules\Calculator\Services\Notification\NotificationService;
 use Modules\Calculator\Services\Payout\PayoutGateway;
 use Modules\Calculator\Services\Payout\PayoutResult;
+use Modules\Calculator\Support\TonAddress;
 use Modules\Calculator\Services\Telegram\TelegramNotifications;
 use RuntimeException;
 use Throwable;
@@ -90,6 +92,14 @@ class WithdrawalService
         }
         if (trim($payoutDetails) === '') {
             throw new RuntimeException('Укажите реквизиты для вывода');
+        }
+        // B7: реквизиты = mainnet TON-адрес; битая чексумма/testnet → честный 422
+        // (ValidationException, а не RuntimeException→404 из guarded()). Ошибка формата,
+        // пойманная здесь, стоит ноль; пойманная при ручной выплате — зависшие деньги.
+        if (! TonAddress::isValid($payoutDetails)) {
+            throw ValidationException::withMessages([
+                'payout_details' => 'Невалидный TON-адрес: проверьте адрес кошелька (testnet-адреса не принимаются)',
+            ]);
         }
         // Пороговый KYC-гейт (Фаза 4): выше порога нужен одобренный KYC.
         $this->kyc->assertCleared($member, $amountCents);

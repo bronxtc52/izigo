@@ -4,6 +4,7 @@ namespace Modules\Calculator\Services;
 
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Modules\Calculator\Exceptions\InsufficientFundsException;
 use Modules\Calculator\Models\AutoshipSubscription;
 use Modules\Calculator\Models\Member;
@@ -22,6 +23,7 @@ class AutoshipService
     public function __construct(
         private readonly OrderService $orders,
         private readonly LedgerService $ledger,
+        private readonly ActivationService $activations,
     ) {
     }
 
@@ -103,60 +105,76 @@ class AutoshipService
             ->pluck('id');
 
         foreach ($due as $id) {
-            $this->processOne((int) $id, $now, $summary);
+            try {
+                $this->processOne((int) $id, $now, $summary);
+            } catch (\Throwable $e) {
+                // Poison-подписка (битый товар/заказ/данные) не должна останавливать прогон:
+                // транзакция подписки откатилась (деньги не списаны), идём к следующей.
+                Log::error("autoship-run: подписка {$id} упала при обработке: {$e->getMessage()}", [
+                    'subscription_id' => $id,
+                ]);
+                report($e);
+            }
         }
 
         return $summary;
     }
 
-    /** Обработать одну подписку под блокировкой строки. */
+    /**
+     * Обработать одну подписку. Списание, ре-покупка (заказ → markPaid → активация) и сдвиг
+     * next_charge_at — ОДНА транзакция: сбой на любом шаге откатывает всё, включая charge
+     * (деньги не списываются без активации). Advisory-lock активаций берётся ДО charge —
+     * тот же порядок захвата, что у пути оплаты, иначе дедлок с конкурентным пересчётом.
+     */
     private function processOne(int $id, Carbon $now, array &$summary): void
     {
-        $sub = DB::transaction(function () use ($id, $now) {
-            $s = AutoshipSubscription::query()->where('id', $id)->lockForUpdate()->first();
-            if ($s === null || $s->status !== AutoshipSubscription::STATUS_ACTIVE || $s->next_charge_at->gt($now)) {
-                return null; // уже обработана/изменена другим процессом
-            }
-
-            return $s;
-        });
-        if ($sub === null) {
-            return;
-        }
-
-        $product = Product::query()->find($sub->product_id);
-        if ($product === null || !$product->is_active) {
-            // Товар снят с продажи — ставим подписку на паузу.
-            $sub->status = AutoshipSubscription::STATUS_PAUSED;
-            $sub->save();
-            $summary['paused']++;
-
-            return;
-        }
-
-        $cycle = $sub->next_charge_at->format('Ymd-His');
-
         try {
-            DB::transaction(function () use ($sub, $product, $cycle) {
+            $charged = DB::transaction(function () use ($id, $now) {
+                $sub = AutoshipSubscription::query()->where('id', $id)->lockForUpdate()->first();
+                if ($sub === null || $sub->status !== AutoshipSubscription::STATUS_ACTIVE || $sub->next_charge_at->gt($now)) {
+                    return null; // уже обработана/изменена другим процессом
+                }
+
+                $product = Product::query()->find($sub->product_id);
+                if ($product === null || !$product->is_active) {
+                    // Товар снят с продажи — ставим подписку на паузу.
+                    $sub->status = AutoshipSubscription::STATUS_PAUSED;
+                    $sub->save();
+
+                    return 'paused';
+                }
+
+                $this->activations->acquireActivationLock();
+
+                $cycle = $sub->next_charge_at->format('Ymd-His');
                 $this->ledger->charge($sub->member_id, $product->price_usdt_cents, "autoship:{$sub->id}:{$cycle}", $sub->id);
+
+                // Списание прошло → проводим ре-покупку (заказ + активация) в той же транзакции.
+                $member = Member::query()->findOrFail($sub->member_id);
+                $order = $this->orders->create($member, $product->id, 1, "autoship-order:{$sub->id}:{$cycle}");
+                $this->orders->markPaid((int) $order['id']);
+
+                $sub->next_charge_at = $sub->next_charge_at->copy()->addDays($sub->interval_days);
+                $sub->retry_stage = 0;
+                $sub->last_charge_at = $now;
+                $sub->save();
+
+                return 'charged';
             });
         } catch (InsufficientFundsException) {
-            $this->advanceRetry($sub, $now);
-            $summary[$sub->status === AutoshipSubscription::STATUS_PAUSED ? 'paused' : 'retried']++;
+            // Транзакция откатилась целиком; ступень повтора двигаем отдельной транзакцией.
+            $sub = AutoshipSubscription::query()->find($id);
+            if ($sub !== null) {
+                $this->advanceRetry($sub, $now);
+                $summary[$sub->status === AutoshipSubscription::STATUS_PAUSED ? 'paused' : 'retried']++;
+            }
 
             return;
         }
 
-        // Списание прошло → проводим ре-покупку (заказ + активация).
-        $member = Member::query()->findOrFail($sub->member_id);
-        $order = $this->orders->create($member, $product->id, 1, "autoship-order:{$sub->id}:{$cycle}");
-        $this->orders->markPaid((int) $order['id']);
-
-        $sub->next_charge_at = $sub->next_charge_at->copy()->addDays($sub->interval_days);
-        $sub->retry_stage = 0;
-        $sub->last_charge_at = $now;
-        $sub->save();
-        $summary['charged']++;
+        if ($charged !== null) {
+            $summary[$charged]++;
+        }
     }
 
     /** Сдвинуть на следующую ступень повтора (3→7→14), после исчерпания — пауза. */

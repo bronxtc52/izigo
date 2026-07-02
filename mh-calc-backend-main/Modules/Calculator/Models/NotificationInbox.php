@@ -26,6 +26,7 @@ class NotificationInbox extends Model
         'title',
         'body',
         'data',
+        'dedup_key',
         'read_at',
     ];
 

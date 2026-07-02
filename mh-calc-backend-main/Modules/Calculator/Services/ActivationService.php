@@ -22,6 +22,15 @@ use Modules\Calculator\Services\Telegram\TelegramNotifier;
  */
 class ActivationService
 {
+    /**
+     * Ключ pg_advisory_xact_lock, глобально сериализующий все активации/пересчёты сети.
+     * recompute() делает полный delete/rewrite снапшота earnings + дельта-проводки в ledger —
+     * два конкурентных пересчёта (тик поллера + ручной check / autoship) задваивают начисления.
+     * Значение произвольное, но фиксированное: один общий лок на весь механизм активаций.
+     * Лок транзакционный — снимается сам на commit/rollback.
+     */
+    public const ACTIVATION_LOCK_KEY = 0x12916001;
+
     public function __construct(
         private readonly EloquentNetworkRepository $networkRepository,
         private readonly EloquentPlanRepository $planRepository,
@@ -41,6 +50,13 @@ class ActivationService
         $applied = false;
 
         $event = DB::transaction(function () use ($memberId, $packageId, $idempotencyKey, &$oldRank, &$applied) {
+            // Глобальная сериализация пересчётов: конкурентные активации с РАЗНЫМИ ключами
+            // не ловятся insertOrIgnore и без лока задваивают дельта-проводки (оба читают
+            // один prev-снапшот). Берём advisory-lock ДО любых записей; вызывающие транзакции
+            // (applyPaid, autoship) обязаны брать его до своих ledger-записей — единый порядок
+            // локов, иначе дедлок. recompute() не выносить из этой транзакции.
+            $this->acquireActivationLock();
+
             // exactly-once, в т.ч. под конкуренцией: ON CONFLICT DO NOTHING не роняет
             // транзакцию (в отличие от firstOrCreate), а параллельная вставка того же
             // ключа сериализуется и вернёт 0 → пересчёт не повторяется.
@@ -78,6 +94,17 @@ class ActivationService
         }
 
         return $event;
+    }
+
+    /**
+     * Взять транзакционный advisory-lock активаций (блокирующе). Публичный, чтобы внешние
+     * транзакции, которые дойдут до activate() ПОСЛЕ своих ledger-записей (autoship: charge
+     * раньше markPaid), могли взять лок первым действием и сохранить единый порядок захвата.
+     * Вне транзакции вызывать нельзя (pg_advisory_xact_lock требует открытой транзакции).
+     */
+    public function acquireActivationLock(): void
+    {
+        DB::statement('SELECT pg_advisory_xact_lock(?)', [self::ACTIVATION_LOCK_KEY]);
     }
 
     /** Best-effort Telegram-уведомления по факту активации (вне транзакции). */

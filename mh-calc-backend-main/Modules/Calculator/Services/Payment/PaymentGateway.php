@@ -25,7 +25,11 @@ interface PaymentGateway
     /**
      * Опрос статуса платежа (для non-custodial приёма без webhook, напр. TON Pay):
      * ищет в сети транзакцию на наш адрес с memo=$externalRef и суммой $amountCents.
-     * Возвращает: paid | pending | failed | none. Webhook-драйверы возвращают 'none'.
+     * Возвращает: paid | pending | failed | none | error. Webhook-драйверы возвращают 'none'.
+     *
+     * 'error' = «опрос НЕ удался» (сеть/таймаут/5xx индексатора) — НЕ бизнес-статус платежа:
+     * потребитель не вправе ни финализировать, ни экспирировать платёж по нему, и никогда
+     * не пишет 'error' в payments.status. 'pending' = «опросили успешно, перевода нет».
      */
     public function pollStatus(string $externalRef, int $amountCents): string;
 }

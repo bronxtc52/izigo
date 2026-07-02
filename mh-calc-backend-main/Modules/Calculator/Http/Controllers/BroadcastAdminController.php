@@ -44,6 +44,12 @@ class BroadcastAdminController
         ));
     }
 
+    /** Допоставить зависшую processing-рассылку (идемпотентно: только недостающим). */
+    public function resume(Request $request, int $id): JsonResponse
+    {
+        return $this->guarded(fn () => $this->service->resume($this->viewer($request)->id, $id));
+    }
+
     /**
      * @return array{segment_type:string,segment_value:?string,body:?string}
      */

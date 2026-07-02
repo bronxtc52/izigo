@@ -36,6 +36,7 @@ class MemberExportTest extends TestCase
     {
         parent::setUp();
         $this->bootTelegram();
+        $this->enableFeatureFlags('c5_pii_export');
     }
 
     /** Owner + finance + support + plain; возвращает их initData. */

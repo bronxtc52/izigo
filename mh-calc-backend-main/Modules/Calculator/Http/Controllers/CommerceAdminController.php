@@ -8,6 +8,7 @@ use Modules\Calculator\Models\Member;
 use Modules\Calculator\Services\AuditLogService;
 use Modules\Calculator\Services\KycService;
 use Modules\Calculator\Services\OrderService;
+use Modules\Calculator\Services\PaymentService;
 use Modules\Calculator\Services\ProductAdminService;
 use RuntimeException;
 
@@ -24,6 +25,7 @@ class CommerceAdminController
         private readonly OrderService $orders,
         private readonly KycService $kyc,
         private readonly AuditLogService $audit,
+        private readonly PaymentService $payments,
     ) {
     }
 
@@ -130,6 +132,20 @@ class CommerceAdminController
                 'approve' => (bool) $validated['approve'],
                 'reason' => $validated['reason'] ?? null,
             ]);
+
+            return $result;
+        });
+    }
+
+    /**
+     * Принудительный ре-опрос платежа (owner/finance): pending/expired платёж заново
+     * проверяется в сети; найденные деньги подтверждают его (в т.ч. после TTL-экспирации).
+     */
+    public function recheckPayment(Request $request, int $id): JsonResponse
+    {
+        return $this->guarded(function () use ($request, $id) {
+            $result = $this->payments->recheckAdmin($id);
+            $this->audit->recordSafe($this->viewerId($request), 'payment.recheck', 'payment', $id, null, $result);
 
             return $result;
         });

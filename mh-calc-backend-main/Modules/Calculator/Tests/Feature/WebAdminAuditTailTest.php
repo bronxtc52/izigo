@@ -65,7 +65,7 @@ class WebAdminAuditTailTest extends TestCase
         $this->postJson('/api/v1/cabinet/activate-package', ['package_id' => 1], $this->tgHeaders($aData));
 
         $wid = (int) $this->postJson('/api/v1/cabinet/withdrawals',
-            ['amount' => '5.00', 'payout_details' => 'IBAN'], $this->tgHeaders($ownerData))->json('data.id');
+            ['amount' => '5.00', 'payout_details' => 'EQABAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAc3j'], $this->tgHeaders($ownerData))->json('data.id');
 
         $this->postJson("/api/v1/admin/withdrawals/{$wid}/approve", [], $this->adminHeaders($financeData))->assertOk();
 
