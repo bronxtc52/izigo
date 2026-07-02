@@ -98,8 +98,8 @@ jobs:
           npm run build
 
   deploy:
-    # Деплой-гейт `needs: test` включается отдельным ops-PR (PR-3); пока — только
-    # исключение PR-событий, чтобы pull_request не деплоил прод.
+    # P1-hardening (O2): деплой только после зелёных тестов; pull_request не деплоит.
+    needs: test
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     steps:
