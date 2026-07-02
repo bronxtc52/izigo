@@ -10,6 +10,7 @@ import {
     WalletOutlined, TeamOutlined, TrophyOutlined, UserOutlined,
     ExportOutlined, CopyOutlined, ShoppingOutlined, SwapOutlined, ClockCircleOutlined,
 } from '@ant-design/icons';
+import { Address } from '@ton/core';
 import { useTelegram, antdThemeFromTelegram, miniAppPalette } from './telegram';
 import { tint, bonusTint, statusTint, roleTint, bonusDot, numFont, balanceFont } from './tokens';
 import {
@@ -30,9 +31,16 @@ const MINIAPP_LANGS = ['ru', 'en'];
 const LANG_STORAGE_KEY = 'miniapp_lang';
 const normalizeLang = (l) => (MINIAPP_LANGS.includes(l) ? l : null);
 
-// Базовая проверка user-friendly TON-адреса (48 символов base64url, префикс EQ/UQ/kQ/0Q…).
-// Backend трактует payout_details как TON-адрес получателя USDT (валидации формата на бэке нет).
-const isTonAddress = (s) => /^[EUk0][Qf][A-Za-z0-9_-]{46}$/.test(String(s || '').trim());
+// Проверка user-friendly TON-адреса через @ton/core (F3, P1-hardening): и формат, и
+// CRC16-чексумма, и отклонение testnet-адресов — опечатка ловится ДО создания заявки.
+// Бэк валидирует тем же алгоритмом (общие тест-векторы сгенерированы этой же библиотекой).
+const isTonAddress = (s) => {
+    try {
+        return !Address.parseFriendly(String(s || '').trim()).isTestOnly;
+    } catch {
+        return false;
+    }
+};
 
 // Значения label — i18n-ключи (переводятся через t() в месте рендера), kind — цветовой тон.
 const KYC_STATUS = {

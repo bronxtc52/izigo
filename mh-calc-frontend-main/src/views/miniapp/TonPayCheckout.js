@@ -22,7 +22,7 @@ export default function TonPayCheckout({ open, invoice, order, initData, pal, wa
     const { t } = useTranslation();
     const [tonConnectUI] = useTonConnectUI();
     const wallet = useTonWallet();
-    const [phase, setPhase] = useState('idle'); // idle | sending | awaiting | paid | failed
+    const [phase, setPhase] = useState('idle'); // idle | sending | awaiting | sent | paid | failed
     const [checking, setChecking] = useState(false);
     const pollRef = useRef(null);
     const attemptsRef = useRef(0);
@@ -66,7 +66,10 @@ export default function TonPayCheckout({ open, invoice, order, initData, pal, wa
             // checkOnce при paid/failed уже заглушил поллинг (pollRef=null) — не перетираем итог.
             if (pollRef.current && attemptsRef.current >= MAX_POLLS) {
                 stopPoll();
-                setPhase('idle');
+                // F5 (P1-hardening): перевод УЖЕ отправлен — не возвращаемся в idle с кнопкой
+                // «Оплатить кошельком» (повторный клик = второе списание), остаётся только
+                // «Проверить оплату» + подсказка.
+                setPhase('sent');
                 message.info(t('miniapp.pay_info_delayed'));
             }
         }, POLL_MS);
@@ -143,6 +146,10 @@ export default function TonPayCheckout({ open, invoice, order, initData, pal, wa
                             <Spin />
                             <span style={{ fontSize: 12.5, color: pal.muted }}>{t('miniapp.pay_awaiting')}</span>
                         </Flex>
+                    ) : phase === 'sent' ? (
+                        <span style={{ fontSize: 12.5, color: pal.muted, textAlign: 'center', padding: '6px 0' }}>
+                            {t('miniapp.pay_sent_hint')}
+                        </span>
                     ) : (
                         <Button type="primary" block loading={phase === 'sending'}
                             style={(!wallet || !tonConfigured()) ? undefined : gradBtn}

@@ -53,8 +53,12 @@ const applyTranslationOverrides = async () => {
             // Разворачиваем плоские dot-ключи ("a.b.c") в вложенный объект — i18next хранит
             // переводы деревом, addResourceBundle ждёт ту же структуру для глубокого мёржа.
             const tree = {};
+            const FORBIDDEN = ['__proto__', 'constructor', 'prototype'];
             Object.entries(map).forEach(([flatKey, value]) => {
                 const parts = String(flatKey).split('.');
+                // F4 (P1-hardening): guard от prototype pollution — ключ вида "__proto__.x"
+                // из скомпрометированного/битого ответа не должен загрязнить Object.prototype.
+                if (parts.some((part) => FORBIDDEN.includes(part))) return;
                 let node = tree;
                 parts.forEach((part, idx) => {
                     if (idx === parts.length - 1) {
