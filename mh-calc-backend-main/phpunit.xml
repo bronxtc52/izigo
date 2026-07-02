@@ -20,6 +20,8 @@
     <php>
         <env name="APP_ENV" value="testing"/>
         <env name="BCRYPT_ROUNDS" value="4"/>
+        <!-- Мок-активация (POST /cabinet/activate-package) — тест-фикстура. В проде OFF (B-1). -->
+        <env name="CALCULATOR_ALLOW_MOCK_ACTIVATION" value="true"/>
         <env name="CACHE_DRIVER" value="array"/>
         <!-- <env name="DB_CONNECTION" value="sqlite"/> -->
         <env name="DB_DATABASE" value="izigo_test"/>

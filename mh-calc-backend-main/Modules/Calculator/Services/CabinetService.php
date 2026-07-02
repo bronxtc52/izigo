@@ -176,9 +176,12 @@ class CabinetService
         return $this->buildNode($member, 0);
     }
 
-    public function activatePackage(Member $member, int $packageId, ?string $idempotencyKey = null): array
+    public function activatePackage(Member $member, int $packageId): array
     {
-        $key = $idempotencyKey ?: "activate:m{$member->id}:p{$packageId}";
+        // Ключ идемпотентности генерируется ТОЛЬКО сервером и живёт в собственном namespace
+        // `activate:*`, не пересекаясь с системными ключами оплаченных заказов (`order:{id}`) и
+        // autoship. Клиентский ключ не принимается (аудит B-2) — отравить чужой заказ снаружи нельзя.
+        $key = "activate:m{$member->id}:p{$packageId}";
         $event = $this->activation->activate($member->id, $packageId, $key);
 
         return [
