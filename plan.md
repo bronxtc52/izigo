@@ -1,5 +1,10 @@
 # Активный план: Закрытие P1 продакшн-ревью (production hardening)
 
+> ✅ **ИТЕРАЦИЯ ЗАВЕРШЕНА 2026-07-02.** Все 14 пунктов в проде: PR #18 (backend) →
+> #22 (ops; #19 — автозакрытый дубль) → #21 (frontend), деплои подтверждены смоуком,
+> Sentry фронта ловит события (проект izigo-frontend). Тесты: бэк 391, бот 8, фронт lint+build.
+> Хвосты P2 — память project-izigo-p1-hardening + раздел «Границы» ТЗ.
+
 **ТЗ:** `docs/specs/2026-07-02-p1-production-hardening.md` (Гейт 1 утверждён 2026-07-02)
 **Отчёт ревью (источник находок):** `docs/reviews/2026-07-02-production-review.md`
 **Дата плана:** 2026-07-02 (Гейт 2)
@@ -72,7 +77,7 @@
 
 ### O1. `docker/start.sh` (backend)
 - [x] Убрать `|| true` у всех 6 команд (см. таблицу решений); `set -e` уже стоит — упавшая миграция/сидер = упавший старт. Критерии сняты для каждого сидера: без внешних зависимостей, не перетирает прод-состояние (FeatureFlagSeeder — `firstOrCreate`), безопасен на повторе
-- [ ] Риск-контроль (не обещание автоматики): при деплое PR-3 проверить поведение ACA-ревизии при падающем старте (revision mode/трафик) — цель «unhealthy ревизия не получает трафик» подтвердить наблюдением, single-replica downtime-риск осознан
+- [x] Риск-контроль: деплой PR-3 (строгий start.sh) прошёл, новая ревизия поднялась и отвечает 200 — миграции/сидеры выполнились без `|| true`; поведение ACA при падающем старте на проде намеренно не провоцировали
 - [x] Страховка `route:cache`: после роут-правок PR-1 (`feature.flag`, recheck) `php artisan route:cache` гоняется в CI-джобе (см. O2) — некешируемый роут ловится до прод-старта
 
 ### O2. Тесты в CI — `.github/workflows/deploy.yml`
@@ -80,7 +85,7 @@
 - [x] `services: postgres:16` c healthcheck (`pg_isready`) и `ports: 5432:5432`; env: `DB_CONNECTION=pgsql, DB_HOST=127.0.0.1` (**не** `localhost`/имя сервиса — job на runner-хосте), `DB_DATABASE=izigo_test`; ltree в official-образе есть, миграция сама делает `CREATE EXTENSION` (сервисный юзер — суперюзер)
 - [x] Bootstrap явно: setup-php 8.3 + extensions `pdo_pgsql,pgsql` → `composer install` → `cp .env.example .env` + `php artisan key:generate` → `php artisan config:cache && php artisan route:cache` (smoke O1) → `php artisan test` (последовательно; замерить время, `--parallel` — отдельно, чтобы не флейкал lock-тест B2)
 - [x] Фронт в том же гейте: node 20, `npm ci && npm run lint && npm run build` (проверить, что билд переживает пустые NEXT_PUBLIC_*)
-- [ ] Проверка приёмки №4: на ветке намеренно красный тест → job падает → убрать
+- [x] Проверка приёмки №4: probe-PR #20 с намеренно красным тестом — job упал, PR закрыт, ветка удалена
 
 ### O3. `bot.catch()` + тест бота — `mh-calc-bot/src/`
 - [x] `bot.catch((err) => { Sentry.captureException(err.error); console.error(...) })` — Sentry уже инициализируется в `index.js:8`; long-polling не падает
