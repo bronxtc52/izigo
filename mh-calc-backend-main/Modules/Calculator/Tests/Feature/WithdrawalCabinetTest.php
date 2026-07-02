@@ -39,7 +39,7 @@ class WithdrawalCabinetTest extends TestCase
         $rootData = $this->earningRoot(100);
 
         $res = $this->postJson('/api/v1/cabinet/withdrawals',
-            ['amount' => '5.00', 'payout_details' => 'IBAN DE...'], $this->tgHeaders($rootData))->assertOk();
+            ['amount' => '5.00', 'payout_details' => 'EQABAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAc3j'], $this->tgHeaders($rootData))->assertOk();
         $this->assertSame('requested', $res->json('data.status'));
         $this->assertSame('5.00', $res->json('data.amount'));
 
@@ -55,7 +55,7 @@ class WithdrawalCabinetTest extends TestCase
 
         // $20 при доступных $9 → доменная ошибка (404 от guarded).
         $this->postJson('/api/v1/cabinet/withdrawals',
-            ['amount' => '20.00', 'payout_details' => 'IBAN'], $this->tgHeaders($rootData))->assertStatus(404);
+            ['amount' => '20.00', 'payout_details' => 'EQABAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAc3j'], $this->tgHeaders($rootData))->assertStatus(404);
 
         // Баланс не тронут.
         $wallet = $this->getJson('/api/v1/cabinet/wallet', $this->tgHeaders($rootData))->json('data');
@@ -67,7 +67,7 @@ class WithdrawalCabinetTest extends TestCase
     {
         $rootData = $this->earningRoot(300);
         $this->postJson('/api/v1/cabinet/withdrawals',
-            ['amount' => '3.00', 'payout_details' => 'IBAN'], $this->tgHeaders($rootData))->assertOk();
+            ['amount' => '3.00', 'payout_details' => 'EQABAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAc3j'], $this->tgHeaders($rootData))->assertOk();
 
         $list = $this->getJson('/api/v1/cabinet/withdrawals', $this->tgHeaders($rootData))->assertOk();
         $this->assertCount(1, $list->json('data'));
@@ -79,7 +79,7 @@ class WithdrawalCabinetTest extends TestCase
     {
         $rootData = $this->earningRoot(400);
         $this->postJson('/api/v1/cabinet/withdrawals',
-            ['amount' => '0', 'payout_details' => 'IBAN'], $this->tgHeaders($rootData))->assertStatus(404);
+            ['amount' => '0', 'payout_details' => 'EQABAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAc3j'], $this->tgHeaders($rootData))->assertStatus(404);
     }
 
     public function testWithdrawalRequiresTelegramInitData(): void

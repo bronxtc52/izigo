@@ -14,10 +14,11 @@ use Modules\Calculator\Http\Controllers\NotificationController;
 // RouteServiceProvider), отдельным файлом для бесконфликтного merge-train Блока C.
 
 // Cabinet (партнёр, Mini App): свой inbox. Видит/трогает ТОЛЬКО свои уведомления.
+// feature.flag:c1_notifications (B5): выключенный флаг = 403 и на API, не только скрытый таб.
 Route::group([
     'prefix' => 'cabinet',
     'as' => 'cabinet.',
-    'middleware' => ['telegram.auth'],
+    'middleware' => ['telegram.auth', 'feature.flag:c1_notifications'],
 ], function () {
     Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications');
     Route::get('/notifications/unread-count', [NotificationController::class, 'unreadCount'])->name('notifications-unread');
@@ -30,10 +31,13 @@ Route::group([
 Route::group([
     'prefix' => 'admin',
     'as' => 'admin.',
-    'middleware' => ['web.admin'],
+    'middleware' => ['web.admin', 'feature.flag:c1_notifications'],
 ], function () {
     Route::post('/broadcasts/preview', [BroadcastAdminController::class, 'preview'])
         ->middleware('calculator.role:owner,support')->name('broadcasts-preview');
     Route::post('/broadcasts', [BroadcastAdminController::class, 'send'])
         ->middleware('calculator.role:owner,support')->name('broadcasts-send');
+    // B6: допоставка зависшей processing-рассылки (идемпотентно, только недостающим).
+    Route::post('/broadcasts/{id}/resume', [BroadcastAdminController::class, 'resume'])
+        ->middleware('calculator.role:owner,support')->where('id', '[0-9]+')->name('broadcasts-resume');
 });

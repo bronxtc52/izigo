@@ -2,7 +2,6 @@
 
 namespace Modules\Calculator\Services\Notification;
 
-use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Modules\Calculator\Models\Member;
 use Modules\Calculator\Models\NotificationInbox;
@@ -13,9 +12,10 @@ use Modules\Calculator\Models\NotificationOutbox;
  * события зовут ТОЛЬКО этот сервис, не трогая outbox/inbox напрямую.
  *
  * Семантика:
- *  - inbox (если inbox=true) + outbox пишутся в ОДНОЙ транзакции (атомарно);
+ *  - inbox (если inbox=true) + outbox пишутся в ОДНОЙ транзакции (атомарно, чанк целиком);
  *  - идемпотентность по dedup_key: повтор с тем же ключом НЕ создаёт дубликат
- *    (ни в outbox, ни в inbox);
+ *    (ни в outbox, ни в inbox — у обеих таблиц свой unique(dedup_key), insertOrIgnore
+ *    молча пропускает уже поставленные; см. миграцию 2026_07_02_010000);
  *  - chat_id берётся снимком из Member.telegram_id на момент постановки;
  *  - body — это уже готовый Telegram-HTML (нормализацию делает вызывающий код).
  *
@@ -45,8 +45,13 @@ class NotificationService
      * записи отдельно: чтобы он остался уникальным на участника, к нему добавляется
      * суффикс member_id (иначе вторая запись пачки упала бы на unique-ключе).
      *
+     * Bulk-постановка (B6): вместо 3 запросов и транзакции на каждого получателя — чанки
+     * по 500 строк, insertOrIgnore в outbox и inbox (idempotency-ключи отсеивают уже
+     * поставленных, повтор «допоставляет» только недостающих). Чанк атомарен.
+     *
      * @param array<int,int>          $memberIds
      * @param array<string,mixed>|null $data
+     * @return int сколько НОВЫХ outbox-записей реально поставлено (без дублей)
      */
     public function enqueueForMembers(
         array $memberIds,
@@ -57,79 +62,75 @@ class NotificationService
         ?array $data = null,
         bool $inbox = true,
         ?int $broadcastId = null,
-    ): void {
+    ): int {
         $memberIds = array_values(array_unique(array_filter($memberIds, static fn ($id) => (int) $id > 0)));
         if ($memberIds === []) {
-            return;
+            return 0;
         }
+        $total = count($memberIds);
 
         // Снимок telegram_id (chat_id) одним запросом.
         $chatIds = Member::query()
             ->whereIn('id', $memberIds)
             ->pluck('telegram_id', 'id');
 
-        foreach ($memberIds as $memberId) {
-            $memberId = (int) $memberId;
-            $perMemberDedup = $dedupKey !== null
-                ? $this->scopedDedupKey($dedupKey, $memberId, count($memberIds))
-                : null;
+        $encodedData = $data !== null ? json_encode($data, JSON_UNESCAPED_UNICODE) : null;
+        $inserted = 0;
 
-            // Идемпотентность (быстрый путь): пропускаем, если запись с этим dedup_key уже
-            // есть. На гонку (два параллельных вызова прошли проверку) страхует unique-индекс
-            // dedup_key + ловля QueryException ниже — повтор не задвоит ни outbox, ни inbox.
-            if ($perMemberDedup !== null
-                && NotificationOutbox::query()->where('dedup_key', $perMemberDedup)->exists()) {
-                continue;
-            }
+        foreach (array_chunk($memberIds, 500) as $chunk) {
+            $now = now();
+            $outboxRows = [];
+            $inboxRows = [];
+            foreach ($chunk as $memberId) {
+                $memberId = (int) $memberId;
+                $perMemberDedup = $dedupKey !== null
+                    ? $this->scopedDedupKey($dedupKey, $memberId, $total)
+                    : null;
 
-            try {
-                DB::transaction(function () use (
-                    $memberId,
-                    $kind,
-                    $html,
-                    $title,
-                    $perMemberDedup,
-                    $data,
-                    $inbox,
-                    $broadcastId,
-                    $chatIds,
-                ) {
-                    // Сначала outbox: при гонке именно его unique(dedup_key) бросит и
-                    // откатит всю транзакцию ВКЛЮЧАЯ inbox — дубля inbox не будет.
-                    NotificationOutbox::query()->create([
+                $outboxRows[] = [
+                    'member_id' => $memberId,
+                    'channel' => 'telegram',
+                    'chat_id' => $chatIds->get($memberId) !== null ? (int) $chatIds->get($memberId) : null,
+                    'kind' => $kind,
+                    'title' => $title,
+                    'body' => $html,
+                    'data' => $encodedData,
+                    'dedup_key' => $perMemberDedup,
+                    'status' => NotificationOutbox::STATUS_PENDING,
+                    'attempts' => 0,
+                    'available_at' => $now,
+                    'broadcast_id' => $broadcastId,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ];
+
+                if ($inbox) {
+                    $inboxRows[] = [
                         'member_id' => $memberId,
-                        'channel' => 'telegram',
-                        'chat_id' => $chatIds->get($memberId) !== null ? (int) $chatIds->get($memberId) : null,
                         'kind' => $kind,
-                        'title' => $title,
+                        'title' => $title ?? '',
                         'body' => $html,
-                        'data' => $data,
+                        'data' => $encodedData,
                         'dedup_key' => $perMemberDedup,
-                        'status' => NotificationOutbox::STATUS_PENDING,
-                        'attempts' => 0,
-                        'available_at' => now(),
-                        'broadcast_id' => $broadcastId,
-                    ]);
-
-                    if ($inbox) {
-                        NotificationInbox::query()->create([
-                            'member_id' => $memberId,
-                            'kind' => $kind,
-                            'title' => $title ?? '',
-                            'body' => $html,
-                            'data' => $data,
-                        ]);
-                    }
-                });
-            } catch (QueryException $e) {
-                // Нарушение unique(dedup_key) при гонке = «уже поставлено» → идемпотентно
-                // пропускаем. Любая другая ошибка БД пробрасывается.
-                if ($perMemberDedup !== null && $this->isUniqueViolation($e)) {
-                    continue;
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ];
                 }
-                throw $e;
             }
+
+            // Обе фазы чанка в одной транзакции; ON CONFLICT DO NOTHING по unique(dedup_key)
+            // каждой таблицы делает повтор идемпотентным без предварительных SELECT'ов.
+            $inserted += (int) DB::transaction(function () use ($outboxRows, $inboxRows) {
+                $n = NotificationOutbox::query()->insertOrIgnore($outboxRows);
+                if ($inboxRows !== []) {
+                    NotificationInbox::query()->insertOrIgnore($inboxRows);
+                }
+
+                return $n;
+            });
         }
+
+        return $inserted;
     }
 
     /**
@@ -144,14 +145,5 @@ class NotificationService
         }
 
         return $dedupKey . ':m' . $memberId;
-    }
-
-    /** Нарушение unique-индекса: Postgres SQLSTATE 23505 (MySQL 1062 — на всякий случай). */
-    private function isUniqueViolation(QueryException $e): bool
-    {
-        $sqlState = (string) ($e->errorInfo[0] ?? '');
-        $code = (int) ($e->errorInfo[1] ?? 0);
-
-        return $sqlState === '23505' || $code === 1062;
     }
 }

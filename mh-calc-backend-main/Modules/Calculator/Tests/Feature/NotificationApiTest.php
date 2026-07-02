@@ -25,6 +25,7 @@ class NotificationApiTest extends TestCase
     {
         parent::setUp();
         $this->bootTelegram();
+        $this->enableFeatureFlags('c1_notifications');
     }
 
     private function enqueue(int $tgId, string $body = 'привет'): void
@@ -153,7 +154,7 @@ class NotificationApiTest extends TestCase
         $this->postJson('/api/v1/cabinet/activate-package', ['package_id' => self::BRONZE], $this->tgHeaders($aData));
 
         $wd = $this->postJson('/api/v1/cabinet/withdrawals',
-            ['amount' => '5.00', 'payout_details' => 'IBAN'], $this->tgHeaders($rootData))->json('data');
+            ['amount' => '5.00', 'payout_details' => 'EQABAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAc3j'], $this->tgHeaders($rootData))->json('data');
         $id = (int) $wd['id'];
 
         $this->postJson("/api/v1/admin/withdrawals/{$id}/approve", [], $this->adminHeaders($financeData))
@@ -188,7 +189,7 @@ class NotificationApiTest extends TestCase
         $this->postJson('/api/v1/cabinet/activate-package', ['package_id' => self::BRONZE], $this->tgHeaders($aData));
 
         $wd = $this->postJson('/api/v1/cabinet/withdrawals',
-            ['amount' => '5.00', 'payout_details' => 'IBAN'], $this->tgHeaders($rootData))->json('data');
+            ['amount' => '5.00', 'payout_details' => 'EQABAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAc3j'], $this->tgHeaders($rootData))->json('data');
         $id = (int) $wd['id'];
 
         // Несмотря на падающую подсистему уведомлений — выплата проходит (best-effort hook).

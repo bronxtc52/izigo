@@ -39,7 +39,7 @@ class WithdrawalAdminTest extends TestCase
         $this->postJson('/api/v1/cabinet/activate-package', ['package_id' => self::BRONZE], $this->tgHeaders($aData));
 
         $wd = $this->postJson('/api/v1/cabinet/withdrawals',
-            ['amount' => '5.00', 'payout_details' => 'IBAN'], $this->tgHeaders($rootData))->json('data');
+            ['amount' => '5.00', 'payout_details' => 'EQABAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAc3j'], $this->tgHeaders($rootData))->json('data');
 
         return [$rootData, $financeData, (int) $wd['id'], $aData];
     }

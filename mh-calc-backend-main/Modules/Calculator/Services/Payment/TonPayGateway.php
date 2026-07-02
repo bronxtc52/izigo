@@ -68,11 +68,11 @@ class TonPayGateway implements PaymentGateway
                     'limit' => self::POLL_LIMIT,
                 ]);
         } catch (\Throwable $e) {
-            return 'pending'; // сетевой сбой/таймаут — не финализируем
+            return 'error'; // сетевой сбой/таймаут — опрос не удался (не путать с 'pending')
         }
 
         if (!$response->successful()) {
-            return 'pending'; // временная недоступность API — не финализируем
+            return 'error'; // недоступность API — опрос не удался, не финализируем и не экспирируем
         }
 
         $expectedUnits = (string) ($amountCents * self::CENTS_TO_UNITS);

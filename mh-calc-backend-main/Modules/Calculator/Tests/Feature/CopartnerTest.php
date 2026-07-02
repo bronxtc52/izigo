@@ -23,6 +23,7 @@ class CopartnerTest extends TestCase
     {
         parent::setUp();
         $this->bootTelegram();
+        $this->enableFeatureFlags('c6_copartners');
     }
 
     // --- Cabinet CRUD (свои записи) ---

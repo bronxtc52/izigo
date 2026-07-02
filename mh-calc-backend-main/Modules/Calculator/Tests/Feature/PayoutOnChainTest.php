@@ -8,6 +8,7 @@ use Modules\Calculator\Models\MemberWallet;
 use Modules\Calculator\Models\PayoutTransaction;
 use Modules\Calculator\Models\WithdrawalRequest;
 use Modules\Calculator\Services\LedgerService;
+use Modules\Calculator\Services\Payout\FakePayoutGateway;
 use Modules\Calculator\Services\Payout\PayoutResult;
 use Modules\Calculator\Tests\Feature\Concerns\SignsTelegramInitData;
 use Tests\TestCase;
@@ -19,6 +20,11 @@ use Tests\TestCase;
  */
 class PayoutOnChainTest extends TestCase
 {
+    /** Валидные mainnet-адреса (Tests/Fixtures/ton-address-vectors.json) с назначенным фейк-поведением. */
+    private const ADDR_OK = 'EQABAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAc3j';
+    private const ADDR_FAIL = 'UQABAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAZAm';
+    private const ADDR_BROADCAST = 'EQDA_-4AESIzRFVmd4iZAKq7zN3u_wARIjNEVWZ3iJmqu3SV';
+
     use RefreshDatabase;
     use SignsTelegramInitData;
 
@@ -27,6 +33,9 @@ class PayoutOnChainTest extends TestCase
         parent::setUp();
         $this->bootTelegram();
         config(['calculator.payout_gateway' => 'fake']);
+        FakePayoutGateway::reset();
+        FakePayoutGateway::$failAddresses[] = self::ADDR_FAIL;
+        FakePayoutGateway::$broadcastAddresses[] = self::ADDR_BROADCAST;
     }
 
     /** Root с балансом $20 создаёт заявку на $5, отдельный finance — апрувер. */
@@ -47,7 +56,7 @@ class PayoutOnChainTest extends TestCase
 
     public function testApprovedSendGoesPaidWithTxHash(): void
     {
-        [, $financeData, $id, $rootId] = $this->scenario(900, 'EQ_ton_addr');
+        [, $financeData, $id, $rootId] = $this->scenario(900, self::ADDR_OK);
 
         $this->postJson("/api/v1/admin/withdrawals/{$id}/approve", [], $this->adminHeaders($financeData))->assertOk();
 
@@ -65,7 +74,7 @@ class PayoutOnChainTest extends TestCase
 
     public function testFailedSendReturnsHoldAndCancels(): void
     {
-        [, $financeData, $id, $rootId] = $this->scenario(910, 'FAIL');
+        [, $financeData, $id, $rootId] = $this->scenario(910, self::ADDR_FAIL);
 
         $this->postJson("/api/v1/admin/withdrawals/{$id}/approve", [], $this->adminHeaders($financeData))->assertOk();
         $this->postJson("/api/v1/admin/withdrawals/{$id}/send", [], $this->adminHeaders($financeData))->assertStatus(400);
@@ -80,7 +89,7 @@ class PayoutOnChainTest extends TestCase
 
     public function testCannotSendNonApproved(): void
     {
-        [, $financeData, $id] = $this->scenario(920, 'EQ_addr');
+        [, $financeData, $id] = $this->scenario(920, self::ADDR_OK);
 
         // Заявка в requested (не approved) → 422.
         $this->postJson("/api/v1/admin/withdrawals/{$id}/send", [], $this->adminHeaders($financeData))->assertStatus(422);
@@ -88,7 +97,7 @@ class PayoutOnChainTest extends TestCase
 
     public function testNonFinanceForbidden(): void
     {
-        [$rootData, , $id] = $this->scenario(930, 'EQ_addr');
+        [$rootData, , $id] = $this->scenario(930, self::ADDR_OK);
 
         // Root не финансист и не owner → 403.
         $this->postJson("/api/v1/admin/withdrawals/{$id}/send", [], $this->adminHeaders($rootData))->assertStatus(403);
@@ -96,7 +105,7 @@ class PayoutOnChainTest extends TestCase
 
     public function testBroadcastKeepsHoldUntilPollConfirms(): void
     {
-        [, $financeData, $id, $rootId] = $this->scenario(940, 'BROADCAST_addr');
+        [, $financeData, $id, $rootId] = $this->scenario(940, self::ADDR_BROADCAST);
 
         $this->postJson("/api/v1/admin/withdrawals/{$id}/approve", [], $this->adminHeaders($financeData))->assertOk();
         $this->postJson("/api/v1/admin/withdrawals/{$id}/send", [], $this->adminHeaders($financeData))
@@ -115,7 +124,7 @@ class PayoutOnChainTest extends TestCase
 
     public function testBroadcastFailedOnPollReturnsHold(): void
     {
-        [, $financeData, $id, $rootId] = $this->scenario(945, 'BROADCAST_addr');
+        [, $financeData, $id, $rootId] = $this->scenario(945, self::ADDR_BROADCAST);
         $this->postJson("/api/v1/admin/withdrawals/{$id}/approve", [], $this->adminHeaders($financeData))->assertOk();
         $this->postJson("/api/v1/admin/withdrawals/{$id}/send", [], $this->adminHeaders($financeData))->assertOk();
 

@@ -19,7 +19,7 @@ class TonPayPollCommand extends Command
     public function handle(PaymentService $payments): int
     {
         $summary = $payments->pollPending();
-        $this->info("tonpay-poll: confirmed={$summary['confirmed']} failed={$summary['failed']} expired={$summary['expired']}");
+        $this->info("tonpay-poll: confirmed={$summary['confirmed']} failed={$summary['failed']} expired={$summary['expired']} errors={$summary['errors']}");
 
         return self::SUCCESS;
     }

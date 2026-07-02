@@ -23,6 +23,7 @@ class TranslationOverrideTest extends TestCase
     {
         parent::setUp();
         $this->bootTelegram();
+        $this->enableFeatureFlags('c4_i18n_admin');
     }
 
     /** Owner + по одному из остальных ролей; возвращает их initData. */

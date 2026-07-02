@@ -169,6 +169,9 @@ Route::group([
         ->middleware('calculator.role:owner,finance,support')->where('id', '[0-9]+')->name('member-wallet');
     Route::get('/payments', [AdminReportController::class, 'payments'])
         ->middleware('calculator.role:owner,finance,support')->name('payments');
+    // Принудительный ре-опрос платежа (B4): pending/expired → проверка сети → confirm.
+    Route::post('/payments/{id}/recheck', [CommerceAdminController::class, 'recheckPayment'])
+        ->middleware('calculator.role:owner,finance')->where('id', '[0-9]+')->name('payments-recheck');
     Route::get('/autoship', [AdminReportController::class, 'autoship'])
         ->middleware('calculator.role:owner,support')->name('admin-autoship');
 

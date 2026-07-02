@@ -12,10 +12,11 @@ use Modules\Calculator\Http\Controllers\MemberExportController;
 // Миграций C5 нет (читает существующие таблицы; аудит через admin_audit_log).
 //
 // Префикс api/v1 добавляет RouteServiceProvider. Группа admin под web.admin.
+// feature.flag:c5_pii_export (B5): выключенный флаг = 403 и на API.
 Route::group([
     'prefix' => 'admin',
     'as' => 'admin.',
-    'middleware' => ['web.admin'],
+    'middleware' => ['web.admin', 'feature.flag:c5_pii_export'],
 ], function () {
     // Сводка участника с PII в маске (owner,finance,support).
     Route::get('/members/{id}/pii', [MemberExportController::class, 'summary'])

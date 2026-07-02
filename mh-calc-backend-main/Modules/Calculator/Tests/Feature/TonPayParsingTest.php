@@ -13,7 +13,7 @@ use Tests\TestCase;
  * Покрывает денежную семантику: paid (memo+сумма / переплата / plaintext-комментарий),
  * НЕ-failed при недоплате (pending — ждём верный перевод), отсутствие memo-коллизии
  * (pay:5 ⊄ pay:55), pending без нашего memo, пропуск aborted, none (не сконфигурировано),
- * pending при недоступности/таймауте API.
+ * error при недоступности/таймауте API (B4: сбой опроса ≠ «перевода нет»).
  */
 class TonPayParsingTest extends TestCase
 {
@@ -159,10 +159,19 @@ class TonPayParsingTest extends TestCase
         Http::assertNothingSent();
     }
 
-    public function testPendingWhenApiUnavailable(): void
+    public function testErrorWhenApiUnavailable(): void
     {
+        // B4: сбой опроса — это 'error', НЕ 'pending': поллер не должен принять
+        // «не смогли проверить» за «проверили, перевода нет» и экспирировать по TTL.
         Http::fake([self::BASE . '/jetton/transfers*' => Http::response('', 503)]);
 
-        $this->assertSame('pending', $this->gateway()->pollStatus('pay:5', self::CENTS));
+        $this->assertSame('error', $this->gateway()->pollStatus('pay:5', self::CENTS));
+    }
+
+    public function testErrorWhenNetworkFails(): void
+    {
+        Http::fake(fn () => throw new \Illuminate\Http\Client\ConnectionException('timeout'));
+
+        $this->assertSame('error', $this->gateway()->pollStatus('pay:5', self::CENTS));
     }
 }

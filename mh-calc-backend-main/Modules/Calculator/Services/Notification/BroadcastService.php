@@ -38,9 +38,15 @@ class BroadcastService
 
     /**
      * Отправка рассылки: создаёт broadcast-запись, нормализует текст в Telegram-HTML,
-     * ставит уведомления резолвленному сегменту пачкой (chunk). Сырьё хранится в body_raw.
+     * ставит уведомления резолвленному сегменту пачкой (bulk в NotificationService).
+     * Сырьё хранится в body_raw.
      *
-     * @return array{broadcast_id:int,recipients_count:int,status:string}
+     * Идемпотентность (B6): dedup-ключ детерминирован по СОДЕРЖИМОМУ (сегмент+текст),
+     * а не по id новой записи — повторная отправка того же текста тому же сегменту
+     * (двойной клик, ретрай после таймаута) не задваивает доставку. Осознанный трейд-офф:
+     * намеренный повтор идентичной рассылки требует изменить текст.
+     *
+     * @return array{broadcast_id:int,recipients_count:int,enqueued:int,status:string}
      */
     public function dispatch(int $actorMemberId, string $segmentType, ?string $segmentValue, string $bodyRaw): array
     {
@@ -64,21 +70,19 @@ class BroadcastService
             'queued_at' => now(),
         ]);
 
-        // Ставим пачками, чтобы не держать большой набор id в памяти и не делать
-        // один гигантский insert. Фон (диспетчер) уже сам растягивает доставку по тикам.
-        foreach (array_chunk($memberIds, 500) as $chunk) {
-            $this->notifications->enqueueForMembers(
-                $chunk,
-                'broadcast',
-                $html,
-                null,
-                'broadcast:' . $broadcast->id,
-                null,
-                true,
-                $broadcast->id,
-            );
-        }
+        $enqueued = $this->notifications->enqueueForMembers(
+            $memberIds,
+            'broadcast',
+            $html,
+            null,
+            self::contentKey($segmentType, $segmentValue, $bodyRaw),
+            null,
+            true,
+            $broadcast->id,
+        );
 
+        // DONE = «постановка в outbox завершена» (доставку растягивает диспетчер,
+        // её прогресс виден в мониторинге C7 по outbox-статусам).
         $broadcast->status = NotificationBroadcast::STATUS_DONE;
         $broadcast->save();
 
@@ -92,13 +96,76 @@ class BroadcastService
                 'segment_type' => $segmentType,
                 'segment_value' => $segmentValue,
                 'recipients_count' => count($memberIds),
+                'enqueued' => $enqueued,
             ],
         );
 
         return [
             'broadcast_id' => $broadcast->id,
             'recipients_count' => count($memberIds),
+            'enqueued' => $enqueued,
             'status' => $broadcast->status,
         ];
+    }
+
+    /**
+     * Допоставка застрявшей рассылки (упали между постановкой чанков: статус так и остался
+     * processing). Повторяет enqueue тем же контент-ключом — insertOrIgnore достроит только
+     * недостающих, уже поставленным дублей не будет.
+     *
+     * @return array{broadcast_id:int,recipients_count:int,enqueued:int,status:string}
+     */
+    public function resume(int $actorMemberId, int $broadcastId): array
+    {
+        $broadcast = NotificationBroadcast::query()->find($broadcastId);
+        if ($broadcast === null) {
+            throw new \RuntimeException('Рассылка не найдена');
+        }
+        if ($broadcast->status !== NotificationBroadcast::STATUS_PROCESSING) {
+            throw new InvalidArgumentException('Допоставить можно только зависшую processing-рассылку');
+        }
+
+        $memberIds = $this->segments->resolve($broadcast->segment_type, $broadcast->segment_value);
+        $html = TelegramNotifications::mdToTelegramHtml((string) $broadcast->body_raw);
+
+        $enqueued = $this->notifications->enqueueForMembers(
+            $memberIds,
+            'broadcast',
+            $html,
+            null,
+            self::contentKey((string) $broadcast->segment_type, $broadcast->segment_value, (string) $broadcast->body_raw),
+            null,
+            true,
+            $broadcast->id,
+        );
+
+        $broadcast->status = NotificationBroadcast::STATUS_DONE;
+        $broadcast->save();
+
+        $this->audit->recordSafe($actorMemberId, 'broadcast.resume', 'broadcast', $broadcast->id, null, [
+            'enqueued_missing' => $enqueued,
+        ]);
+
+        return [
+            'broadcast_id' => $broadcast->id,
+            'recipients_count' => count($memberIds),
+            'enqueued' => $enqueued,
+            'status' => $broadcast->status,
+        ];
+    }
+
+    /**
+     * Детерминированный базовый dedup-ключ рассылки: канонизированный сегмент + сырой текст.
+     * Сегмент сериализуется фиксированной структурой (порядок ключей задан здесь, не входом),
+     * версия v1 в префиксе — на случай смены схемы ключа.
+     */
+    private static function contentKey(string $segmentType, ?string $segmentValue, string $bodyRaw): string
+    {
+        $canonicalSegment = json_encode(
+            ['segment_type' => $segmentType, 'segment_value' => $segmentValue],
+            JSON_UNESCAPED_UNICODE,
+        );
+
+        return 'broadcast:v1:' . sha1($canonicalSegment . "\n" . $bodyRaw);
     }
 }

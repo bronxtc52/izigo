@@ -118,4 +118,16 @@ trait SignsTelegramInitData
         $roleId = Role::where('name', $role)->value('id');
         $member->roles()->syncWithoutDetaching([$roleId => ['leader_scope_member_id' => $scopeMemberId]]);
     }
+
+    /**
+     * Включить фиче-флаги для теста (B5: роуты Блока C гейтятся feature.flag:{alias},
+     * deny-by-default — без этого фичевые тесты ловят 403 FEATURE_DISABLED).
+     */
+    protected function enableFeatureFlags(string ...$keys): void
+    {
+        $flags = app(\Modules\Calculator\Services\FeatureFlag\FeatureFlagService::class);
+        foreach ($keys as $key) {
+            $flags->set($key, true);
+        }
+    }
 }

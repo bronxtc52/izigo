@@ -15,7 +15,7 @@ use Modules\Calculator\Http\Controllers\TicketController;
 Route::group([
     'prefix' => 'cabinet',
     'as' => 'cabinet.',
-    'middleware' => ['telegram.auth'],
+    'middleware' => ['telegram.auth', 'feature.flag:c2_helpdesk'],
 ], function () {
     Route::get('/tickets', [TicketController::class, 'index'])->name('tickets');
     Route::post('/tickets', [TicketController::class, 'store'])->name('tickets-create');
@@ -32,7 +32,7 @@ Route::group([
 Route::group([
     'prefix' => 'admin',
     'as' => 'admin.',
-    'middleware' => ['web.admin'],
+    'middleware' => ['web.admin', 'feature.flag:c2_helpdesk'],
 ], function () {
     Route::get('/tickets', [TicketAdminController::class, 'index'])
         ->middleware('calculator.role:owner,support')->name('tickets');

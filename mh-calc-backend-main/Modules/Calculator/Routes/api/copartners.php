@@ -19,7 +19,7 @@ use Modules\Calculator\Http\Controllers\CopartnerController;
 Route::group([
     'prefix' => 'cabinet',
     'as' => 'cabinet.',
-    'middleware' => ['telegram.auth'],
+    'middleware' => ['telegram.auth', 'feature.flag:c6_copartners'],
 ], function () {
     Route::get('/copartners', [CopartnerController::class, 'index'])->name('copartners');
     Route::post('/copartners', [CopartnerController::class, 'store'])->name('copartners-store');
@@ -34,7 +34,7 @@ Route::group([
 Route::group([
     'prefix' => 'admin',
     'as' => 'admin.',
-    'middleware' => ['web.admin'],
+    'middleware' => ['web.admin', 'feature.flag:c6_copartners'],
 ], function () {
     Route::get('/members/{id}/copartners', [CopartnerAdminController::class, 'index'])
         ->middleware('calculator.role:owner,finance,support')

@@ -10,6 +10,10 @@ on:
     paths-ignore:
       - '**.md'
       - 'docs/**'
+  pull_request:
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
   workflow_dispatch:
 
 permissions:
@@ -17,7 +21,86 @@ permissions:
   contents: read
 
 jobs:
+  # P1-hardening (O2): тесты бэка на реальном Postgres (ltree — sqlite не подходит) +
+  # lint/build фронта. Гейт для деплоя; на PR — единственное, что выполняется.
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: izigo_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      # Job выполняется на runner-хосте → сервис доступен через проброшенный порт
+      # на 127.0.0.1 (имя сервиса резолвится только в container-jobs).
+      DB_CONNECTION: pgsql
+      DB_HOST: 127.0.0.1
+      DB_PORT: '5432'
+      DB_DATABASE: izigo_test
+      DB_USERNAME: postgres
+      DB_PASSWORD: postgres
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Setup PHP 8.3
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_pgsql, pgsql, bcmath, mbstring, zip
+          coverage: none
+
+      - name: Composer install
+        working-directory: mh-calc-backend-main
+        run: composer install --no-interaction --prefer-dist
+
+      - name: Bootstrap app env
+        working-directory: mh-calc-backend-main
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+
+      # Smoke для O1: несобираемый роут/конфиг должен падать здесь, а не на прод-старте
+      # (start.sh после снятия `|| true` уронит контейнер). Кэши сразу чистим — иначе
+      # закэшированный config заморозит env и сломает phpunit-переменные.
+      - name: Route/config cache smoke
+        working-directory: mh-calc-backend-main
+        run: |
+          php artisan config:cache
+          php artisan route:cache
+          php artisan config:clear
+          php artisan route:clear
+
+      - name: Run backend tests
+        working-directory: mh-calc-backend-main
+        run: php artisan test
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: mh-calc-frontend-main/package-lock.json
+
+      - name: Frontend lint + build
+        working-directory: mh-calc-frontend-main
+        run: |
+          npm ci
+          npm run lint
+          npm run build
+
   deploy:
+    # Деплой-гейт `needs: test` включается отдельным ops-PR (PR-3); пока — только
+    # исключение PR-событий, чтобы pull_request не деплоил прод.
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
