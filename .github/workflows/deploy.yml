@@ -120,6 +120,9 @@ jobs:
 
       - name: Build frontend image in ACR
         run: |
+          if [ -z "${{ secrets.FRONTEND_SENTRY_DSN }}" ]; then
+            echo "::warning::FRONTEND_SENTRY_DSN не задан — фронт соберётся БЕЗ Sentry (init = no-op)"
+          fi
           az acr build --registry ${{ secrets.ACR_NAME }} \
             --image izigo-frontend:${{ github.sha }} \
             --build-arg NEXT_PUBLIC_SERVER_BACK_URL=${{ secrets.BACKEND_URL }} \

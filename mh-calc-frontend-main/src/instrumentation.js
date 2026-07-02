@@ -10,5 +10,7 @@ export async function register() {
     }
 }
 
-// Ошибки React Server Components / route handlers → Sentry.
+// Хук onRequestError вызывается Next-ом начиная с Next 15 — на текущем Next 14 это no-op
+// (форвард-совместимость под будущий апгрейд по P2-CVE). Сейчас серверные ошибки рендера
+// доезжают до Sentry только обезличенным digest'ом через клиентский error.js.
 export const onRequestError = Sentry.captureRequestError;
