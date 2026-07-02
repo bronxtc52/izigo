@@ -130,6 +130,8 @@ jobs:
             --build-arg NEXT_PUBLIC_USDT_JETTON_MASTER=EQCxE6mUtQJKFnGfaROTKOt1lZbDiiX1kCixRv7Nw2Id_sDs \
             --build-arg NEXT_PUBLIC_TWA_RETURN_URL=https://t.me/Izigopro_mlm_bot/app \
             --build-arg NEXT_PUBLIC_TG_BOT_USERNAME=Izigopro_mlm_bot \
+            --build-arg NEXT_PUBLIC_SENTRY_DSN=${{ secrets.FRONTEND_SENTRY_DSN }} \
+            --build-arg NEXT_PUBLIC_SENTRY_RELEASE=${{ github.sha }} \
             ./mh-calc-frontend-main
 
       - name: Update backend Container App

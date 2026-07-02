@@ -19,6 +19,11 @@ ARG NEXT_PUBLIC_USDT_JETTON_MASTER
 ARG NEXT_PUBLIC_TWA_RETURN_URL
 # Имя бота для Telegram Login Widget веб-админки (публичный параметр, не секрет).
 ARG NEXT_PUBLIC_TG_BOT_USERNAME
+# F1 (P1-hardening): Sentry фронта. DSN публичный по природе; release = GITHUB_SHA.
+# SENTRY_AUTH_TOKEN сознательно НЕ прокидывается (sourcemaps-аплоад выключен в билде образа).
+ARG NEXT_PUBLIC_SENTRY_DSN
+ARG NEXT_PUBLIC_SENTRY_RELEASE
+ARG NEXT_PUBLIC_SENTRY_ENV=beta
 RUN npm run build
 
 FROM node:20-alpine AS runner

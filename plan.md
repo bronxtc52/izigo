@@ -89,24 +89,24 @@
 ## PR-2 — Frontend (`feat/p1-hardening-frontend`) — мерджится последним
 
 ### F1. Sentry для Next.js
-- [ ] Зависимость `@sentry/nextjs` (официальный SDK, MIT, живой — вет пройден); App Router: `instrumentation.js`/`onRequestError` + client config, `withSentryConfig` в next.config
-- [ ] DSN из `NEXT_PUBLIC_SENTRY_DSN`: `ARG`+`ENV` в `mh-calc-frontend-main/Dockerfile` (по образцу :16-21) + `--build-arg` в deploy.yml (:42-49); release = `GITHUB_SHA` (тоже build-arg)
-- [ ] `sendDefaultPii: false`; beforeSend — вырезать `tgWebAppData`/initData из URL/breadcrumbs
-- [ ] Sourcemaps на self-hosted best-effort: `SENTRY_URL=https://sentry.adarasoft.com`, org `sentry`; upload включается **условно** только при наличии token+org+project в env, `silent: true` — некорректный токен/URL не роняет `next build`; проверить билд совсем без Sentry-env
-- [ ] Sentry-проект фронта создаю через API self-hosted (токен из KV), DSN → KV (**имя секрета — блокирующий вопрос, см. лог допущений №1**)
+- [x] Зависимость `@sentry/nextjs` (официальный SDK, MIT, живой — вет пройден); App Router: `instrumentation.js`/`onRequestError` + client config, `withSentryConfig` в next.config
+- [x] DSN из `NEXT_PUBLIC_SENTRY_DSN`: `ARG`+`ENV` в `mh-calc-frontend-main/Dockerfile` (по образцу :16-21) + `--build-arg` в deploy.yml (:42-49); release = `GITHUB_SHA` (тоже build-arg)
+- [x] `sendDefaultPii: false`; beforeSend — вырезать `tgWebAppData`/initData из URL/breadcrumbs
+- [x] Sourcemaps на self-hosted best-effort: `SENTRY_URL=https://sentry.adarasoft.com`, org `sentry`; upload включается **условно** только при наличии token+org+project в env, `silent: true` — некорректный токен/URL не роняет `next build`; проверить билд совсем без Sentry-env
+- [x] Sentry-проект фронта создан (izigo-frontend, self-hosted), DSN → KV izigo--beta--SENTRY-DSN-FRONTEND + gh secret FRONTEND_SENTRY_DSN. Изначальный план «через API self-hosted (токен из KV), DSN → KV (**имя секрета — блокирующий вопрос, см. лог допущений №1**)
 
 ### F2. Error boundaries — `src/app/`
-- [ ] `error.js` (внутри провайдеров — можно `miniAppPalette`) и `global-error.js` (вне провайдеров — цвета Aurora инлайном: `#7C3AED`, `#F0635E`): сообщение + кнопка reset, `Sentry.captureException(error)` в `useEffect`
-- [ ] i18n-ключи ru/en; в global-error — статичный двуязычный текст (i18n может быть недоступен)
+- [x] `error.js` (внутри провайдеров — можно `miniAppPalette`) и `global-error.js` (вне провайдеров — цвета Aurora инлайном: `#7C3AED`, `#F0635E`): сообщение + кнопка reset, `Sentry.captureException(error)` в `useEffect`
+- [x] i18n-ключи ru/en; в global-error — статичный двуязычный текст (i18n может быть недоступен)
 
 ### F3. TON-адрес с чексуммой — `src/views/miniapp/MiniAppShell.js:35`
-- [ ] `isTonAddress` → `Address.parseFriendly(s)` из `@ton/core@0.59.1` (уже в deps) в try/catch; `isTestOnly === true` → невалиден
+- [x] `isTonAddress` → `Address.parseFriendly(s)` из `@ton/core@0.59.1` (уже в deps) в try/catch; `isTestOnly === true` → невалиден
 
 ### F4 (P2). Prototype pollution guard — `src/common/i18n.js:56-67`
-- [ ] В разворачивании dot-ключей: сегмент ∈ {`__proto__`,`constructor`,`prototype`} → скип всего ключа
+- [x] В разворачивании dot-ключей: сегмент ∈ {`__proto__`,`constructor`,`prototype`} → скип всего ключа
 
 ### F5 (P2). Анти-двойная оплата — `src/views/miniapp/TonPayCheckout.js:67-71`
-- [ ] После MAX_POLLS: не `setPhase('idle')`, а новая фаза `'sent'` — рендер без кнопки «Оплатить кошельком», с «Проверить оплату» + подсказкой «перевод уже отправлен, идёт подтверждение» (i18n ru/en)
+- [x] После MAX_POLLS: не `setPhase('idle')`, а новая фаза `'sent'` — рендер без кнопки «Оплатить кошельком», с «Проверить оплату» + подсказкой «перевод уже отправлен, идёт подтверждение» (i18n ru/en)
 
 ## Порядок работ
 

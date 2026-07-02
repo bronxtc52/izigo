@@ -176,6 +176,7 @@
     "shop_as_charge_hint": "Charged from your internal USDT balance. Top it up in the Income tab.",
     "pay_err_check": "Failed to check payment",
     "pay_info_delayed": "Confirmation is delayed. Check the payment manually or retry.",
+    "pay_sent_hint": "Your transfer has been sent and is awaiting network confirmation. Do not pay again — use “Check payment”.",
     "pay_info_connect_wallet": "Connect a TON wallet first",
     "pay_err_not_configured": "TON payment is not configured (no RPC/master address)",
     "pay_err_send": "Failed to send the transfer",
