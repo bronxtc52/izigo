@@ -12,18 +12,30 @@ import { usd } from './format';
 const POLL_MS = 4000;
 const MAX_POLLS = 22; // ~90с авто-поллинга, далее — ручная «Проверить оплату»
 
+// Явный отказ пользователя в кошельке (подпись НЕ поставлена) — безопасно вернуть кнопку
+// оплаты. Отличаем от разрыва связи после подписи (перевод мог уйти в сеть). TonConnect
+// не даёт стабильного публичного класса ошибки — распознаём по имени/коду/тексту.
+function isUserRejection(e) {
+    if (!e) return false;
+    if (e.code === 300) return true; // USER_REJECTS_ERROR (TonConnect)
+    const name = String(e.name || '');
+    const msg = String(e.message || '').toLowerCase();
+    return /reject/i.test(name) || /reject|declin|cancel|denied|отклон|отмен/.test(msg);
+}
+
 /**
  * Checkout TON Pay: подключение кошелька → отправка jetton-перевода → поллинг статуса
  * платежа на бэке (POST /payments/{id}/check). Подтверждение — только серверное (paid),
  * товар/активация выдаются на бэке после on-chain-матча. Реквизиты показываем копируемыми
  * как запасной путь (оплата из любого кошелька).
  */
-export default function TonPayCheckout({ open, invoice, order, initData, pal, wa, onClose, onPaid }) {
+export default function TonPayCheckout({ open, invoice, order, initData, pal, wa, onClose, onPaid, onReissue }) {
     const { t } = useTranslation();
     const [tonConnectUI] = useTonConnectUI();
     const wallet = useTonWallet();
     const [phase, setPhase] = useState('idle'); // idle | sending | awaiting | sent | paid | failed
     const [checking, setChecking] = useState(false);
+    const [reissuing, setReissuing] = useState(false);
     const pollRef = useRef(null);
     const attemptsRef = useRef(0);
     const pidRef = useRef(null); // актуальный payment_id — для отсева устаревших ответов
@@ -83,9 +95,34 @@ export default function TonPayCheckout({ open, invoice, order, initData, pal, wa
             await sendTonPayment(tonConnectUI, invoice);
             startAwaiting();
         } catch (e) {
-            setPhase('idle');
-            message.error(e?.message || t('miniapp.pay_err_send'));
+            // MAJOR №2: если кошелёк уже был открыт и связь оборвалась ПОСЛЕ подписи
+            // (`broadcastAttempted`), перевод мог уйти в сеть — НЕ возвращаем активную кнопку
+            // «Оплатить» (повторный клик = второе списание). Уводим в фазу 'sent': остаётся
+            // только «Проверить оплату». Явный отказ в кошельке и ошибки подготовки (подпись
+            // не ставилась, перевод не ушёл) безопасно возвращают в idle.
+            if (e?.broadcastAttempted && !isUserRejection(e)) {
+                setPhase('sent');
+                message.warning(t('miniapp.pay_warn_unknown'));
+            } else {
+                setPhase('idle');
+                if (isUserRejection(e)) message.info(t('miniapp.pay_info_rejected'));
+                else message.error(e?.message || t('miniapp.pay_err_send'));
+            }
         }
+    };
+
+    // Из failed-фазы (инвойс протух/отклонён на бэке) НЕЛЬЗЯ платить в тот же мёртвый memo:
+    // commerce:tonpay-poll и /payments/{id}/check обрабатывают только pending → перевод по
+    // старому memo никогда не зачтётся (потеря денег, блокер B-3). Вместо возврата к старому
+    // счёту перевыпускаем инвойс (родитель заново зовёт mmPayOrder/mmTopup → новый
+    // payment_id/memo); смена invoice.payment_id сбрасывает фазу в idle (см. useEffect выше).
+    const reissue = async () => {
+        if (!onReissue) { close(); return; }
+        setReissuing(true);
+        let ok = false;
+        try { ok = await onReissue(); } catch { ok = false; }
+        setReissuing(false);
+        if (!ok) message.error(t('miniapp.pay_err_reissue'));
     };
 
     const copy = (txt) => navigator.clipboard?.writeText(String(txt ?? '')).then(
@@ -115,9 +152,19 @@ export default function TonPayCheckout({ open, invoice, order, initData, pal, wa
             subTitle={order ? t('miniapp.pay_paid_order_sub') : t('miniapp.pay_paid_topup_sub')}
             extra={<Button type="primary" onClick={close}>{t('miniapp.pay_done')}</Button>} />;
     } else if (phase === 'failed') {
+        // Никакого возврата в idle того же инвойса — только новый счёт либо закрытие.
         body = <Result status="error" title={t('miniapp.pay_failed_title')}
             subTitle={t('miniapp.pay_failed_sub')}
-            extra={<Button onClick={() => setPhase('idle')}>{t('miniapp.pay_back')}</Button>} />;
+            extra={
+                <Flex gap={8} justify="center" wrap="wrap">
+                    {onReissue && (
+                        <Button type="primary" loading={reissuing} style={gradBtn} onClick={reissue}>
+                            {t('miniapp.pay_new_invoice')}
+                        </Button>
+                    )}
+                    <Button onClick={close}>{t('miniapp.pay_close')}</Button>
+                </Flex>
+            } />;
     } else {
         body = (
             <>

@@ -342,6 +342,17 @@ const MiniAppShell = () => {
 
     const onTopupPaid = () => { setTopupInvoice(null); load(); };
 
+    // B-3: перевыпуск инвойса пополнения из failed-фазы чекаута (старый memo мёртв на бэке).
+    // Новый счёт на ту же сумму → новый payment_id/memo; смена invoice сбросит фазу в idle.
+    const onReissueTopup = async () => {
+        const cents = topupInvoice?.amount_cents;
+        if (!cents) return false;
+        const res = await mmTopup(initData, cents);
+        if (res?.error || !res?.data) return false;
+        setTopupInvoice(res.data);
+        return true;
+    };
+
     // F6: подать на верификацию. Реальный сбор документов через Telegram Passport — Фаза 5
     // (NEEDS-LIVE-VERIFY); здесь intake-заявка переводит KYC в pending для ручного аппрува.
     const onKycSubmit = async () => {
@@ -1037,7 +1048,7 @@ const MiniAppShell = () => {
                 {/* Checkout пополнения — без заказа (order=null): только зачисление на баланс */}
                 <TonPayCheckout open={!!topupInvoice} invoice={topupInvoice} order={null}
                     initData={initData} pal={pal} wa={wa}
-                    onClose={() => setTopupInvoice(null)} onPaid={onTopupPaid} />
+                    onClose={() => setTopupInvoice(null)} onPaid={onTopupPaid} onReissue={onReissueTopup} />
 
                 {/* C6: форма со-партнёра/наследника (справочная запись профиля) */}
                 <Modal

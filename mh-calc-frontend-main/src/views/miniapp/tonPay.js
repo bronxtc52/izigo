@@ -82,15 +82,26 @@ export async function sendTonPayment(tonConnectUI, invoice) {
     const jettonWallet = await resolveSenderJettonWallet(client, c.jettonMaster, owner);
     const body = buildTransferBody(invoice, owner);
 
-    return tonConnectUI.sendTransaction({
-        validUntil: Math.floor(Date.now() / 1000) + 600,
-        network: tonChain(),
-        messages: [
-            {
-                address: jettonWallet.toString(),
-                amount: toNano('0.1').toString(), // газ + forward; NEEDS-LIVE-VERIFY
-                payload: body.toBoc().toString('base64'),
-            },
-        ],
-    });
+    // С этого момента открывается кошелёк и возможна ПОДПИСЬ + широковещание перевода.
+    // Если тут произойдёт ошибка/разрыв связи — перевод мог уже уйти в сеть. Помечаем ошибку
+    // флагом `broadcastAttempted`, чтобы вызывающий НЕ показал повторную кнопку «Оплатить»
+    // (иначе — риск двойного списания). Ошибки на этапе подготовки выше флага не несут.
+    try {
+        return await tonConnectUI.sendTransaction({
+            validUntil: Math.floor(Date.now() / 1000) + 600,
+            network: tonChain(),
+            messages: [
+                {
+                    address: jettonWallet.toString(),
+                    amount: toNano('0.1').toString(), // газ + forward; NEEDS-LIVE-VERIFY
+                    payload: body.toBoc().toString('base64'),
+                },
+            ],
+        });
+    } catch (e) {
+        if (e && typeof e === 'object') {
+            try { e.broadcastAttempted = true; } catch { /* frozen error object — не критично */ }
+        }
+        throw e;
+    }
 }
