@@ -122,6 +122,18 @@ export default function MiniAppShop({ initData, pal, isDark, wa, onUnauthorized,
         setCheckout({ invoice: pay?.data, order });
     };
 
+    // B-3: перевыпуск инвойса из failed-фазы чекаута — новый payment_id/memo для того же заказа
+    // (старый memo мёртв на бэке). Возвращаем true/false; на успехе меняем invoice в checkout →
+    // TonPayCheckout сбросит фазу в idle и стартует свежий цикл.
+    const onReissueOrder = async () => {
+        const order = checkout?.order;
+        if (!order?.id) return false;
+        const pay = await mmPayOrder(initData, order.id);
+        if (pay?.error || !pay?.data) return false;
+        setCheckout({ invoice: pay.data, order });
+        return true;
+    };
+
     const onPaid = async () => {
         await reloadOrders();
         setView('orders');
@@ -276,7 +288,7 @@ export default function MiniAppShop({ initData, pal, isDark, wa, onUnauthorized,
 
             <TonPayCheckout open={!!checkout} invoice={checkout?.invoice} order={checkout?.order}
                 initData={initData} pal={pal} wa={wa}
-                onClose={() => setCheckout(null)} onPaid={onPaid} />
+                onClose={() => setCheckout(null)} onPaid={onPaid} onReissue={onReissueOrder} />
         </>
     );
 }
