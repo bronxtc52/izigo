@@ -71,9 +71,9 @@
 ## PR-3 — Ops (`chore/p1-hardening-ops`) — мерджится вторым
 
 ### O1. `docker/start.sh` (backend)
-- [ ] Убрать `|| true` у всех 6 команд (см. таблицу решений); `set -e` уже стоит — упавшая миграция/сидер = упавший старт. Критерии сняты для каждого сидера: без внешних зависимостей, не перетирает прод-состояние (FeatureFlagSeeder — `firstOrCreate`), безопасен на повторе
+- [x] Убрать `|| true` у всех 6 команд (см. таблицу решений); `set -e` уже стоит — упавшая миграция/сидер = упавший старт. Критерии сняты для каждого сидера: без внешних зависимостей, не перетирает прод-состояние (FeatureFlagSeeder — `firstOrCreate`), безопасен на повторе
 - [ ] Риск-контроль (не обещание автоматики): при деплое PR-3 проверить поведение ACA-ревизии при падающем старте (revision mode/трафик) — цель «unhealthy ревизия не получает трафик» подтвердить наблюдением, single-replica downtime-риск осознан
-- [ ] Страховка `route:cache`: после роут-правок PR-1 (`feature.flag`, recheck) `php artisan route:cache` гоняется в CI-джобе (см. O2) — некешируемый роут ловится до прод-старта
+- [x] Страховка `route:cache`: после роут-правок PR-1 (`feature.flag`, recheck) `php artisan route:cache` гоняется в CI-джобе (см. O2) — некешируемый роут ловится до прод-старта
 
 ### O2. Тесты в CI — `.github/workflows/deploy.yml`
 - [x] **Job `test` добавляется уже в PR-1** (на `pull_request` + push main) — денежный PR не уезжает в прод без гейта; enforcement `needs: test` у деплой-jobs — в PR-3
@@ -83,8 +83,8 @@
 - [ ] Проверка приёмки №4: на ветке намеренно красный тест → job падает → убрать
 
 ### O3. `bot.catch()` + тест бота — `mh-calc-bot/src/`
-- [ ] `bot.catch((err) => { Sentry.captureException(err.error); console.error(...) })` — Sentry уже инициализируется в `index.js:8`; long-polling не падает
-- [ ] Критерий приёмки «тесты бота зелёные»: тестовых файлов у бота сейчас ноль — добавить минимальный unit-тест (`node --test`: bot экспортируется, error-handler зарегистрирован), прогон `npm test` локально, в CI бот не добавляем (граница ТЗ)
+- [x] `bot.catch((err) => { Sentry.captureException(err.error); console.error(...) })` — Sentry уже инициализируется в `index.js:8`; long-polling не падает
+- [x] Критерий приёмки «тесты бота зелёные» (у бота уже был node --test: 5 тестов; добавлены 3 на error boundary, 8 passed): тестовых файлов у бота сейчас ноль — добавить минимальный unit-тест (`node --test`: bot экспортируется, error-handler зарегистрирован), прогон `npm test` локально, в CI бот не добавляем (граница ТЗ)
 
 ## PR-2 — Frontend (`feat/p1-hardening-frontend`) — мерджится последним
 
