@@ -14,3 +14,10 @@ use Illuminate\Support\Facades\Route;
 */
 
 // Приложение headless (Telegram Mini App + API). Web-роутов нет.
+
+/*
+ * M1: сверх-дешёвый liveness-эндпоинт /up — только «процесс жив», без БД и без
+ * heartbeat. Годится для ACA liveness-пробы (не убивать контейнер из-за вставшего
+ * планировщика — это забота readiness/watchdog через /api/health). БЕЗ auth.
+ */
+Route::get('/up', fn () => response()->json(['status' => 'ok'], 200));
