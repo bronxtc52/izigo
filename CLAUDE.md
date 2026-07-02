@@ -42,3 +42,7 @@ MLM-платформа с бинарным комп-планом: `mh-calc-backe
   `SENTRY-DSN-FRONTEND`). Фронтовый DSN также в gh secret `FRONTEND_SENTRY_DSN` (build-arg).
 - Sentry self-hosted: проекты `izigo` (бэк/бот) и `izigo-frontend` (id 52).
 - `NEXT_PUBLIC_*` запекаются при сборке (ARG в Dockerfile + build-args в deploy.yml), не рантайм.
+- Мониторинг izigo (Azure Monitor silent-алёрты) — `ops/alerts-izigo.sh`; подключение к
+  server-watchdog + read-роли MI + ACA health-probe — runbook `ops/izigo-monitoring-setup.md`.
+  ⚠️ RG `rg-izigo-beta-neu` в `AZURE_RESOURCE_GROUPS` watchdog и алёрты заводит **человек** из
+  авторизованной сессии (MSI mh-central RG не видит).
