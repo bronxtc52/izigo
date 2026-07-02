@@ -67,15 +67,18 @@ class CabinetController
 
     public function activate(Request $request): JsonResponse
     {
+        // ⚠️ idempotency_key намеренно НЕ принимается от клиента (аудит B-2): ключ уникален
+        // глобально (activation_events.idempotency_key), а системные ключи предсказуемы
+        // (`order:{id}`). Приняв клиентский ключ, атакующий заранее занял бы `order:12345` →
+        // реальный оплаченный заказ получил бы inserted===0 и активацию бы не применил (жертва
+        // платит, бонусов нет). Ключ активации всегда генерируется сервером в activatePackage().
         $validated = $request->validate([
             'package_id' => 'required|integer|exists:calculator_packages,id',
-            'idempotency_key' => 'nullable|string|max:255',
         ]);
 
         return $this->guarded(fn () => $this->service->activatePackage(
             $this->member($request),
             (int) $validated['package_id'],
-            $validated['idempotency_key'] ?? null,
         ));
     }
 

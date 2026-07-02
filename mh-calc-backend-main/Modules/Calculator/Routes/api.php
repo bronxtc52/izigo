@@ -85,7 +85,12 @@ Route::group([
     Route::get('/personal-referrals', [CabinetController::class, 'personalReferrals'])->name('personal-referrals');
     // Действие лида (ещё не купил): сменить спонсора в пределах окна.
     Route::post('/lead/change-sponsor', [LeadController::class, 'changeSponsor'])->name('lead-change-sponsor');
-    Route::post('/activate-package', [CabinetController::class, 'activate'])->name('activate-package');
+    // Мок-активация БЕЗ оплаты — тест-фикстура, в проде выключена (deny-by-default): с Фазы 3
+    // activate() пишет реальные выводимые бонусы в ledger аплайну, поэтому бесплатная активация =
+    // «печать денег из воздуха» (аудит B-1). Гейт config-флагом calculator.allow_mock_activation
+    // (флаг OFF → 404). Боевая активация — только через оплаченный заказ (OrderService::activate).
+    Route::post('/activate-package', [CabinetController::class, 'activate'])
+        ->middleware('mock.activation')->name('activate-package');
     // Кошелёк (Фаза 3): баланс из кэша + лента движений доступного баланса.
     Route::get('/wallet', [CabinetController::class, 'wallet'])->name('wallet');
     Route::get('/wallet/transactions', [CabinetController::class, 'walletTransactions'])->name('wallet-transactions');
