@@ -43,6 +43,11 @@ class WebAdminAuth
         $token->forceFill(['last_used_at' => now()])->save();
         $request->attributes->set('member', $member);
 
+        // Привязываем токен к участнику и делаем его текущим user'ом запроса, чтобы работал
+        // канонический Sanctum-API ($request->user()->currentAccessToken()) — нужно для logout (G1).
+        $member->withAccessToken($token);
+        $request->setUserResolver(fn () => $member);
+
         return $next($request);
     }
 

@@ -142,6 +142,10 @@ Route::group([
     'as' => 'admin.',
     'middleware' => ['web.admin'],
 ], function () {
+    // Выход/отзыв токена веб-админки (G1): удаляет текущий Sanctum-токен (?all=1 — все).
+    // Доступен любой аутентифицированной роли (RBAC-гейт не нужен — отзываешь только свой токен).
+    Route::post('/auth/logout', [AuthController::class, 'logout'])->name('auth.logout');
+
     Route::get('/members', [AdminController::class, 'members'])
         ->middleware('calculator.role:owner,finance,support,leader')->name('members');
     Route::get('/members/{id}', [AdminController::class, 'member'])

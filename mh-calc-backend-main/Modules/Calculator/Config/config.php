@@ -7,10 +7,13 @@ return [
     // TELEGRAM_BOT_TOKEN инжектится из Key Vault через secret keyvaultref
     // (izigo--beta--TELEGRAM-BOT-TOKEN) — источник правды KV, не plain env.
     'telegram_bot_token' => env('TELEGRAM_BOT_TOKEN', ''),
-    // Макс. возраст initData (сек) против replay.
-    'telegram_initdata_max_age' => (int) env('TELEGRAM_INITDATA_MAX_AGE', 86400),
-    // Макс. возраст auth_date Telegram Login Widget (сек) — вход в веб-админку.
-    'telegram_login_max_age' => (int) env('TELEGRAM_LOGIN_MAX_AGE', 86400),
+    // Макс. возраст initData (сек) против replay. Дефолт 1ч (G1): старое окно 24ч давало
+    // сутки на переигрывание утёкшего initData к денежному кабинету. Оверрайд —
+    // env TELEGRAM_INITDATA_MAX_AGE (в проде инжектится, при необходимости повышается).
+    'telegram_initdata_max_age' => (int) env('TELEGRAM_INITDATA_MAX_AGE', 3600),
+    // Макс. возраст auth_date Telegram Login Widget (сек) — вход в веб-админку. Дефолт 1ч (G1),
+    // тем же аргументом: сузить replay-окно подписанных полей виджета. Оверрайд — env.
+    'telegram_login_max_age' => (int) env('TELEGRAM_LOGIN_MAX_AGE', 3600),
     // TTL Sanctum-токена веб-админки (минуты). 0 = бессрочный. Дефолт 12ч — ограничиваем
     // время жизни bearer к денежной панели (выплаты/план). Источник прав — RBAC, не abilities.
     'web_admin_token_ttl_minutes' => (int) env('WEB_ADMIN_TOKEN_TTL_MINUTES', 720),
