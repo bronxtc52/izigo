@@ -25,6 +25,7 @@ class FakeTonPayGateway implements PaymentGateway
         self::$onchain = [];
         self::$failMemos = [];
         self::$failAll = false;
+        self::$fetchCalls = 0;
     }
 
     /** Тест: «деньги пришли» — зарегистрировать перевод с memo и суммой. */
@@ -49,8 +50,13 @@ class FakeTonPayGateway implements PaymentGateway
         return null;
     }
 
-    public function pollStatus(string $externalRef, int $amountCents): string
+    /** @var int Сколько раз дёрнули «фетч сети» (pollBatch = 1 фетч на тик). */
+    public static int $fetchCalls = 0;
+
+    public function pollStatus(string $externalRef, int $amountCents, ?int $sinceUtime = null): string
     {
+        self::$fetchCalls++;
+
         if (self::$failAll || (self::$failMemos[$externalRef] ?? false)) {
             return 'error'; // семантика боевого драйвера: опрос не удался
         }
@@ -62,5 +68,32 @@ class FakeTonPayGateway implements PaymentGateway
         // Семантика боевого драйвера: переплату принимаем (>=), недоплату НЕ финализируем как
         // failed — ждём верный/до-перевод (терминальный failed съел бы реальные средства).
         return self::$onchain[$externalRef] >= $amountCents ? 'paid' : 'pending';
+    }
+
+    /**
+     * Пакетный опрос: имитирует ОДИН фетч сети за тик (боевой драйвер тянет список один раз),
+     * дальше локальный матч каждого memo из статического реестра. $fetchCalls растёт на 1.
+     */
+    public function pollBatch(array $items): array
+    {
+        self::$fetchCalls++; // один «сетевой фетч» на весь тик, а не по одному на платёж
+
+        $result = [];
+        foreach ($items as $it) {
+            $ref = $it['ref'];
+            if (self::$failAll || (self::$failMemos[$ref] ?? false)) {
+                $result[$ref] = 'error';
+
+                continue;
+            }
+            if (!array_key_exists($ref, self::$onchain)) {
+                $result[$ref] = 'pending';
+
+                continue;
+            }
+            $result[$ref] = self::$onchain[$ref] >= (int) $it['amount_cents'] ? 'paid' : 'pending';
+        }
+
+        return $result;
     }
 }

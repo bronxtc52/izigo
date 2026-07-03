@@ -174,4 +174,80 @@ class TonPayParsingTest extends TestCase
 
         $this->assertSame('error', $this->gateway()->pollStatus('pay:5', self::CENTS));
     }
+
+    // ── MAJOR G4/1: курсор start_utime + пагинация (старый перевод не выпадает из окна-100) ──
+
+    public function testStartUtimeCursorSentWhenSinceProvided(): void
+    {
+        // sinceUtime от времени создания платежа → драйвер шлёт start_utime (минус запас 3600с).
+        $this->fakeTransfers([$this->transfer($this->hexComment('pay:5'), self::UNITS)]);
+
+        $this->assertSame('paid', $this->gateway()->pollStatus('pay:5', self::CENTS, 1_700_000_000));
+        Http::assertSent(fn ($req) => str_contains($req->url(), 'start_utime=' . (1_700_000_000 - 3600))
+            && str_contains($req->url(), 'sort=asc'));
+    }
+
+    public function testCursorPaginationFindsTransferBeyondFirstPage(): void
+    {
+        // Всплеск: первая страница (100 переводов) — чужие memo; наш перевод только на 2-й странице.
+        // Старое окно-100 его теряло → платёж вечно pending. С пагинацией по курсору — находим.
+        $page0 = array_fill(0, 100, $this->transfer($this->hexComment('pay:999'), self::UNITS));
+        $page1 = [$this->transfer($this->hexComment('pay:5'), self::UNITS)];
+        Http::fake([
+            self::BASE . '/jetton/transfers*' => Http::sequence()
+                ->push(['jetton_transfers' => $page0], 200)
+                ->push(['jetton_transfers' => $page1], 200),
+        ]);
+
+        $this->assertSame('paid', $this->gateway()->pollStatus('pay:5', self::CENTS, 1_700_000_000));
+        Http::assertSentCount(2); // страница 0 (полная) → дозапросили страницу 1
+    }
+
+    // ── MAJOR G4/2: pollBatch — ОДИН фетч списка на несколько платежей ──
+
+    public function testPollBatchMatchesManyRefsInSingleFetch(): void
+    {
+        $this->fakeTransfers([
+            $this->transfer($this->hexComment('pay:5'), self::UNITS),
+            $this->transfer($this->hexComment('pay:7'), '100'), // недоплата → pending
+        ]);
+
+        $res = $this->gateway()->pollBatch([
+            ['ref' => 'pay:5', 'amount_cents' => self::CENTS, 'since_utime' => 1_700_000_000],
+            ['ref' => 'pay:7', 'amount_cents' => self::CENTS, 'since_utime' => 1_700_000_100],
+            ['ref' => 'pay:9', 'amount_cents' => self::CENTS, 'since_utime' => 1_700_000_200],
+        ]);
+
+        $this->assertSame('paid', $res['pay:5']);
+        $this->assertSame('pending', $res['pay:7']); // memo наш, сумма мала — не failed
+        $this->assertSame('pending', $res['pay:9']); // перевода нет
+        Http::assertSentCount(1); // все три матчатся ОДНИМ запросом списка
+    }
+
+    public function testPollBatchUsesOldestSinceAsCursor(): void
+    {
+        // Курсор фетча = самый старый из платежей (минус запас): давний pending не выпадет.
+        $this->fakeTransfers([$this->transfer($this->hexComment('pay:5'), self::UNITS)]);
+
+        $this->gateway()->pollBatch([
+            ['ref' => 'pay:5', 'amount_cents' => self::CENTS, 'since_utime' => 1_700_009_000],
+            ['ref' => 'pay:7', 'amount_cents' => self::CENTS, 'since_utime' => 1_700_000_000], // старейший
+        ]);
+
+        Http::assertSent(fn ($req) => str_contains($req->url(), 'start_utime=' . (1_700_000_000 - 3600)));
+    }
+
+    public function testPollBatchAllErrorWhenApiUnavailable(): void
+    {
+        // Фетч упал → 'error' по ВСЕМ ref (поллер не финализирует и не экспирирует эти платежи).
+        Http::fake([self::BASE . '/jetton/transfers*' => Http::response('', 503)]);
+
+        $res = $this->gateway()->pollBatch([
+            ['ref' => 'pay:5', 'amount_cents' => self::CENTS, 'since_utime' => 1_700_000_000],
+            ['ref' => 'pay:7', 'amount_cents' => self::CENTS, 'since_utime' => 1_700_000_000],
+        ]);
+
+        $this->assertSame('error', $res['pay:5']);
+        $this->assertSame('error', $res['pay:7']);
+    }
 }

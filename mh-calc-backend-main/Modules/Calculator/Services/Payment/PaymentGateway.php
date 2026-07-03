@@ -30,6 +30,22 @@ interface PaymentGateway
      * 'error' = «опрос НЕ удался» (сеть/таймаут/5xx индексатора) — НЕ бизнес-статус платежа:
      * потребитель не вправе ни финализировать, ни экспирировать платёж по нему, и никогда
      * не пишет 'error' в payments.status. 'pending' = «опросили успешно, перевода нет».
+     *
+     * $sinceUtime — unix-время (сек) создания платежа: драйвер бьёт им курсор поиска
+     * (start_utime у toncenter, минус запас), чтобы старый перевод не выпал из окна опроса
+     * при всплеске переводов на merchant-адрес. null = без курсора (совместимость/dev).
      */
-    public function pollStatus(string $externalRef, int $amountCents): string;
+    public function pollStatus(string $externalRef, int $amountCents, ?int $sinceUtime = null): string;
+
+    /**
+     * Пакетный опрос множества платежей ОДНИМ фетчем списка переводов за тик (устраняет
+     * N идентичных HTTP-запросов/мин → rate-limit индексатора). $items — список
+     * ['ref' => string, 'amount_cents' => int, 'since_utime' => int|null].
+     * Возвращает карту ref => (paid|pending|failed|none|error) с той же семантикой, что pollStatus.
+     * Сбой фетча → 'error' по ВСЕМ ref (потребитель их не финализирует и не экспирирует).
+     *
+     * @param  array<int,array{ref:string,amount_cents:int,since_utime:int|null}>  $items
+     * @return array<string,string>
+     */
+    public function pollBatch(array $items): array;
 }

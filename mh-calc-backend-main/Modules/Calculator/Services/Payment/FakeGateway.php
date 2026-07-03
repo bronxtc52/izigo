@@ -45,8 +45,13 @@ class FakeGateway implements PaymentGateway
         );
     }
 
-    public function pollStatus(string $externalRef, int $amountCents): string
+    public function pollStatus(string $externalRef, int $amountCents, ?int $sinceUtime = null): string
     {
         return 'none'; // webhook-драйвер не опрашивается
+    }
+
+    public function pollBatch(array $items): array
+    {
+        return array_fill_keys(array_column($items, 'ref'), 'none'); // не опрашивается
     }
 }
