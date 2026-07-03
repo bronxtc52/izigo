@@ -221,6 +221,35 @@ class LeadTest extends TestCase
         $this->assertDatabaseHas('leads', ['telegram_id' => 102]);
     }
 
+    public function testExpireDueKeepsLeadWithExpiredPayment(): void
+    {
+        // G5: у просроченного лида платёж уже expired (TTL съел pending при недоступном
+        // индексаторе), но деньги могли прийти on-chain. Удалять лида нельзя — иначе
+        // FK nullOnDelete осиротит заказ/платёж и recheck не сможет активировать.
+        [, $ref] = $this->registerTg(100);
+        $this->makeLead(103, $ref);
+        $this->makeLead(104, $ref); // без платежа → удаляем (контроль)
+        Lead::whereIn('telegram_id', [103, 104])->update(['expires_at' => now()->subDay()]);
+
+        Payment::query()->create([
+            'order_id' => null,
+            'member_id' => null,
+            'lead_id' => Lead::where('telegram_id', 103)->value('id'),
+            'provider' => 'ton_pay',
+            'purpose' => Payment::PURPOSE_ORDER,
+            'amount_cents' => 9000,
+            'currency' => 'USDT',
+            'status' => Payment::STATUS_EXPIRED,
+            'external_ref' => 'pay:5001',
+        ]);
+
+        $removed = app(LeadService::class)->expireDue();
+
+        $this->assertSame(1, $removed);
+        $this->assertDatabaseHas('leads', ['telegram_id' => 103]);
+        $this->assertDatabaseMissing('leads', ['telegram_id' => 104]);
+    }
+
     public function testPersonalReferralsListedBySponsorshipNotBinary(): void
     {
         // Root лично пригласил A и B (sponsor_id=Root); оба в бинар-дереве Root.

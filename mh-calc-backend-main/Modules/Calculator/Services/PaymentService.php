@@ -2,6 +2,7 @@
 
 namespace Modules\Calculator\Services;
 
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -42,18 +43,56 @@ class PaymentService
             throw new RuntimeException('Заказ уже не ожидает оплаты');
         }
 
-        $payment = Payment::query()->create([
-            'order_id' => $order->id,
-            'member_id' => $member->id,
-            'provider' => str_contains((string) config('calculator.payment_gateway'), 'ton') ? 'ton_pay' : 'fake',
-            'purpose' => Payment::PURPOSE_ORDER,
-            'amount_cents' => $order->total_usdt_cents,
-            'currency' => config('calculator.commerce_currency', 'USDT'),
-            'status' => Payment::STATUS_CREATED,
-            'external_ref' => null, // заполним pay:{id} в issueInvoice (нужен id); null безопасен под unique
-        ]);
+        // Один живой pending-инвойс на заказ: повторный клик «Оплатить» переиспользует уже
+        // существующий незавершённый инвойс (тот же payment_id/memo), а не плодит новый memo.
+        // Иначе юзер мог бы оплатить устаревший memo уже отменённого/оплаченного заказа →
+        // принятые деньги без фулфилмента.
+        if (($invoice = $this->reuseLivePendingInvoice($order->id, (int) $member->telegram_id)) !== null) {
+            return $invoice;
+        }
+
+        try {
+            $payment = Payment::query()->create([
+                'order_id' => $order->id,
+                'member_id' => $member->id,
+                'provider' => str_contains((string) config('calculator.payment_gateway'), 'ton') ? 'ton_pay' : 'fake',
+                'purpose' => Payment::PURPOSE_ORDER,
+                'amount_cents' => $order->total_usdt_cents,
+                'currency' => config('calculator.commerce_currency', 'USDT'),
+                'status' => Payment::STATUS_CREATED,
+                'external_ref' => null, // заполним pay:{id} в issueInvoice (нужен id); null безопасен под unique
+            ]);
+        } catch (UniqueConstraintViolationException $e) {
+            // Гонка двух параллельных кликов: партиал-unique индекс не дал создать второй
+            // живой инвойс на этот заказ — переиспользуем уже созданный.
+            $invoice = $this->reuseLivePendingInvoice($order->id, (int) $member->telegram_id);
+            if ($invoice === null) {
+                throw new RuntimeException('Не удалось создать инвойс на оплату заказа');
+            }
+
+            return $invoice;
+        }
 
         return $this->issueInvoice($payment, (int) $member->telegram_id, Payment::PURPOSE_ORDER);
+    }
+
+    /**
+     * Переиспользовать уже существующий незавершённый (created|pending) инвойс заказа, если он
+     * есть: возвращает его реквизиты (тот же payment_id/memo/pay_url), иначе null. Инвойс TON Pay
+     * детерминирован по memo=pay:{id}, поэтому переиздание безопасно и не меняет memo.
+     */
+    private function reuseLivePendingInvoice(int $orderId, int $telegramId): ?array
+    {
+        $existing = Payment::query()
+            ->where('order_id', $orderId)
+            ->where('purpose', Payment::PURPOSE_ORDER)
+            ->whereIn('status', [Payment::STATUS_CREATED, Payment::STATUS_PENDING])
+            ->orderByDesc('id')
+            ->first();
+
+        return $existing !== null
+            ? $this->issueInvoice($existing, $telegramId, Payment::PURPOSE_ORDER)
+            : null;
     }
 
     /**
@@ -73,17 +112,31 @@ class PaymentService
             throw new RuntimeException('Заказ уже не ожидает оплаты');
         }
 
-        $payment = Payment::query()->create([
-            'order_id' => $order->id,
-            'member_id' => null,
-            'lead_id' => $lead->id,
-            'provider' => str_contains((string) config('calculator.payment_gateway'), 'ton') ? 'ton_pay' : 'fake',
-            'purpose' => Payment::PURPOSE_ORDER,
-            'amount_cents' => $order->total_usdt_cents,
-            'currency' => config('calculator.commerce_currency', 'USDT'),
-            'status' => Payment::STATUS_CREATED,
-            'external_ref' => null,
-        ]);
+        // Один живой pending-инвойс на заказ (см. startOrderPayment).
+        if (($invoice = $this->reuseLivePendingInvoice($order->id, (int) $lead->telegram_id)) !== null) {
+            return $invoice;
+        }
+
+        try {
+            $payment = Payment::query()->create([
+                'order_id' => $order->id,
+                'member_id' => null,
+                'lead_id' => $lead->id,
+                'provider' => str_contains((string) config('calculator.payment_gateway'), 'ton') ? 'ton_pay' : 'fake',
+                'purpose' => Payment::PURPOSE_ORDER,
+                'amount_cents' => $order->total_usdt_cents,
+                'currency' => config('calculator.commerce_currency', 'USDT'),
+                'status' => Payment::STATUS_CREATED,
+                'external_ref' => null,
+            ]);
+        } catch (UniqueConstraintViolationException $e) {
+            $invoice = $this->reuseLivePendingInvoice($order->id, (int) $lead->telegram_id);
+            if ($invoice === null) {
+                throw new RuntimeException('Не удалось создать инвойс на оплату заказа');
+            }
+
+            return $invoice;
+        }
 
         return $this->issueInvoice($payment, (int) $lead->telegram_id, Payment::PURPOSE_ORDER);
     }
