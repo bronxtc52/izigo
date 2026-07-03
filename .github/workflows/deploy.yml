@@ -20,6 +20,13 @@ permissions:
   id-token: write   # OIDC к Azure
   contents: read
 
+# MAJOR G3(1): сериализуем деплои в main. Два параллельных мерджа → две run'ы попадают в
+# одну группу и выполняются по очереди (cancel-in-progress:false — идущий деплой НЕ отменяем,
+# новый ждёт в очереди). Иначе гонка: побеждает финишировавший последним, прод на старом sha.
+concurrency:
+  group: deploy-main
+  cancel-in-progress: false
+
 jobs:
   # P1-hardening (O2): тесты бэка на реальном Postgres (ltree — sqlite не подходит) +
   # lint/build фронта. Гейт для деплоя; на PR — единственное, что выполняется.
@@ -146,3 +153,75 @@ jobs:
         run: |
           az containerapp update -n ${{ secrets.FRONTEND_APP }} -g ${{ secrets.RG_NAME }} \
             --image ${{ secrets.ACR_NAME }}.azurecr.io/izigo-frontend:${{ github.sha }}
+
+      # MAJOR G3(2): пост-деплой смоук — pushed != deployed. `az containerapp update` возвращает
+      # управление до того, как новая ревизия реально начнёт обслуживать трафик, поэтому дёргаем
+      # бэкенд /api/health (роут B-5, отдаёт heartbeat планировщика) с ретраями и падаем, если не
+      # 200. Бэкенд — жёсткий гейт. Фронт — best-effort предупреждение (корень может редиректить/
+      # гейтить Mini App, ложить деплой на этом не стоит).
+      - name: Post-deploy smoke (/api/health)
+        run: |
+          BACKEND_URL="${{ secrets.BACKEND_URL }}"
+          FRONTEND_URL="${{ secrets.FRONTEND_URL }}"
+          # Фолбэки на известные прод-URL, если секреты не заданы.
+          [ -n "$BACKEND_URL" ]  || BACKEND_URL="https://ca-izigo-backend.livelycoast-2b4dcf83.northeurope.azurecontainerapps.io"
+          [ -n "$FRONTEND_URL" ] || FRONTEND_URL="https://izigo.adarasoft.com"
+
+          probe() {
+            local url="$1"
+            curl -sS -o /dev/null -w '%{http_code}' --max-time 15 "$url" 2>/dev/null || echo 000
+          }
+
+          HEALTH_URL="${BACKEND_URL%/}/api/health"
+          echo "Smoke: backend ${HEALTH_URL}"
+          ok=""
+          for i in $(seq 1 12); do
+            code=$(probe "$HEALTH_URL")
+            if [ "$code" = "200" ]; then echo "  attempt ${i}: 200 OK"; ok=1; break; fi
+            echo "  attempt ${i}: HTTP ${code} — ждём 15s (ревизия ещё поднимается)"
+            sleep 15
+          done
+          if [ -z "$ok" ]; then
+            echo "::error::Пост-деплой смоук провален: ${HEALTH_URL} не вернул 200 за 12 попыток. Новая ревизия не обслуживает трафик — деплой считаем неуспешным."
+            exit 1
+          fi
+
+          # Фронт — не жёсткий гейт.
+          fcode=$(probe "${FRONTEND_URL%/}")
+          if [ "$fcode" = "200" ]; then
+            echo "Smoke: frontend ${FRONTEND_URL} → 200 OK"
+          else
+            echo "::warning::Фронт ${FRONTEND_URL} вернул HTTP ${fcode} (не 200) — не блокируем деплой (корень может редиректить)."
+          fi
+
+  # MAJOR G3(3): бот в пайплайне. Раньше мердж изменений mh-calc-bot/ в main НЕ передеплоивал
+  # бота. Цель `ca-izigo-bot` подтверждена в ops/alerts-izigo.sh и ops/izigo-monitoring-setup.md
+  # (always-on ACA-приложение в rg-izigo-beta-neu, long-polling, без ingress). Имя переопределяемо
+  # секретом BOT_APP; фолбэк — подтверждённое ca-izigo-bot. ACR_NAME/RG_NAME — те же секреты, что
+  # у backend/frontend. Dockerfile — mh-calc-bot/Dockerfile. Обновление образа ingress не трогает.
+  deploy-bot:
+    needs: test
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Azure login (OIDC)
+        uses: azure/login@v3
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Build bot image in ACR
+        run: |
+          az acr build --registry ${{ secrets.ACR_NAME }} \
+            --image izigo-bot:${{ github.sha }} \
+            ./mh-calc-bot
+
+      - name: Update bot Container App
+        run: |
+          BOT_APP="${{ secrets.BOT_APP }}"
+          [ -n "$BOT_APP" ] || BOT_APP="ca-izigo-bot"   # подтверждено ops/*; секрет переопределяет
+          az containerapp update -n "$BOT_APP" -g ${{ secrets.RG_NAME }} \
+            --image ${{ secrets.ACR_NAME }}.azurecr.io/izigo-bot:${{ github.sha }}
