@@ -30,7 +30,19 @@ class TonPayGateway implements PaymentGateway
     /** USDT-джеттон в сети TON — 6 знаков. Центы (1/100 USDT) → мин. единицы джеттона: ×10^4. */
     private const CENTS_TO_UNITS = 10000;
     private const HTTP_TIMEOUT = 10;
-    private const POLL_LIMIT = 100;
+    /** Размер страницы /jetton/transfers (limit toncenter v3). */
+    private const PAGE_SIZE = 100;
+    /**
+     * Предохранитель глубины пагинации: max страниц за один фетч (PAGE_SIZE×MAX_PAGES переводов).
+     * Курсор start_utime ограничивает объём временем создания платежа, это лишь верхняя отсечка
+     * от «убегания» на аномальном всплеске. 50×100 = 5000 переводов.
+     */
+    private const MAX_PAGES = 50;
+    /**
+     * Запас (сек), вычитаемый из времени создания платежа при построении start_utime: перевод
+     * может лечь в блок чуть раньше нашей отметки времени (лаг/расхождение часов) — берём с полем.
+     */
+    private const SINCE_MARGIN_SECONDS = 3600;
 
     public function __construct(
         private readonly string $merchantAddress,
@@ -52,31 +64,128 @@ class TonPayGateway implements PaymentGateway
         return null; // у non-custodial TON Pay webhook'а процессора нет — подтверждаем опросом
     }
 
-    public function pollStatus(string $externalRef, int $amountCents): string
+    public function pollStatus(string $externalRef, int $amountCents, ?int $sinceUtime = null): string
     {
-        if ($this->merchantAddress === '' || $this->apiKey === '' || $this->jettonMaster === '') {
+        if (!$this->configured()) {
             return 'none'; // не сконфигурировано — нечего опрашивать
         }
 
-        try {
-            $response = Http::withHeaders(['X-Api-Key' => $this->apiKey])
-                ->timeout(self::HTTP_TIMEOUT)
-                ->get(rtrim($this->apiBaseUrl, '/') . '/jetton/transfers', [
-                    'owner_address' => $this->merchantAddress,
-                    'jetton_master' => $this->jettonMaster,
-                    'direction' => 'in',
-                    'limit' => self::POLL_LIMIT,
-                ]);
-        } catch (\Throwable $e) {
-            return 'error'; // сетевой сбой/таймаут — опрос не удался (не путать с 'pending')
+        $transfers = $this->fetchTransfers($this->startUtime($sinceUtime));
+        if ($transfers === null) {
+            return 'error'; // опрос не удался (сеть/таймаут/5xx) — не финализируем и не экспирируем
         }
 
-        if (!$response->successful()) {
-            return 'error'; // недоступность API — опрос не удался, не финализируем и не экспирируем
+        return $this->matchTransfers($transfers, $externalRef, $amountCents);
+    }
+
+    /**
+     * Пакетный опрос: ОДИН фетч списка переводов за тик (курсор — по самому старому pending),
+     * локальный матч каждого memo. Устраняет N идентичных HTTP-запросов на N pending-платежей.
+     */
+    public function pollBatch(array $items): array
+    {
+        $result = [];
+        if ($items === []) {
+            return $result;
+        }
+        if (!$this->configured()) {
+            foreach ($items as $it) {
+                $result[$it['ref']] = 'none';
+            }
+
+            return $result;
         }
 
+        // Курсор фетча = самый старый из платежей (с запасом): гарантирует, что перевод по
+        // давнему pending попадёт в выборку. null-since среди платежей → курсора нет (весь хвост).
+        $sinces = array_map(static fn ($it) => $it['since_utime'] ?? null, $items);
+        $minSince = in_array(null, $sinces, true) ? null : min($sinces);
+
+        $transfers = $this->fetchTransfers($this->startUtime($minSince));
+        if ($transfers === null) {
+            foreach ($items as $it) {
+                $result[$it['ref']] = 'error'; // фетч упал → 'error' по всем (не экспирируем)
+            }
+
+            return $result;
+        }
+
+        foreach ($items as $it) {
+            $result[$it['ref']] = $this->matchTransfers($transfers, $it['ref'], (int) $it['amount_cents']);
+        }
+
+        return $result;
+    }
+
+    private function configured(): bool
+    {
+        return $this->merchantAddress !== '' && $this->apiKey !== '' && $this->jettonMaster !== '';
+    }
+
+    /** start_utime для toncenter: время создания платежа минус запас; null при отсутствии курсора. */
+    private function startUtime(?int $sinceUtime): ?int
+    {
+        if ($sinceUtime === null) {
+            return null;
+        }
+
+        return max(0, $sinceUtime - self::SINCE_MARGIN_SECONDS);
+    }
+
+    /**
+     * Забрать входящие jetton-переводы на merchant-адрес, страницами, начиная с курсора start_utime
+     * (если задан). Возвращает массив переводов, либо null при сбое запроса (сеть/таймаут/не-2xx) —
+     * чтобы отличить «не смогли проверить» от «проверили, перевода нет».
+     *
+     * С курсором идём по возрастанию времени (sort=asc): новые переводы дописываются в хвост, поэтому
+     * offset-пагинация устойчива (окно не «съезжает»). Без курсора — по убыванию (свежие сверху),
+     * первые страницы. MAX_PAGES — предохранитель от бесконечного хвоста.
+     */
+    private function fetchTransfers(?int $startUtime): ?array
+    {
+        $all = [];
+        $sort = $startUtime === null ? 'desc' : 'asc';
+        for ($page = 0; $page < self::MAX_PAGES; $page++) {
+            $query = [
+                'owner_address' => $this->merchantAddress,
+                'jetton_master' => $this->jettonMaster,
+                'direction' => 'in',
+                'limit' => self::PAGE_SIZE,
+                'offset' => $page * self::PAGE_SIZE,
+                'sort' => $sort,
+            ];
+            if ($startUtime !== null) {
+                $query['start_utime'] = $startUtime; // toncenter v3: нижняя граница по времени tx
+            }
+
+            try {
+                $response = Http::withHeaders(['X-Api-Key' => $this->apiKey])
+                    ->timeout(self::HTTP_TIMEOUT)
+                    ->get(rtrim($this->apiBaseUrl, '/') . '/jetton/transfers', $query);
+            } catch (\Throwable $e) {
+                return null; // сетевой сбой/таймаут — весь фетч не удался
+            }
+            if (!$response->successful()) {
+                return null; // недоступность API — весь фетч не удался
+            }
+
+            $chunk = $response->json('jetton_transfers') ?? [];
+            foreach ($chunk as $tx) {
+                $all[] = $tx;
+            }
+            if (count($chunk) < self::PAGE_SIZE) {
+                break; // последняя страница
+            }
+        }
+
+        return $all;
+    }
+
+    /** Матч одного memo по списку переводов: paid при верной сумме, иначе pending. */
+    private function matchTransfers(array $transfers, string $externalRef, int $amountCents): string
+    {
         $expectedUnits = (string) ($amountCents * self::CENTS_TO_UNITS);
-        foreach (($response->json('jetton_transfers') ?? []) as $tx) {
+        foreach ($transfers as $tx) {
             if (($tx['transaction_aborted'] ?? false) === true) {
                 continue;
             }

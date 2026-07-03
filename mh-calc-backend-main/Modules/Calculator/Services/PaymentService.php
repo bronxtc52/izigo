@@ -203,9 +203,22 @@ class PaymentService
         $failed = 0;
         $pollErrors = 0;   // опрос не удался (сеть/API) — платёж не трогаем и от TTL защищаем
         $polledOkIds = []; // опрошены успешно, перевода нет — единственные кандидаты на TTL
+
+        // ОДИН фетч списка переводов за тик (курсор — по самому старому pending), матч локально:
+        // раньше pollStatus дёргался в цикле по каждому pending → N идентичных HTTP-запросов/мин →
+        // rate-limit индексатора → массовые 'error'. Карта ref => статус; отсутствие ref → 'error'
+        // (защитно: не финализируем и не экспирируем платёж, статус которого не получили).
+        $statuses = $this->gateway->pollBatch(
+            $pending->map(fn (Payment $p) => [
+                'ref' => $p->external_ref,
+                'amount_cents' => $p->amount_cents,
+                'since_utime' => $this->sinceUtime($p),
+            ])->all()
+        );
+
         foreach ($pending as $payment) {
             try {
-                $status = $this->gateway->pollStatus($payment->external_ref, $payment->amount_cents);
+                $status = $statuses[$payment->external_ref] ?? 'error';
                 if ($status === 'error') {
                     $pollErrors++;
                     continue;
@@ -298,7 +311,7 @@ class PaymentService
             return ['payment_status' => $payment->status, 'poll' => 'skipped'];
         }
 
-        $status = $this->gateway->pollStatus($payment->external_ref, $payment->amount_cents);
+        $status = $this->gateway->pollStatus($payment->external_ref, $payment->amount_cents, $this->sinceUtime($payment));
         if ($status === 'paid') {
             $this->confirmPayment($payment->id);
         }
@@ -321,7 +334,7 @@ class PaymentService
         }
 
         if ($payment->status === Payment::STATUS_PENDING) {
-            $status = $this->gateway->pollStatus($payment->external_ref, $payment->amount_cents);
+            $status = $this->gateway->pollStatus($payment->external_ref, $payment->amount_cents, $this->sinceUtime($payment));
             if ($status === 'paid') {
                 $this->confirmPayment($payment->id);
 
@@ -355,7 +368,7 @@ class PaymentService
         }
 
         if ($payment->status === Payment::STATUS_PENDING) {
-            $status = $this->gateway->pollStatus($payment->external_ref, $payment->amount_cents);
+            $status = $this->gateway->pollStatus($payment->external_ref, $payment->amount_cents, $this->sinceUtime($payment));
             if ($status === 'paid') {
                 $this->confirmPayment($payment->id);
 
@@ -371,6 +384,16 @@ class PaymentService
         }
 
         return ['payment_status' => $payment->fresh()->status];
+    }
+
+    /**
+     * Курсор поиска переводов для платежа: unix-время его создания. Драйвер вычитает свой запас
+     * и передаёт как start_utime в toncenter — старый перевод не выпадает из окна опроса при
+     * всплеске переводов на merchant-адрес. null (нет created_at) → опрос без курсора.
+     */
+    private function sinceUtime(Payment $payment): ?int
+    {
+        return $payment->created_at?->timestamp;
     }
 
     /**

@@ -202,6 +202,30 @@ class TonPayPollTest extends TestCase
             && str_contains((string) $req['text'], 'Start'));
     }
 
+    public function testPollFetchesTransfersOncePerTickForManyPending(): void
+    {
+        // MAJOR G4/2: несколько pending-платежей должны опрашиваться ОДНИМ фетчем списка за тик,
+        // а не N идентичными запросами (иначе rate-limit индексатора → массовые 'error').
+        $p = $this->makeProduct();
+        [$d1] = $this->registerTg(1080, name: 'A');
+        [$d2] = $this->registerTg(1081, name: 'B');
+        [$d3] = $this->registerTg(1082, name: 'C');
+        $c1 = $this->payOrder($d1, $p->id);
+        $c2 = $this->payOrder($d2, $p->id);
+        $c3 = $this->payOrder($d3, $p->id);
+
+        // Деньги пришли только по второму платежу.
+        FakeTonPayGateway::fakePay($c2['memo'], $c2['amount']);
+        FakeTonPayGateway::$fetchCalls = 0;
+        $this->artisan('commerce:tonpay-poll')->assertExitCode(0);
+
+        // Ровно один «сетевой фетч» на весь тик (3 pending), матч — локальный.
+        $this->assertSame(1, FakeTonPayGateway::$fetchCalls);
+        $this->assertSame(Payment::STATUS_PAID, Payment::find($c2['payment_id'])->status);
+        $this->assertSame(Payment::STATUS_PENDING, Payment::find($c1['payment_id'])->status);
+        $this->assertSame(Payment::STATUS_PENDING, Payment::find($c3['payment_id'])->status);
+    }
+
     public function testPollIsIdempotent(): void
     {
         $p = $this->makeProduct();
