@@ -33,6 +33,10 @@ MLM-платформа с бинарным комп-планом: `mh-calc-backe
 - **Health-эндпоинты бэка:** `/api/health` (БД + свежесть heartbeat планировщика, 503 при протухании)
   и `/up` (дешёвый liveness). Деплой проверяет healthState именно НОВОЙ ревизии (шаг в deploy.yml),
   не только URL — застрявшая ревизия (PullingImage/Degraded) роняет деплой, а не прячется за старой.
+- **💾 Бэкапы Postgres (2026-07-03):** PITR 14 дней + ночной logical-дамп на mh-central
+  (cron 03:30 UTC, `ops/backup-izigo-pg.sh` → `~/backups/izigo-pg/`, ротация 30 дней).
+  ⚠️ Geo-redundant НЕ включается на живом сервере — потерю региона/удаление сервера покрывают
+  только дампы. Восстановление (PITR/дамп) + квартальный drill — `ops/izigo-pg-backup-restore.md`.
 
 ## Тесты
 
