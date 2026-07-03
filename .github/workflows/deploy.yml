@@ -20,11 +20,12 @@ permissions:
   id-token: write   # OIDC к Azure
   contents: read
 
-# MAJOR G3(1): сериализуем деплои в main. Два параллельных мерджа → две run'ы попадают в
-# одну группу и выполняются по очереди (cancel-in-progress:false — идущий деплой НЕ отменяем,
-# новый ждёт в очереди). Иначе гонка: побеждает финишировавший последним, прод на старом sha.
+# MAJOR G3(1): сериализуем деплои в main. Группа per-ref: все пуши в main делят одну группу и
+# идут по очереди (cancel-in-progress:false — идущий деплой НЕ отменяем, новый ждёт), а прогоны
+# на разных PR-ветках получают СВОИ группы и не блокируют друг друга. Иначе гонка: побеждает
+# финишировавший последним, прод на старом sha.
 concurrency:
-  group: deploy-main
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
@@ -202,6 +203,11 @@ jobs:
   deploy-bot:
     needs: test
     if: github.event_name != 'pull_request'
+    # Деплой бота не верифицирован вживую отсюда (MSI mh-central не видит RG izigo). Пока не
+    # подтверждён первый успешный прогон — не роняем деплой-гейт всего workflow из-за бота:
+    # сбой этого job не блокирует backend/frontend-деплой и его смоук. После подтверждения
+    # живого деплоя бота — убрать continue-on-error, чтобы поломки бота снова были заметны.
+    continue-on-error: true
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
