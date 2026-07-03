@@ -22,7 +22,17 @@ MLM-платформа с бинарным комп-планом: `mh-calc-backe
   ⚠️ `paths-ignore: docs/**, **.md` — docs-only PR не запускает `test`.
 - Прод: RG `rg-izigo-beta-neu`, фронт `https://izigo.adarasoft.com` (+ `admin.izigo.adarasoft.com`),
   бэкенд `https://ca-izigo-backend.livelycoast-2b4dcf83.northeurope.azurecontainerapps.io`.
-  ⚠️ az под MSI mh-central НЕ видит этот RG (живость проверять HTTP-смоуком); KV читается.
+  ⚠️ MSI mh-central имеет на этот RG **read**-роли (Reader/Monitoring Reader/Log Analytics Reader,
+  без Remediator) с 2026-07-03: `az list/show` работают, но прод-write (restart/деплой) — только из
+  авторизованной сессии пользователя (`az login`), MSI откажет; живость всё равно удобно смотреть
+  HTTP-смоуком; KV читается.
+- **📡 Мониторинг (2026-07-03, блокер B-4):** 12 silent metric-алёртов `al-ca-izigo-*`
+  (backend/frontend/bot × no-replicas/restarts(max>3)/cpu/mem) + 2 scheduled-query, `log-izigo`
+  daily-cap 2GB; RG в `server-watchdog` (`AZURE_RESOURCE_GROUPS` #9 + `RG_WORKSPACE`) + fleet
+  http-чек `/api/health`. Скрипт `ops/alerts-izigo.sh`, runbook `ops/izigo-monitoring-setup.md`.
+- **Health-эндпоинты бэка:** `/api/health` (БД + свежесть heartbeat планировщика, 503 при протухании)
+  и `/up` (дешёвый liveness). Деплой проверяет healthState именно НОВОЙ ревизии (шаг в deploy.yml),
+  не только URL — застрявшая ревизия (PullingImage/Degraded) роняет деплой, а не прячется за старой.
 
 ## Тесты
 
