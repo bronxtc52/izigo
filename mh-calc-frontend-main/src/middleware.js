@@ -11,8 +11,16 @@ export function middleware(request) {
     const isLocal = host.startsWith('localhost') || host.startsWith('127.0.0.1');
     const { pathname } = request.nextUrl;
 
+    // Прокидываем текущий путь в заголовок — root layout по нему исключает аналитику
+    // на /admin даже на общем хосте/localhost (host-проверки на admin.* мало для dev).
+    const passThrough = () => {
+        const requestHeaders = new Headers(request.headers);
+        requestHeaders.set('x-pathname', pathname);
+        return NextResponse.next({ request: { headers: requestHeaders } });
+    };
+
     if (pathname.startsWith('/admin')) {
-        if (isAdminHost || isLocal) return NextResponse.next();
+        if (isAdminHost || isLocal) return passThrough();
         const url = request.nextUrl.clone();
         url.pathname = '/miniapp';
         return NextResponse.redirect(url);
@@ -26,7 +34,7 @@ export function middleware(request) {
         }
     }
 
-    return NextResponse.next();
+    return passThrough();
 }
 
 export const config = {

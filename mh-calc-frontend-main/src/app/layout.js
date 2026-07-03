@@ -1,5 +1,6 @@
 import localFont from "next/font/local";
 import { Manrope, Space_Grotesk } from "next/font/google";
+import { headers } from "next/headers";
 import "@/project/styles/globals.css";
 import GlobalMiddleware from "@/middleware/GlobalLayout";
 
@@ -58,7 +59,15 @@ export const metadata = {
 };
 
 export default function RootLayout({ children }) {
-  const isProduction = process.env.NEXT_PUBLIC_SERVER_PROD || false;
+  // G2 hardening: не грузим аналитику (GA + Яндекс.Метрика с webvisor) на веб-админке.
+  // Webvisor пишет DOM-сессии — на admin.* это TON-адреса/суммы выводов, PII, KYC.
+  // Админка живёт на отдельном хосте admin.* (прод) или на пути /admin; middleware
+  // прокидывает x-pathname для случая одного хоста/localhost.
+  const h = headers();
+  const host = h.get("host") || "";
+  const pathname = h.get("x-pathname") || "";
+  const isAdmin = host.startsWith("admin.") || pathname.startsWith("/admin");
+  const isProduction = (process.env.NEXT_PUBLIC_SERVER_PROD || false) && !isAdmin;
 
   return (
     <html lang="en">
