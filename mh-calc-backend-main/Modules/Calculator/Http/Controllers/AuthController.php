@@ -76,6 +76,29 @@ class AuthController extends Controller
         ]);
     }
 
+    /**
+     * Выход из веб-админки: отзыв Sanctum-токена (G1). Утёкший bearer к денежной панели
+     * должен отзываться — раньше роута отзыва не было (TTL 12ч закрывал только пассивно).
+     * По умолчанию удаляем ТЕКУЩИЙ токен; ?all=1 — все токены участника (logout со всех
+     * устройств). Гейтится web.admin, поэтому $request->user() уже резолвлен из bearer.
+     */
+    public function logout(Request $request): JsonResponse
+    {
+        $member = $request->user();
+        if ($member === null) {
+            return $this->error('Требуется вход', Response::HTTP_UNAUTHORIZED);
+        }
+
+        if ($request->boolean('all')) {
+            $revoked = $member->tokens()->delete();
+        } else {
+            $current = $member->currentAccessToken();
+            $revoked = $current !== null ? (int) $current->delete() : 0;
+        }
+
+        return response()->json(['status' => 'ok', 'revoked' => (int) $revoked]);
+    }
+
     private function error(string $message, int $status): JsonResponse
     {
         return response()->json(['status' => 'error', 'message' => $message], $status);

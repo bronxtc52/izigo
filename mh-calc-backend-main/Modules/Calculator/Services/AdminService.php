@@ -9,6 +9,7 @@ use Modules\Calculator\Models\Package;
 use Modules\Calculator\Models\PlanSetting;
 use Modules\Calculator\Models\Role;
 use Modules\Calculator\Repositories\EloquentPlanRepository;
+use Modules\Calculator\Services\Pii\PiiService;
 
 /**
  * Админ-операции: участники (поиск/фильтр + охват лидера), карточка, назначение
@@ -19,6 +20,7 @@ class AdminService
     public function __construct(
         private readonly CabinetService $cabinet,
         private readonly EloquentPlanRepository $planRepository,
+        private readonly PiiService $pii,
     ) {
     }
 
@@ -63,12 +65,20 @@ class AdminService
         $ranks = $this->rankAliasMap();
         $packages = $this->packageNameMap();
 
+        // C5-маскирование PII в карточке участника: полные telegram_username/ref_code видит
+        // только owner. Для finance/support/leader маскируем (та же маска, что на /pii и /export),
+        // иначе список/карточка участников обходили бы reveal-путь (G1). Reveal — отдельный
+        // owner-only маршрут /members/{id}/pii/reveal с аудитом, его не трогаем.
+        $maskPii = !$viewer->isOwner();
+
         return [
             'member' => $this->rowOf($member, $ranks, $packages) + [
                 'parent_id' => $member->parent_id,
                 'position' => $member->position,
-                'ref_code' => $member->ref_code,
-                'telegram_username' => $member->telegram_username,
+                'ref_code' => $maskPii ? $this->pii->mask($member->ref_code, PiiService::TYPE_KYC) : $member->ref_code,
+                'telegram_username' => $maskPii
+                    ? $this->pii->mask($member->telegram_username, PiiService::TYPE_USERNAME)
+                    : $member->telegram_username,
                 'roles' => $member->roles()->pluck('name')->all(),
             ],
             'branch' => $this->cabinet->teamTree($member),

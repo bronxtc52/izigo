@@ -121,4 +121,33 @@ class AdminTest extends TestCase
         $this->assertNotContains('SStranger', $names);       // чужой спилловер — НЕ виден
         $this->assertNotContains('SMid', $names);
     }
+
+    public function testNonOwnerSeesMaskedPiiInMemberCard(): void
+    {
+        // G1/C5: карточка участника не должна обходить маску PII. finance/support/leader
+        // видят telegram_username/ref_code замаскированными (та же маска, что на /pii, /export).
+        [, $ownerRef] = $this->registerTg(160, name: 'Owner');
+        $this->grantRole(160, 'owner');
+        [$supportData] = $this->registerTg(161, $ownerRef, 'Support');
+        $this->grantRole(161, 'support');
+        $this->registerTg(162, $ownerRef, 'Alice');           // telegram_username = u162
+        $aliceId = $this->memberByTg(162)->id;
+
+        $card = $this->getJson("/api/v1/admin/members/{$aliceId}", $this->adminHeaders($supportData))->assertOk();
+        $this->assertSame('@u16***', $card->json('data.member.telegram_username'));
+        $this->assertSame('***', $card->json('data.member.ref_code'));
+    }
+
+    public function testOwnerSeesFullPiiInMemberCard(): void
+    {
+        // Owner видит PII полностью (reveal-путь без обхода — это его право).
+        [$ownerData, $ownerRef] = $this->registerTg(170, name: 'Owner');
+        $this->grantRole(170, 'owner');
+        $this->registerTg(171, $ownerRef, 'Bob');             // telegram_username = u171
+        $bob = $this->memberByTg(171);
+
+        $card = $this->getJson("/api/v1/admin/members/{$bob->id}", $this->adminHeaders($ownerData))->assertOk();
+        $this->assertSame('u171', $card->json('data.member.telegram_username'));
+        $this->assertSame($bob->ref_code, $card->json('data.member.ref_code'));
+    }
 }

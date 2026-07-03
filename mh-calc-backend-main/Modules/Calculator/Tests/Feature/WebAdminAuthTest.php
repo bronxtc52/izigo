@@ -147,4 +147,39 @@ class WebAdminAuthTest extends TestCase
         $this->getJson('/api/v1/admin/members', ['Authorization' => "Bearer {$token}"])
             ->assertStatus(403);
     }
+
+    public function testLogoutRevokesCurrentToken(): void
+    {
+        // G1: утёкший bearer к денежной панели должен отзываться. logout удаляет текущий токен.
+        $this->registerTg(310, name: 'Owner');
+        $this->grantRole(310, 'owner');
+        $token = $this->postJson('/api/v1/auth/telegram-login', $this->widgetFor(310))
+            ->assertOk()->json('token');
+        $auth = ['Authorization' => "Bearer {$token}"];
+
+        // Токен работает до logout.
+        $this->getJson('/api/v1/admin/members', $auth)->assertOk();
+
+        $this->postJson('/api/v1/admin/auth/logout', [], $auth)
+            ->assertOk()->assertJsonPath('status', 'ok');
+
+        // После logout тот же bearer недействителен (401).
+        $this->getJson('/api/v1/admin/members', $auth)->assertStatus(401);
+        $this->assertDatabaseCount('personal_access_tokens', 0);
+    }
+
+    public function testLogoutAllRevokesEveryToken(): void
+    {
+        // ?all=1 — выход со всех устройств (все токены участника).
+        $this->registerTg(311, name: 'Owner');
+        $this->grantRole(311, 'owner');
+        $t1 = $this->postJson('/api/v1/auth/telegram-login', $this->widgetFor(311))
+            ->assertOk()->json('token');
+        $this->postJson('/api/v1/auth/telegram-login', $this->widgetFor(311))->assertOk(); // второе устройство
+        $this->assertDatabaseCount('personal_access_tokens', 2);
+
+        $this->postJson('/api/v1/admin/auth/logout?all=1', [], ['Authorization' => "Bearer {$t1}"])
+            ->assertOk();
+        $this->assertDatabaseCount('personal_access_tokens', 0);
+    }
 }

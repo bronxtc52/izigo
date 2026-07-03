@@ -87,6 +87,20 @@ class TelegramAuthTest extends TestCase
         $this->getJson('/api/v1/cabinet/me', ['X-Requested-With' => 'XMLHttpRequest'])->assertStatus(401);
     }
 
+    public function testStaleInitDataRejectedByTightenedWindow(): void
+    {
+        // G1: окно replay initData сужено до 1ч по умолчанию — подпись валидна, но auth_date
+        // старше часа → 401 (раньше при 24ч такой initData ещё принимался).
+        $this->registerTg(404);
+        $stale = $this->signInitData([
+            'user' => json_encode(['id' => 404, 'first_name' => 'U404', 'username' => 'u404']),
+            'auth_date' => time() - 4000, // > дефолтных 3600
+            'query_id' => 'AAA',
+        ]);
+
+        $this->getJson('/api/v1/cabinet/me', $this->tgHeaders($stale))->assertStatus(401);
+    }
+
     public function testEmptyBotTokenRejects(): void
     {
         config(['calculator.telegram_bot_token' => '']);
