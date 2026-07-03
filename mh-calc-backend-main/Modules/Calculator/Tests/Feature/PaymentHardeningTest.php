@@ -53,6 +53,68 @@ class PaymentHardeningTest extends TestCase
         return ['order_id' => $orderId, 'payment_id' => $pay['payment_id'], 'memo' => $pay['memo'], 'amount' => $pay['amount_cents']];
     }
 
+    // --- G5: один живой pending-инвойс на заказ ---
+
+    public function testRepeatedPayReusesSamePendingInvoice(): void
+    {
+        $p = $this->makeProduct();
+        [$data] = $this->registerTg(2100, name: 'A');
+        $orderId = $this->postJson('/api/v1/cabinet/orders',
+            ['product_id' => $p->id], $this->tgHeaders($data))->json('data.id');
+
+        $pay1 = $this->postJson("/api/v1/cabinet/orders/{$orderId}/pay", [], $this->tgHeaders($data))
+            ->assertOk()->json('data');
+        $pay2 = $this->postJson("/api/v1/cabinet/orders/{$orderId}/pay", [], $this->tgHeaders($data))
+            ->assertOk()->json('data');
+
+        // Повторный клик вернул ТОТ ЖЕ инвойс (payment_id/memo), а не новый memo.
+        $this->assertSame($pay1['payment_id'], $pay2['payment_id']);
+        $this->assertSame($pay1['memo'], $pay2['memo']);
+        // На заказ — ровно один живой платёж.
+        $this->assertSame(1, Payment::where('order_id', $orderId)
+            ->whereIn('status', [Payment::STATUS_CREATED, Payment::STATUS_PENDING])->count());
+    }
+
+    public function testPartialUniqueIndexRejectsSecondLivePending(): void
+    {
+        // Защита на уровне БД: прямой insert второго живого pending на тот же заказ отбивается
+        // партиал-unique индексом (страховка от гонки двух кликов мимо reuse-ветки).
+        $p = $this->makeProduct();
+        [$data] = $this->registerTg(2110, name: 'A');
+        $ctx = $this->payOrder($data, $p->id);
+
+        $this->expectException(\Illuminate\Database\UniqueConstraintViolationException::class);
+        Payment::query()->create([
+            'order_id' => $ctx['order_id'],
+            'member_id' => $this->memberByTg(2110)->id,
+            'provider' => 'ton_pay',
+            'purpose' => Payment::PURPOSE_ORDER,
+            'amount_cents' => $ctx['amount'],
+            'currency' => 'USDT',
+            'status' => Payment::STATUS_PENDING,
+            'external_ref' => 'pay:manual-dup',
+        ]);
+    }
+
+    public function testExpiredInvoiceLetsOrderBePaidAgain(): void
+    {
+        // Терминальный статус выходит из партиал-индекса: после экспирации инвойса заказ
+        // можно оплатить заново — reuse не подхватывает expired, создаётся свежий инвойс.
+        $p = $this->makeProduct();
+        [$data] = $this->registerTg(2120, name: 'A');
+        $ctx = $this->payOrder($data, $p->id);
+
+        Payment::where('id', $ctx['payment_id'])->update(['status' => Payment::STATUS_EXPIRED]);
+
+        $orderId = $ctx['order_id'];
+        $pay2 = $this->postJson("/api/v1/cabinet/orders/{$orderId}/pay", [], $this->tgHeaders($data))
+            ->assertOk()->json('data');
+
+        $this->assertNotSame($ctx['payment_id'], $pay2['payment_id']);
+        $this->assertSame(Payment::STATUS_EXPIRED, Payment::find($ctx['payment_id'])->status);
+        $this->assertSame(Payment::STATUS_PENDING, Payment::find($pay2['payment_id'])->status);
+    }
+
     // --- B1: poison-платёж ---
 
     public function testPoisonPaymentDoesNotBlockOthers(): void

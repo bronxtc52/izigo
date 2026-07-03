@@ -16,6 +16,19 @@ use RuntimeException;
  */
 class LeadService
 {
+    /**
+     * Статусы платежа, при которых лида удалять НЕЛЬЗЯ: инвойс выдан (external_ref), деньги
+     * могут прийти on-chain или уже пришли, но платёж ещё не финализирован. expired входит:
+     * TTL мог съесть pending при недоступном индексаторе, а recheck/пере-опрос ещё вернёт
+     * деньги — тогда markPaid должен найти лида. failed/paid НЕ защищают (failed = денег нет
+     * by design; paid = лид уже промоутнут и удалён штатно).
+     */
+    private const UNSETTLED_PAYMENT_STATUSES = [
+        Payment::STATUS_CREATED,
+        Payment::STATUS_PENDING,
+        Payment::STATUS_EXPIRED,
+    ];
+
     public function __construct(private readonly MemberService $members)
     {
     }
@@ -37,7 +50,7 @@ class LeadService
         // НО не трогаем, если по нему висит pending-платёж (чекаут в полёте) — иначе FK
         // nullOnDelete осиротит платёж и markPaid не найдёт кому активировать.
         if ($existing !== null && $existing->isExpired()) {
-            if ($this->hasPendingPayment($existing->id)) {
+            if ($this->hasUnsettledPayment($existing->id)) {
                 return $existing;
             }
             $existing->delete();
@@ -136,13 +149,16 @@ class LeadService
     }
 
     /**
-     * Открепить просроченных лидов (шедулер leads:expire). НЕ трогаем лидов с «висящим»
-     * pending-платежом — у них чекаут в полёте, удаление осиротит заказ/платёж.
+     * Открепить просроченных лидов (шедулер leads:expire). НЕ трогаем лидов с незавершённым
+     * платежом (created|pending|expired) — у них чекаут в полёте либо деньги могли прийти
+     * on-chain, а удаление осиротит заказ/платёж (FK nullOnDelete → markPaid не найдёт лида,
+     * recheck вечно падал бы). expired защищаем осознанно: TTL мог съесть pending при
+     * недоступном индексаторе, а пере-опрос ещё вернёт деньги.
      */
     public function expireDue(): int
     {
-        $busy = \Modules\Calculator\Models\Payment::query()
-            ->where('status', \Modules\Calculator\Models\Payment::STATUS_PENDING)
+        $busy = Payment::query()
+            ->whereIn('status', self::UNSETTLED_PAYMENT_STATUSES)
             ->whereNotNull('lead_id')
             ->pluck('lead_id')
             ->all();
@@ -158,11 +174,11 @@ class LeadService
         return $refCode ? Member::query()->where('ref_code', $refCode)->first() : null;
     }
 
-    private function hasPendingPayment(int $leadId): bool
+    private function hasUnsettledPayment(int $leadId): bool
     {
         return Payment::query()
             ->where('lead_id', $leadId)
-            ->where('status', Payment::STATUS_PENDING)
+            ->whereIn('status', self::UNSETTLED_PAYMENT_STATUSES)
             ->exists();
     }
 

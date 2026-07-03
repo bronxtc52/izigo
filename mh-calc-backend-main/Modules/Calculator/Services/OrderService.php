@@ -3,6 +3,7 @@
 namespace Modules\Calculator\Services;
 
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Modules\Calculator\Models\Lead;
 use Modules\Calculator\Models\Member;
 use Modules\Calculator\Models\Order;
@@ -139,7 +140,30 @@ class OrderService
     public function markPaid(int $orderId): void
     {
         $order = Order::query()->where('id', $orderId)->lockForUpdate()->first();
-        if ($order === null || $order->status !== Order::STATUS_PENDING_PAYMENT) {
+        if ($order === null) {
+            // Платёж финализирован, а заказа нет (осиротевший/удалённый) — деньги приняты без
+            // фулфилмента. Не тихо: в лог + Sentry для ручного разбора/возврата.
+            Log::error("markPaid: заказ {$orderId} не найден для подтверждённого платежа");
+            \Sentry\captureMessage(
+                "markPaid: заказ {$orderId} не найден для подтверждённого платежа (деньги без фулфилмента)",
+                \Sentry\Severity::error()
+            );
+
+            return;
+        }
+        if ($order->status !== Order::STATUS_PENDING_PAYMENT) {
+            // Заказ уже не ждёт оплаты (отменён / оплачен другим инвойсом). Подтверждённый
+            // платёж не активирует его повторно, но деньги приняты без фулфилмента — сигналим
+            // в лог + Sentry (раньше был тихий no-op → потеря денег незаметна).
+            Log::warning("markPaid: заказ {$orderId} не в pending_payment (status={$order->status}) — платёж принят без фулфилмента", [
+                'order_id' => $orderId,
+                'status' => $order->status,
+            ]);
+            \Sentry\captureMessage(
+                sprintf('markPaid: заказ %d уже не ожидает оплаты (status=%s) — принятый платёж без фулфилмента', $orderId, $order->status),
+                \Sentry\Severity::warning()
+            );
+
             return;
         }
 
