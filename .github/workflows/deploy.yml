@@ -155,6 +155,38 @@ jobs:
           az containerapp update -n ${{ secrets.FRONTEND_APP }} -g ${{ secrets.RG_NAME }} \
             --image ${{ secrets.ACR_NAME }}.azurecr.io/izigo-frontend:${{ github.sha }}
 
+      # Хвост 2026-07-03: проверяем здоровье ИМЕННО новой ревизии, не только URL. URL-смоук ниже
+      # бьёт публичный адрес и получает 200 от ПРЕДЫДУЩЕЙ здоровой ревизии, даже если новая застряла
+      # (PullingImage/Degraded) → деплой «зелёный», а latest-ревизия битая (инцидент 2026-07-03:
+      # ca-izigo-frontend--0000047 висел в PullingImage, сайт отдавал 200 со старой). Ждём, пока
+      # ревизия с образом текущего github.sha станет Healthy + Running. Жёсткий гейт.
+      - name: Verify new revisions are Healthy
+        run: |
+          RG="${{ secrets.RG_NAME }}"
+          SHA="${{ github.sha }}"
+          check_rev() {
+            local app="$1"
+            echo "Проверка новой ревизии ${app} (образ :${SHA})"
+            for i in $(seq 1 20); do
+              row=$(az containerapp revision list -n "$app" -g "$RG" \
+                --query "[?contains(properties.template.containers[0].image, '${SHA}')] | [0].{h:properties.healthState, r:properties.runningState}" \
+                -o tsv 2>/dev/null)
+              health=$(printf '%s' "$row" | cut -f1)
+              running=$(printf '%s' "$row" | cut -f2)
+              case "${health}:${running}" in
+                Healthy:Running*) echo "  ${app}: Healthy / ${running}"; return 0 ;;
+              esac
+              echo "  attempt ${i}: ${app} health='${health:-?}' running='${running:-?}' — ждём 15s"
+              sleep 15
+            done
+            echo "::error::Новая ревизия ${app} (образ :${SHA}) не стала Healthy/Running за 20 попыток (5 мин) — вероятно PullingImage/Degraded. Деплой неуспешен."
+            return 1
+          }
+          fail=0
+          check_rev "${{ secrets.BACKEND_APP }}"  || fail=1
+          check_rev "${{ secrets.FRONTEND_APP }}" || fail=1
+          [ "$fail" = 0 ] || exit 1
+
       # MAJOR G3(2): пост-деплой смоук — pushed != deployed. `az containerapp update` возвращает
       # управление до того, как новая ревизия реально начнёт обслуживать трафик, поэтому дёргаем
       # бэкенд /api/health (роут B-5, отдаёт heartbeat планировщика) с ретраями и падаем, если не
@@ -231,3 +263,27 @@ jobs:
           [ -n "$BOT_APP" ] || BOT_APP="ca-izigo-bot"   # подтверждено ops/*; секрет переопределяет
           az containerapp update -n "$BOT_APP" -g ${{ secrets.RG_NAME }} \
             --image ${{ secrets.ACR_NAME }}.azurecr.io/izigo-bot:${{ github.sha }}
+
+      # Проверка новой ревизии бота (job continue-on-error → не блокирует деплой, но подсветит
+      # застрявший PullingImage/Degraded, как у backend/frontend выше).
+      - name: Verify new bot revision is Healthy
+        run: |
+          RG="${{ secrets.RG_NAME }}"
+          SHA="${{ github.sha }}"
+          BOT_APP="${{ secrets.BOT_APP }}"
+          [ -n "$BOT_APP" ] || BOT_APP="ca-izigo-bot"
+          echo "Проверка новой ревизии ${BOT_APP} (образ :${SHA})"
+          for i in $(seq 1 20); do
+            row=$(az containerapp revision list -n "$BOT_APP" -g "$RG" \
+              --query "[?contains(properties.template.containers[0].image, '${SHA}')] | [0].{h:properties.healthState, r:properties.runningState}" \
+              -o tsv 2>/dev/null)
+            health=$(printf '%s' "$row" | cut -f1)
+            running=$(printf '%s' "$row" | cut -f2)
+            case "${health}:${running}" in
+              Healthy:Running*) echo "  ${BOT_APP}: Healthy / ${running}"; exit 0 ;;
+            esac
+            echo "  attempt ${i}: ${BOT_APP} health='${health:-?}' running='${running:-?}' — ждём 15s"
+            sleep 15
+          done
+          echo "::error::Новая ревизия бота ${BOT_APP} (образ :${SHA}) не стала Healthy/Running за 5 мин — проверить деплой бота."
+          exit 1
