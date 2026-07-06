@@ -176,7 +176,17 @@ class AdminController
     /** Заменить документ плана (только owner). Forward-only + аудит. */
     public function updatePlan(Request $request): JsonResponse
     {
-        return $this->guarded(fn () => $this->planSettings->update($request->all(), $this->viewer($request)->id));
+        return $this->guarded(fn () => $this->planSettings->update(
+            $request->only([
+                'packages',
+                'ranks',
+                'binary_percent_by_rank',
+                'referral_percent',
+                'leader_percent',
+                'global',
+            ]),
+            $this->viewer($request)->id
+        ));
     }
 
     /** Лента аудита админ-действий (только owner). */
