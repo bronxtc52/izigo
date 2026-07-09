@@ -1,7 +1,7 @@
 'use client';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Card, List, Tag, Select, Button, Input, Space, Typography, Empty, Spin, message } from 'antd';
-import { useTranslation } from 'next-i18next';
+import { useTranslation } from 'react-i18next';
 import * as api from '@/views/admin/webApi';
 
 const POLL_MS = 6000; // C2: polling треда оператора 5–8с (Gate-A п.6)

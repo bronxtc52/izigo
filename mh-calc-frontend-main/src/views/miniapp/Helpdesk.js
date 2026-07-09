@@ -1,7 +1,7 @@
 'use client';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { List, Button, Empty, Spin, Typography, Input, Modal, Tag, message } from 'antd';
-import { useTranslation } from 'next-i18next';
+import { useTranslation } from 'react-i18next';
 import {
     mmTickets, mmTicketCreate, mmTicket, mmTicketMessage, mmTicketPoll,
 } from './api';

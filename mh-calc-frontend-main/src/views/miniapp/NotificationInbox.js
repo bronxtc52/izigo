@@ -1,7 +1,7 @@
 'use client';
 import React, { useCallback, useEffect, useState } from 'react';
 import { List, Button, Empty, Spin, Typography } from 'antd';
-import { useTranslation } from 'next-i18next';
+import { useTranslation } from 'react-i18next';
 import { mmNotifications, mmNotificationRead, mmNotificationReadAll } from './api';
 
 /**

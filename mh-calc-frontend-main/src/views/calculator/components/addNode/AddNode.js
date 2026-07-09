@@ -8,7 +8,7 @@ import { useGlobalContext } from '@/common/GlobalContext';
 import { addStructureNode } from '../../utils';
 import Button from '@/widgets/button/Button';
 import { withoutPackageOption } from '../initData';
-import { useTranslation } from 'next-i18next';
+import { useTranslation } from 'react-i18next';
 
 const AddNode = ({
     node,

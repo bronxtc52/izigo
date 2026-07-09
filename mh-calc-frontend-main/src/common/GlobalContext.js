@@ -6,7 +6,7 @@ import React, {
     useEffect
 } from 'react';
 import { getData } from './utils/utils';
-import { useTranslation } from 'next-i18next';
+import { useTranslation } from 'react-i18next';
 
 const GlobalContext = createContext();
 
