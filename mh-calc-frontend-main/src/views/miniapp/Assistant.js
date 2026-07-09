@@ -2,7 +2,7 @@
 import React, { useRef, useState } from 'react';
 import { Button, Input, Spin, Typography, Alert } from 'antd';
 import { RobotOutlined, SendOutlined } from '@ant-design/icons';
-import { useTranslation } from 'next-i18next';
+import { useTranslation } from 'react-i18next';
 import { mmAssistantAsk } from './api';
 
 const { Text } = Typography;

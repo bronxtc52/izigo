@@ -1,7 +1,7 @@
 'use client';
 import React, { useEffect, useState } from 'react';
 import { Table, Switch, Result, message, Typography } from 'antd';
-import { useTranslation } from 'next-i18next';
+import { useTranslation } from 'react-i18next';
 import * as api from '@/views/admin/webApi';
 
 /**

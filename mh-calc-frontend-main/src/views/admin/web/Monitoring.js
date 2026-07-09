@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { Row, Col, Card, Statistic, Table, Tag, Button, Result, Space, Typography, Alert } from 'antd';
 import { ReloadOutlined } from '@ant-design/icons';
-import { useTranslation } from 'next-i18next';
+import { useTranslation } from 'react-i18next';
 import * as api from '@/views/admin/webApi';
 
 /**

@@ -1,7 +1,7 @@
 'use client';
 import React, { useState } from 'react';
 import { Card, Input, Select, Button, Space, message, Typography, Alert, Popconfirm } from 'antd';
-import { useTranslation } from 'next-i18next';
+import { useTranslation } from 'react-i18next';
 import * as api from '@/views/admin/webApi';
 
 /**

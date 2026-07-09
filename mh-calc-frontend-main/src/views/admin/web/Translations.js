@@ -1,7 +1,7 @@
 'use client';
 import React, { useEffect, useMemo, useState } from 'react';
 import { Table, Input, Button, Select, Result, message, Typography, Tag, Space } from 'antd';
-import { useTranslation } from 'next-i18next';
+import { useTranslation } from 'react-i18next';
 import * as api from '@/views/admin/webApi';
 import { reloadTranslationOverrides } from '@/common/i18n';
 import ru from '@/locales/ru/translation.json';
