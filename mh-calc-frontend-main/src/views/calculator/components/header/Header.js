@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import css from './Header.module.scss';
 import classnames from 'classnames';
 import LanguageCurrencySwitch from '@/widgets/LanguageCurrencySwitch/LanguageCurrencySwitch';
@@ -24,6 +24,9 @@ const Header = ({
     const [mobile, setMobile] = useState(false);
     const [showDataHeader, setShowDataHeader] = useState(false);
     const [showMenuMob, setShowMenuMob] = useState(false);
+    // React 19 удалил findDOMNode — react-transition-group без nodeRef падает в рантайме.
+    const overlayRef = useRef(null);
+    const mobileMenuRef = useRef(null);
 
     useEffect(() => {
         if (windowDimensions <= 1170) {
@@ -186,6 +189,7 @@ const Header = ({
                     ) : null}
                 </div>
                 <CSSTransition
+                    nodeRef={overlayRef}
                     in={showDataHeader && mobile ? true : false}
                     timeout={100}
                     classNames={{
@@ -196,10 +200,11 @@ const Header = ({
                     }}
                     unmountOnExit
                 >
-                    <div className={css.headerOverlayBackdrop} />
+                    <div ref={overlayRef} className={css.headerOverlayBackdrop} />
                 </CSSTransition>
             </div>
             <CSSTransition
+                nodeRef={mobileMenuRef}
                 in={showMenuMob && mobile ? true : false}
                 timeout={300}
                 classNames={{
@@ -211,6 +216,7 @@ const Header = ({
                 unmountOnExit
             >
                 <MobileMenu
+                    ref={mobileMenuRef}
                     closeMenu={setShowMenuMob}
                     currency={currency}
                 />

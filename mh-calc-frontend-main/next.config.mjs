@@ -5,14 +5,10 @@ import { withSentryConfig } from '@sentry/nextjs';
 const nextConfig = {
     output: 'standalone', // для Docker/ACA (Фаза 0)
     poweredByHeader: false, // не светим X-Powered-By: Next.js (G2 hardening)
-    experimental: {
-        instrumentationHook: true, // Next 14: включает src/instrumentation.js (Sentry server)
-    },
-    i18n: {
-        defaultLocale: 'kk',
-        locales: ['kk', 'ru', 'mn', 'uz', 'ky', 'az'],
-        localeDetection: false
-    },
+    // Next 15: instrumentation.js стабилен — experimental.instrumentationHook удалён из Next,
+    // src/instrumentation.js (серверный Sentry) продолжает работать без флага.
+    // Убран и блок i18n: это Pages Router-опция, App Router её игнорировал (мёртвый конфиг,
+    // /ru и раньше отдавал 404) — реальная локализация живёт в react-i18next (src/common/i18n.js).
     // Security-заголовки (G2 hardening). Применяются ко всем маршрутам.
     // ⚠️ СОЗНАТЕЛЬНО НЕ ставим X-Frame-Options / frame-ancestors / строгую CSP:
     // izigo.adarasoft.com — это Telegram Mini App, грузится ВНУТРИ Telegram (iframe/webview)
