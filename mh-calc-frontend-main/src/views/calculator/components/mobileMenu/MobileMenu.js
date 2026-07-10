@@ -7,14 +7,16 @@ import { getFaqDataMobile, getMenuItem } from '../initData';
 import FaqItem from '../faqItem/FaqItem';
 import { useGlobalContext } from '@/common/GlobalContext';
 
-const MobileMenu = ({ closeMenu, currency = false }) => {
+// ref прокидывается пропом (React 19: ref-as-prop, forwardRef не нужен) — его требует
+// nodeRef у CSSTransition в Header (React 19 удалил findDOMNode).
+const MobileMenu = ({ closeMenu, currency = false, ref }) => {
     const globalContext = useGlobalContext();
     const faqData = getFaqDataMobile(css, currency);
 
     const menuList = getMenuItem(currency?.currency, globalContext?.lang);
 
     return (
-        <div className={css.wrapper}>
+        <div ref={ref} className={css.wrapper}>
             <div className={css.content}>
                 <div className={css.contentTop}>
                     <div

@@ -58,12 +58,12 @@ export const metadata = {
   description: "IziGo",
 };
 
-export default function RootLayout({ children }) {
+export default async function RootLayout({ children }) {
   // G2 hardening: не грузим аналитику (GA + Яндекс.Метрика с webvisor) на веб-админке.
   // Webvisor пишет DOM-сессии — на admin.* это TON-адреса/суммы выводов, PII, KYC.
   // Админка живёт на отдельном хосте admin.* (прод) или на пути /admin; middleware
   // прокидывает x-pathname для случая одного хоста/localhost.
-  const h = headers();
+  const h = await headers(); // Next 15: request APIs асинхронны
   const host = h.get("host") || "";
   const pathname = h.get("x-pathname") || "";
   const isAdmin = host.startsWith("admin.") || pathname.startsWith("/admin");

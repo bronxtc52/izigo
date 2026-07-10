@@ -1,4 +1,5 @@
-// F1 (P1-hardening): серверная инициализация Sentry (Next 14: experimental.instrumentationHook).
+// F1 (P1-hardening): серверная инициализация Sentry (Next 15: instrumentation.js стабилен,
+// experimental-флаг больше не нужен).
 import * as Sentry from '@sentry/nextjs';
 
 export async function register() {
@@ -10,7 +11,6 @@ export async function register() {
     }
 }
 
-// Хук onRequestError вызывается Next-ом начиная с Next 15 — на текущем Next 14 это no-op
-// (форвард-совместимость под будущий апгрейд по P2-CVE). Сейчас серверные ошибки рендера
-// доезжают до Sentry только обезличенным digest'ом через клиентский error.js.
+// Хук onRequestError вызывается Next-ом начиная с Next 15 — с миграции 2026-07-10 он живой:
+// серверные ошибки рендера уходят в Sentry напрямую (раньше — только digest через error.js).
 export const onRequestError = Sentry.captureRequestError;

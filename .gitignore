@@ -28,3 +28,6 @@ docs/tg*.txt
 
 # Логи
 *.log
+
+# артефакты прогонов multi-llm-reviewer
+.review/

@@ -10,26 +10,27 @@
   },
   "dependencies": {
     "@ant-design/icons": "5.5.1",
+    "@ant-design/v5-patch-for-react-19": "^1.0.3",
     "@sentry/nextjs": "^10.63.0",
     "@ton/core": "0.59.1",
     "@ton/crypto": "3.3.0",
     "@ton/ton": "15.1.0",
-    "@tonconnect/ui-react": "2.0.9",
-    "antd": "^5.21.6",
+    "@tonconnect/ui-react": "^2.4.4",
+    "antd": "^5.29.3",
     "axios": "^1.7.7",
     "classnames": "^2.5.1",
     "i18next": "^23.16.4",
-    "next": "14.2.35",
-    "react": "^18",
-    "react-copy-to-clipboard": "^5.1.0",
-    "react-d3-tree": "^3.6.2",
-    "react-dom": "^18",
+    "next": "^15.5.20",
+    "react": "^19.2.7",
+    "react-copy-to-clipboard": "^5.1.1",
+    "react-d3-tree": "^3.6.6",
+    "react-dom": "^19.2.7",
     "react-i18next": "^15.1.0",
     "react-transition-group": "^4.4.5",
     "sass": "^1.80.2"
   },
   "devDependencies": {
     "eslint": "^8",
-    "eslint-config-next": "14.2.35"
+    "eslint-config-next": "^15.5.20"
   }
 }
