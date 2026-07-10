@@ -1,8 +1,9 @@
 # IziGo (binar-mlm)
 
 MLM-платформа с бинарным комп-планом: `mh-calc-backend-main/` (Laravel 10 + Postgres/ltree,
-модуль `Modules/Calculator`), `mh-calc-frontend-main/` (Next 14 App Router, Telegram Mini App
-«Aurora»), `mh-calc-bot/` (grammY, Node 20). Актуальный статус/итерация — `plan.md`; роадмап —
+модуль `Modules/Calculator`), `mh-calc-frontend-main/` (Next 15 + React 19 App Router с 2026-07-10,
+Telegram Mini App «Aurora»; приёмка фронта — `scripts/smoke.sh` + `scripts/browser-smoke.sh`),
+`mh-calc-bot/` (grammY, Node 20). Актуальный статус/итерация — `plan.md`; роадмап —
 `roadmap.md`; ТЗ и отчёты — `docs/specs/`, `docs/reviews/`.
 
 ## Жёсткие рамки
