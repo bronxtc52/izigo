@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useGlobalContext } from '@/common/GlobalContext';
 import { getData } from '@/common/utils/utils';
 import { CSSTransition } from 'react-transition-group';
@@ -12,6 +12,8 @@ const Information = ({ id, setId }) => {
     const { lang, currency, tokenStructure, userToken } = useGlobalContext();
 
     const [userData, setUserData] = useState(false);
+    // React 19 удалил findDOMNode — react-transition-group без nodeRef падает в рантайме.
+    const infoRef = useRef(null);
 
     useEffect(() => {
         (async () => {
@@ -29,6 +31,7 @@ const Information = ({ id, setId }) => {
     return (
         <div>
             <CSSTransition
+                nodeRef={infoRef}
                 in={userData ? true : false}
                 timeout={300}
                 classNames={{
@@ -40,7 +43,7 @@ const Information = ({ id, setId }) => {
                 unmountOnExit
 
             >
-                <div className={css.wrapperModal}>
+                <div ref={infoRef} className={css.wrapperModal}>
                     <div className={classnames(css.headerWrapper, css.paddingContent)}>
                         <div className={css.headerRow}>
                             <div className={css.headerTitle}>

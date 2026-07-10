@@ -21,6 +21,9 @@ const IGNORE = [
 let failed = false;
 const browser = await chromium.launch();
 const ctx = await browser.newContext();
+// Не мусорим в боевые счётчики: образ собирается с NEXT_PUBLIC_SERVER_PROD=true (ARG-дефолт),
+// т.е. страница пытается слать хиты в настоящие GA/Метрику — режем эти запросы на сети.
+await ctx.route(/googletagmanager\.com|google-analytics\.com|mc\.yandex\.(ru|com)/, (r) => r.abort());
 
 for (const route of ROUTES) {
   const page = await ctx.newPage();

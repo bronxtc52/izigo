@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import css from './FaqItem.module.scss';
 import { CSSTransition } from 'react-transition-group';
 import SvgGlobal from '@/project/icons/SvgGlobal';
@@ -7,6 +7,8 @@ import Link from 'next/link';
 
 const FaqItem = ({ data, type = false }) => {
     const [showAnswer, setShowAnswer] = useState(false);
+    // React 19 удалил findDOMNode — react-transition-group без nodeRef падает в рантайме.
+    const answerRef = useRef(null);
 
     return type === 'link' ? (
         <div className={css.wrapper}>
@@ -54,6 +56,7 @@ const FaqItem = ({ data, type = false }) => {
                 </div>
             </div>
             <CSSTransition
+                nodeRef={answerRef}
                 in={showAnswer}
                 timeout={300}
                 classNames={{
@@ -64,7 +67,7 @@ const FaqItem = ({ data, type = false }) => {
                 }}
                 unmountOnExit
             >
-                <div className={css.answerWrapper}>
+                <div ref={answerRef} className={css.answerWrapper}>
                     {data.component}
                 </div>
             </CSSTransition>

@@ -34,6 +34,11 @@ check() { # check <название> <ok:0|1>
   if [[ "$2" == 0 ]]; then say "  ✅ $1"; else say "  ❌ $1"; FAIL=1; fi
 }
 
+say "— статический инвариант: CSSTransition только с nodeRef (React 19 без findDOMNode)"
+bad_rtg=$(grep -rn '<CSSTransition' src --include='*.js*' | wc -l)
+with_ref=$(grep -rn -A1 '<CSSTransition' src --include='*.js*' | grep -c 'nodeRef=' || true)
+check "CSSTransition: $bad_rtg шт., с nodeRef первым пропом: $with_ref" "$([[ "$bad_rtg" == "$with_ref" ]] && echo 0 || echo 1)"
+
 if [[ "$SKIP_BUILD" == 0 ]]; then
   say "— docker build ($IMAGE)…"
   docker build -q -t "$IMAGE" . >/dev/null

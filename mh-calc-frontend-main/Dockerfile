@@ -1,4 +1,4 @@
-# IziGo frontend (Next 14) — образ для Azure Container Apps. output: standalone.
+# IziGo frontend (Next 15) — образ для Azure Container Apps. output: standalone.
 # NEXT_PUBLIC_* запекаются на этапе build → передаём build-args.
 FROM node:20-alpine AS deps
 WORKDIR /app
