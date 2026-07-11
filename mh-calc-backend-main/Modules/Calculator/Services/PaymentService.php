@@ -51,13 +51,27 @@ class PaymentService
             return $invoice;
         }
 
+        // >>> V2 T02 (mh-full-plan): при живом резерве субсчетов ОС/БС инвойс выставляется
+        // на ОСТАТОК (total − резерв). Дремлет за фиче-флагом mh_plan_v2_engine; без резерва
+        // remainderCents == total — поведение V1 не меняется. Полная оплата со счетов
+        // проходит без инвойса (AccountsV2Controller), сюда попасть не должна — guard.
+        $invoiceAmountCents = (int) $order->total_usdt_cents;
+        if (app(\Modules\Calculator\Services\FeatureFlag\FeatureFlagService::class)->isEnabled('mh_plan_v2_engine')) {
+            $invoiceAmountCents = app(\Modules\Calculator\V2\Services\Wallet\OrderAccountPaymentService::class)
+                ->remainderCents($order);
+            if ($invoiceAmountCents <= 0) {
+                throw new RuntimeException('Заказ полностью зарезервирован со счетов — внешний платёж не требуется');
+            }
+        }
+        // <<< V2 T02
+
         try {
             $payment = Payment::query()->create([
                 'order_id' => $order->id,
                 'member_id' => $member->id,
                 'provider' => str_contains((string) config('calculator.payment_gateway'), 'ton') ? 'ton_pay' : 'fake',
                 'purpose' => Payment::PURPOSE_ORDER,
-                'amount_cents' => $order->total_usdt_cents,
+                'amount_cents' => $invoiceAmountCents, // V2 T02: остаток при живом резерве (= total без V2)
                 'currency' => config('calculator.commerce_currency', 'USDT'),
                 'status' => Payment::STATUS_CREATED,
                 'external_ref' => null, // заполним pay:{id} в issueInvoice (нужен id); null безопасен под unique
