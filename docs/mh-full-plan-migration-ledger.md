@@ -15,6 +15,7 @@
 | 2026-07-12 | **W0 scaffold** (анти-конфликтный каркас) на `release/mh-full-plan` | Baseline-сьют ДО каркаса: **414 passed (1451 assertions)** (`php artisan test`, БД `izigo_test_baseline`, Postgres 16 + ltree). Каркас V2 + контракты + роут-плейсхолдеры + флаги OFF. Сьют ПОСЛЕ каркаса — см. строку ниже. |
 | 2026-07-12 | W0 scaffold — проверка «каркас ничего не ломает» | 414 passed (1451 assertions) — без регрессий. |
 | — | W1 (T01–T04) — старт | _заполняется оркестратором_ |
+| 2026-07-13 | **W2 (T05)** — лестница 12 статусов + CLIENT/grace + тиры (ветка `mh2/t05-ranks-tiers`) | 44 новых теста (22 unit ядра лестницы/тиров + 22 feature grace/персистентность/RBAC). Прогон `izigo_test_t05`: **666 passed**; 4 падения (KycTest/HealthEndpoint) — пре-существующие, воспроизводятся на чистом `release/mh-full-plan` (env APP_KEY/KYC-флаг), не связаны с T05. Флаг `mh_v2_statuses` OFF. |
 
 ## Baseline
 
@@ -53,7 +54,7 @@
 
 | Задача | Слот |
 |--------|------|
-| T05 — Лестница 12 статусов + CLIENT + тиры | `2026_07_13_10xxxx` |
+| T05 — Лестница 12 статусов + CLIENT + тиры | `2026_07_13_10xxxx` — ЗАНЯТО (ветка mh2/t05-ranks-tiers): `100000_create_v2_partner_states_table`, `100100_create_v2_tier_history_table`, `100200_create_v2_qualification_evaluations_table`, `100300_create_v2_rank_history_table`, `100400_seed_v2_statuses_feature_flag` (флаг `mh_v2_statuses` OFF) |
 | T06 — Структурная премия (бинар) с капами | `2026_07_13_11xxxx` |
 | T07 — Реферальная премия | `2026_07_13_12xxxx` |
 | T08 — Лидерский бонус | `2026_07_13_13xxxx` |
