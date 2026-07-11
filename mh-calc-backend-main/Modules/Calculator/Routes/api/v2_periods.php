@@ -15,7 +15,12 @@ Route::group([
     'as' => 'admin.v2.',
     'middleware' => ['web.admin', 'feature.flag:mh_plan_v2_admin'],
 ], function () {
-    // >>> V2 T04: read — ->middleware('calculator.role:owner,finance');
-    //     mutation — ->middleware('calculator.role:owner')
+    // >>> V2 T04: периоды — read owner,finance; ручное закрытие owner-only (идемпотентно)
+    Route::get('/periods', [\Modules\Calculator\V2\Http\Controllers\PeriodAdminController::class, 'index'])
+        ->middleware('calculator.role:owner,finance')->name('periods');
+    Route::get('/periods/{id}', [\Modules\Calculator\V2\Http\Controllers\PeriodAdminController::class, 'show'])
+        ->whereNumber('id')->middleware('calculator.role:owner,finance')->name('periods-show');
+    Route::post('/periods/{id}/close', [\Modules\Calculator\V2\Http\Controllers\PeriodAdminController::class, 'close'])
+        ->whereNumber('id')->middleware('calculator.role:owner')->name('periods-close');
     // <<< V2 T04
 });

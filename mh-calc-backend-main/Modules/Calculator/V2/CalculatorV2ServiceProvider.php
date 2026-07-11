@@ -57,6 +57,21 @@ class CalculatorV2ServiceProvider extends ServiceProvider
         // <<< V2 T03
 
         // >>> V2 T04: bind Contracts\CalcPeriodService::class
+        $this->app->singleton(Services\Periods\PeriodCalendar::class);
+        $this->app->singleton(Services\Periods\PeriodService::class);
+        $this->app->singleton(Services\Periods\SnapshotService::class);
+        $this->app->singleton(Services\Periods\PeriodCloseStepRegistry::class);
+        $this->app->singleton(Services\Periods\JobExecutionGuard::class);
+        $this->app->singleton(Services\Periods\PeriodCloseService::class);
+        $this->app->singleton(
+            Contracts\CalcPeriodService::class,
+            fn ($app) => $app->make(Services\Periods\PeriodCloseService::class),
+        );
+        // Null-дефолты handler-контрактов (bindIf: реальные биндинги T02/T09/T11
+        // в их маркер-блоках перекрывают, T04 безопасно мерджится первым):
+        $this->app->bindIf(Contracts\NsToOsTransfer::class, Services\Periods\NullNsToOsTransfer::class);
+        $this->app->bindIf(Contracts\PoolCalibrationReader::class, Services\Periods\NullPoolCalibrationReader::class);
+        $this->app->bindIf(Contracts\QuarterGlobalPayoutHandler::class, Services\Periods\NullQuarterGlobalPayoutHandler::class);
         // <<< V2 T04
     }
 
@@ -75,6 +90,11 @@ class CalculatorV2ServiceProvider extends ServiceProvider
             // <<< V2 T02
 
             // >>> V2 T04: команды calc-v2:* (close-half-month, close-month, ns-os-transfer)
+            Console\PeriodsEnsureCommand::class,
+            Console\HalfMonthCloseCommand::class,
+            Console\NsToOsTransferCommand::class,
+            Console\MonthCloseCommand::class,
+            Console\QuarterPayoutCommand::class,
             // <<< V2 T04
 
             // >>> V2 T09: квартальная выплата глобального пула
@@ -94,7 +114,19 @@ class CalculatorV2ServiceProvider extends ServiceProvider
             // <<< V2 T02
 
             // >>> V2 T04: schedule calc-v2:* (закрытия периодов; ns-os-transfer ежедневно
-            //     с гейтом «месяц закрыт и откалиброван», amendments MF-4/MF-6)
+            //     с гейтом «месяц закрыт и откалиброван», amendments MF-4/MF-6).
+            //     Границы периодов и запуски — UTC (роадмап T04, DEC-019 — без переноса
+            //     на праздники); флаг mh_plan_v2_periods дублируется внутри команд
+            //     (deny-by-default, no-op при выключенном).
+            $schedule = $this->app->make(\Illuminate\Console\Scheduling\Schedule::class);
+            $flagOn = fn (): bool => $this->app
+                ->make(\Modules\Calculator\Services\FeatureFlag\FeatureFlagService::class)
+                ->isEnabled('mh_plan_v2_periods');
+            $schedule->command('calc-v2:periods-ensure')->dailyAt('00:01')->withoutOverlapping(30)->when($flagOn);
+            $schedule->command('calc-v2:half-month-close')->dailyAt('00:10')->withoutOverlapping(30)->when($flagOn);
+            $schedule->command('calc-v2:ns-os-transfer')->dailyAt('00:20')->withoutOverlapping(30)->when($flagOn);
+            $schedule->command('calc-v2:month-close')->dailyAt('00:30')->withoutOverlapping(30)->when($flagOn);
+            $schedule->command('calc-v2:quarter-payout')->dailyAt('00:40')->withoutOverlapping(30)->when($flagOn);
             // <<< V2 T04
         });
     }
