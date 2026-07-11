@@ -190,6 +190,16 @@ class OrderService
         $order->status = Order::STATUS_PAID;
         $order->save();
 
+        // >>> V2 T02 (mh-full-plan): capture живого резерва счетов ОС/БС — ДО активации.
+        // Дремлет за фиче-флагом mh_plan_v2_engine (deny-by-default до cutover T15);
+        // нет живого резерва — no-op. Единый порядок локов: advisory-lock активаций
+        // берём ДО ledger-записей capture (жёсткая рамка проекта).
+        if (app(\Modules\Calculator\Services\FeatureFlag\FeatureFlagService::class)->isEnabled('mh_plan_v2_engine')) {
+            $this->activation->acquireActivationLock();
+            app(\Modules\Calculator\V2\Services\Wallet\OrderAccountPaymentService::class)->capture($order->id);
+        }
+        // <<< V2 T02
+
         // Имя купленного товара (снимок на момент покупки) — для текста уведомления об активации,
         // чтобы показать партнёру название его товара, а не легаси-имя пакета (Bronze/Silver/Gold).
         $displayName = OrderItem::query()->where('order_id', $order->id)->value('name_snapshot');

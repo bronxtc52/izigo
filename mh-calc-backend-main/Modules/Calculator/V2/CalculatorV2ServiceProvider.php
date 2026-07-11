@@ -24,6 +24,19 @@ class CalculatorV2ServiceProvider extends ServiceProvider
         // <<< V2 T01
 
         // >>> V2 T02: bind Contracts\LedgerV2::class, Contracts\NsToOsTransfer::class
+        $this->app->singleton(\Modules\Calculator\V2\Services\Ledger\LedgerPostingV2Service::class);
+        $this->app->singleton(\Modules\Calculator\V2\Services\Wallet\AccountsPolicyV2::class);
+        $this->app->singleton(\Modules\Calculator\V2\Services\Wallet\WalletAccountsV2Service::class);
+        $this->app->singleton(\Modules\Calculator\V2\Services\Wallet\OrderAccountPaymentService::class);
+        // Оба контракта реализует один сервис (операция НС→ОС — T02; команда/расписание — T04, MF-6).
+        $this->app->bind(
+            \Modules\Calculator\V2\Contracts\LedgerV2::class,
+            \Modules\Calculator\V2\Services\Wallet\WalletAccountsV2Service::class,
+        );
+        $this->app->bind(
+            \Modules\Calculator\V2\Contracts\NsToOsTransfer::class,
+            \Modules\Calculator\V2\Services\Wallet\WalletAccountsV2Service::class,
+        );
         // <<< V2 T02
 
         // >>> V2 T03: bind Contracts\PvLotService::class, Contracts\PaidOrderV2Pipeline::class (singleton)
@@ -43,6 +56,10 @@ class CalculatorV2ServiceProvider extends ServiceProvider
     protected function registerCommands(): void
     {
         $this->commands([
+            // >>> V2 T02: ежедневное сгорание кредит-лотов ОС/БС
+            \Modules\Calculator\V2\Console\WalletLotsExpireCommand::class,
+            // <<< V2 T02
+
             // >>> V2 T04: команды calc-v2:* (close-half-month, close-month, ns-os-transfer)
             // <<< V2 T04
 
@@ -55,6 +72,13 @@ class CalculatorV2ServiceProvider extends ServiceProvider
     protected function registerCommandSchedules(): void
     {
         $this->app->booted(function () {
+            $schedule = $this->app->make(\Illuminate\Console\Scheduling\Schedule::class);
+
+            // >>> V2 T02: сгорание лотов ежедневно 00:20 UTC (DEC-019 — без holiday shift);
+            //     команда идемпотентна и no-op за выключенным mh_plan_v2_engine.
+            $schedule->command('mh2:lots-expire')->dailyAt('00:20')->withoutOverlapping(30);
+            // <<< V2 T02
+
             // >>> V2 T04: schedule calc-v2:* (закрытия периодов; ns-os-transfer ежедневно
             //     с гейтом «месяц закрыт и откалиброван», amendments MF-4/MF-6)
             // <<< V2 T04
