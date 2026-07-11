@@ -30,6 +30,13 @@ interface LedgerV2
      *                                                паттерн LedgerService::alreadyPosted)
      * @param \DateTimeInterface|null $expiresAt      срок сгорания лота; null = лот НЕ сгорает
      *                                                (award-лоты T10, amendments MF-9)
+     * @param string|null             $sourceType     тип источника начисления (бонусы T06–T10) —
+     *                                                попадает в лот и проводку (provenance)
+     * @param int|null                $sourceId       id источника начисления
+     * @param string|null             $accrualMonth   ТОЛЬКО для НС: месяц 'YYYY-MM', к которому
+     *                                                относится начисление (ревью W1 MF-3 —
+     *                                                перевод НС→ОС переводит строго начисления
+     *                                                откалиброванного месяца); null = месяц now() UTC
      */
     public function credit(
         int $memberId,
@@ -37,6 +44,9 @@ interface LedgerV2
         int $amountCents,
         string $idempotencyKey,
         ?\DateTimeInterface $expiresAt = null,
+        ?string $sourceType = null,
+        ?int $sourceId = null,
+        ?string $accrualMonth = null,
     ): void;
 
     /**

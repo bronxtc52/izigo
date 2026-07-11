@@ -20,6 +20,11 @@ interface NsToOsTransfer
      * на factor_bps: paid_cents = intdiv(raw_cents * $factorBps, 10000).
      * Идемпотентно по месяцу (повтор = no-op).
      *
+     * Скоуп СТРОГО месячный (ревью W1 MF-3): переводятся только НС-начисления,
+     * атрибутированные $month (meta.ns_month кредит-проводок НС — штампует
+     * LedgerV2::credit()), а НЕ весь плоский баланс НС. Начисления других месяцев
+     * остаются на НС до калибровки своего месяца.
+     *
      * @param string $month     месяц в формате 'YYYY-MM' (UTC-границы периодов, T04)
      * @param int    $factorBps закоммиченный фактор калибровки, 0..10000 basis points
      */

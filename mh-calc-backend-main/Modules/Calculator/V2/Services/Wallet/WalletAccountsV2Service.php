@@ -50,9 +50,11 @@ class WalletAccountsV2Service implements LedgerV2, NsToOsTransfer
     // ------------------------------------------------------------------
 
     /**
-     * Кредит субсчёта новым лотом (ОС/БС) или плоско (НС). Сигнатура контракта LedgerV2 +
-     * опциональные параметры: $sourceType/$sourceId — тип и id источника (бонус T06-T10),
-     * попадают в лот и в проводку. $expiresAt = null → лот НЕ сгорает (award-лоты, MF-9).
+     * Кредит субсчёта новым лотом (ОС/БС) или плоско (НС). Сигнатура контракта LedgerV2:
+     * $sourceType/$sourceId — тип и id источника (бонус T06-T10), попадают в лот и в
+     * проводку. $expiresAt = null → лот НЕ сгорает (award-лоты, MF-9). $accrualMonth
+     * (только НС) — месяц атрибуции начисления 'YYYY-MM' для месячного перевода НС→ОС
+     * (ревью W1 MF-3); по умолчанию — месяц now() UTC, штампуется в meta.ns_month.
      */
     public function credit(
         int $memberId,
@@ -62,24 +64,40 @@ class WalletAccountsV2Service implements LedgerV2, NsToOsTransfer
         ?\DateTimeInterface $expiresAt = null,
         ?string $sourceType = null,
         ?int $sourceId = null,
+        ?string $accrualMonth = null,
     ): void {
         [$column, $ledgerAccount] = $this->subaccount($subaccount);
         if ($amountCents <= 0) {
             throw new \DomainException('Credit amount must be positive');
         }
+        if ($accrualMonth !== null && $subaccount !== self::SUBACCOUNT_NS) {
+            throw new \DomainException('accrualMonth применим только к НС (месячная атрибуция перевода НС→ОС, MF-3)');
+        }
+        if ($accrualMonth !== null && ! preg_match('/^\d{4}-(0[1-9]|1[0-2])$/', $accrualMonth)) {
+            throw new \DomainException("Некорректный месяц атрибуции НС: {$accrualMonth} (ожидается YYYY-MM)");
+        }
+        $nsMonth = $subaccount === self::SUBACCOUNT_NS
+            ? ($accrualMonth ?? now('UTC')->format('Y-m'))
+            : null;
 
         DB::transaction(function () use (
-            $memberId, $subaccount, $amountCents, $idempotencyKey, $expiresAt, $sourceType, $sourceId, $column, $ledgerAccount
+            $memberId, $subaccount, $amountCents, $idempotencyKey, $expiresAt, $sourceType, $sourceId, $column, $ledgerAccount, $nsMonth
         ) {
+            // Идемпотентность — ПОД локом счёта (nice-to-have NTH-4 ревью W1: гонка
+            // дублей до лока приводила ко второму падению по unique вместо no-op).
+            $account = $this->lockAccount($memberId);
             if ($this->poster->alreadyPosted($idempotencyKey)) {
                 return;
             }
-            $account = $this->lockAccount($memberId);
 
+            $meta = ['subaccount' => $subaccount, 'v2_source' => $sourceType];
+            if ($nsMonth !== null) {
+                $meta['ns_month'] = $nsMonth; // атрибуция месяца для перевода НС→ОС (MF-3)
+            }
             $this->poster->post([
                 $this->poster->leg(null, LedgerService::ACC_COMMISSION_EXPENSE, LedgerPostingV2Service::DR, $amountCents),
                 $this->poster->leg($memberId, $ledgerAccount, LedgerPostingV2Service::CR, $amountCents),
-            ], 'bonus_v2', $sourceId, $idempotencyKey, ['subaccount' => $subaccount, 'v2_source' => $sourceType]);
+            ], 'bonus_v2', $sourceId, $idempotencyKey, $meta);
 
             if ($subaccount !== self::SUBACCOUNT_NS) {
                 WalletLotV2::query()->create([
@@ -118,10 +136,11 @@ class WalletAccountsV2Service implements LedgerV2, NsToOsTransfer
         }
 
         DB::transaction(function () use ($memberId, $subaccount, $amountCents, $idempotencyKey, $column, $ledgerAccount) {
+            // Идемпотентность — ПОД локом счёта (NTH-4, симметрично credit()).
+            $account = $this->lockAccount($memberId);
             if ($this->poster->alreadyPosted($idempotencyKey)) {
                 return;
             }
-            $account = $this->lockAccount($memberId);
             if ($account->{$column} < $amountCents) {
                 throw new InsufficientAccountBalanceException(
                     "Недостаточно средств на субсчёте {$subaccount}: доступно {$account->{$column}}, требуется {$amountCents}",
@@ -155,17 +174,35 @@ class WalletAccountsV2Service implements LedgerV2, NsToOsTransfer
             throw new \DomainException("factor_bps вне диапазона 0..10000: {$factorBps}");
         }
 
-        $memberIds = MemberAccountV2::query()->where('ns_cents', '>', 0)->pluck('member_id');
+        // Ревью W1 MF-3: переводим ТОЛЬКО НС-начисления откалиброванного месяца —
+        // по атрибуции meta.ns_month кредит-проводок НС (штампует credit()), а не весь
+        // плоский баланс. Начисления соседних месяцев остаются на НС до СВОЕЙ калибровки
+        // (иначе уехали бы в ОС под чужим factor_bps).
+        $monthSums = \Modules\Calculator\Models\LedgerEntry::query()
+            ->where('account_type', LedgerPostingV2Service::ACC_NS)
+            ->where('direction', LedgerPostingV2Service::CR)
+            ->whereRaw("(meta->>'ns_month') = ?", [$month])
+            ->groupBy('member_id')
+            ->selectRaw('member_id, SUM(amount_cents) AS cents')
+            ->pluck('cents', 'member_id');
 
-        foreach ($memberIds as $memberId) {
-            DB::transaction(function () use ($memberId, $month, $factorBps) {
+        foreach ($monthSums as $memberId => $monthCents) {
+            DB::transaction(function () use ($memberId, $monthCents, $month, $factorBps) {
                 // DEC-019: ключ на окно (месяц), без holiday shift; повтор джоба = no-op.
                 $key = "v2:ns_transfer:{$memberId}:{$month}";
                 if ($this->poster->alreadyPosted($key)) {
                     return;
                 }
                 $account = $this->lockAccount((int) $memberId);
-                $raw = $account->ns_cents;
+                // Кэш — жёсткий потолок: НС не должен уходить в минус, если часть
+                // атрибутированных месяцу денег уже списана иным путём (дрейф).
+                $raw = min((int) $monthCents, $account->ns_cents);
+                if ($raw < (int) $monthCents) {
+                    \Illuminate\Support\Facades\Log::warning(
+                        'V2 НС→ОС: атрибуция месяца превышает плоский НС — перевод ограничен балансом',
+                        ['member_id' => (int) $memberId, 'month' => $month, 'month_cents' => (int) $monthCents, 'ns_cents' => $account->ns_cents]
+                    );
+                }
                 if ($raw <= 0) {
                     return; // гонка: НС уже пуст
                 }

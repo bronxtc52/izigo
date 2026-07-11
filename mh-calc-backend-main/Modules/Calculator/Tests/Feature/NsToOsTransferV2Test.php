@@ -27,13 +27,21 @@ class NsToOsTransferV2Test extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        // Фиксированное «сейчас» — дефолтная атрибуция НС-кредитов идёт в месяц 2026-07.
+        $this->travelTo(\Carbon\Carbon::parse('2026-07-10 12:00:00', 'UTC'));
         $this->wallet = app(WalletAccountsV2Service::class);
     }
 
-    private function memberWithNs(int $nsCents): Member
+    protected function tearDown(): void
+    {
+        $this->travelBack();
+        parent::tearDown();
+    }
+
+    private function memberWithNs(int $nsCents, ?string $accrualMonth = null): Member
     {
         $m = app(MemberService::class)->registerTelegram(random_int(10000, 99999999), 'N', null);
-        $this->wallet->credit($m->id, 'ns', $nsCents, "v2:t:seed-ns:{$m->id}");
+        $this->wallet->credit($m->id, 'ns', $nsCents, "v2:t:seed-ns:{$m->id}", accrualMonth: $accrualMonth);
 
         return $m;
     }
@@ -79,7 +87,7 @@ class NsToOsTransferV2Test extends TestCase
         $this->assertSame(4000, $this->poolRetained());
 
         // Целочисленная математика: intdiv, без float — нечётный пример.
-        $m2 = $this->memberWithNs(9999);
+        $m2 = $this->memberWithNs(9999, '2026-08');
         $this->wallet->executeForCalibratedMonth('2026-08', 6000);
         // intdiv(9999*6000,10000) = 5999
         $this->assertSame(5999, $this->account($m2->id)->os_available_cents);
@@ -102,18 +110,66 @@ class NsToOsTransferV2Test extends TestCase
     {
         $m = $this->memberWithNs(10000);
         $this->wallet->executeForCalibratedMonth('2026-07', 10000);
-        // НС пополнился снова, но повтор ЗА ТОТ ЖЕ месяц — no-op (ключ на окно, DEC-019).
-        $this->wallet->credit($m->id, 'ns', 7000, "v2:t:more-ns:{$m->id}");
+        // НС пополнился начислением СЛЕДУЮЩЕГО месяца; повтор ЗА ТОТ ЖЕ месяц —
+        // no-op (ключ на окно, DEC-019), августовский транш не тронут.
+        $this->wallet->credit($m->id, 'ns', 7000, "v2:t:more-ns:{$m->id}", accrualMonth: '2026-08');
         $this->wallet->executeForCalibratedMonth('2026-07', 10000);
 
         $a = $this->account($m->id);
         $this->assertSame(7000, $a->ns_cents);          // второй транш не тронут
         $this->assertSame(10000, $a->os_available_cents);
 
-        // Следующий месяц переводит остаток.
+        // Калибровка следующего месяца переводит его начисления.
         $this->wallet->executeForCalibratedMonth('2026-08', 10000);
         $this->assertSame(0, $this->account($m->id)->ns_cents);
         $this->assertSame(17000, $this->account($m->id)->os_available_cents);
+    }
+
+    public function testTransfersOnlyCalibratedMonthAccruals(): void
+    {
+        // Ревью W1 MF-3: перевод откалиброванного месяца НЕ должен уносить весь
+        // плоский НС — начисления следующего месяца остаются на НС до ЕГО калибровки
+        // (иначе они уедут в ОС под чужим factor_bps — искажение денег).
+        $m = $this->memberWithNs(10000, '2026-07');
+        $this->wallet->credit($m->id, 'ns', 5000, "v2:t:aug-ns:{$m->id}", accrualMonth: '2026-08');
+
+        $this->wallet->executeForCalibratedMonth('2026-07', 6000);
+
+        $a = $this->account($m->id);
+        $this->assertSame(6000, $a->os_available_cents, 'июль: intdiv(10000*6000,10000)');
+        $this->assertSame(5000, $a->ns_cents, 'MF-3: августовские начисления должны остаться на НС');
+        $this->assertSame(4000, $this->poolRetained());
+
+        // Калибровка августа переводит ТОЛЬКО августовский транш под СВОЙ фактор.
+        $this->wallet->executeForCalibratedMonth('2026-08', 10000);
+        $a = $this->account($m->id);
+        $this->assertSame(0, $a->ns_cents);
+        $this->assertSame(11000, $a->os_available_cents);
+        $this->assertSame(4000, $this->poolRetained());
+    }
+
+    public function testDefaultAccrualMonthIsCurrentUtcMonth(): void
+    {
+        // Без явного accrualMonth НС-кредит атрибутируется месяцу now() UTC (2026-07).
+        $m = $this->memberWithNs(3000);
+        $this->wallet->executeForCalibratedMonth('2026-06', 10000);
+        $this->assertSame(3000, $this->account($m->id)->ns_cents, 'июньская калибровка не должна уносить июльское начисление');
+
+        $this->wallet->executeForCalibratedMonth('2026-07', 10000);
+        $this->assertSame(0, $this->account($m->id)->ns_cents);
+        $this->assertSame(3000, $this->account($m->id)->os_available_cents);
+    }
+
+    public function testAccrualMonthRejectedForNonNsAndBadFormat(): void
+    {
+        $m = app(MemberService::class)->registerTelegram(random_int(10000, 99999999), 'V', null);
+        try {
+            $this->wallet->credit($m->id, 'os', 1000, "v2:t:os-month:{$m->id}", accrualMonth: '2026-07');
+            $this->fail('accrualMonth для ОС должен отклоняться');
+        } catch (\DomainException) {
+        }
+        $this->expectException(\DomainException::class);
+        $this->wallet->credit($m->id, 'ns', 1000, "v2:t:bad-month:{$m->id}", accrualMonth: '2026-13');
     }
 
     public function testEmptyNsIsNoOp(): void
