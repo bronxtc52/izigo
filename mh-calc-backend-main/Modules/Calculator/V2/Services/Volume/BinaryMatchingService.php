@@ -24,12 +24,18 @@ class BinaryMatchingService
     public function __construct(
         private readonly LotMatcher $matcher,
         private readonly BranchStatsService $branchStats,
+        private readonly ActivationLockGuard $lockGuard,
     ) {
     }
 
     /**
      * Прогнать матчинг участника: min(Σ free L, Σ free R) на лотах с
      * occurred_at < cutoff. Нулевой результат тоже персистится (explainability).
+     *
+     * Дисциплина локов (ревью W1 MF-7, amendments #5): advisory-lock активаций
+     * берёт внешний оркестратор (закрытие периода T04 / админ-триггер / возврат),
+     * сервис только проверяет — иначе ручной матчинг конкурирует с инжестом
+     * лотов оплаты и V1-пересчётом сети.
      */
     public function runMatching(
         int $memberId,
@@ -37,6 +43,8 @@ class BinaryMatchingService
         string $periodKey,
         string $runUuid,
     ): BinaryMatch {
+        $this->lockGuard->assertLockHeld();
+
         $existing = BinaryMatch::query()
             ->where('member_id', $memberId)
             ->where('period_key', $periodKey)

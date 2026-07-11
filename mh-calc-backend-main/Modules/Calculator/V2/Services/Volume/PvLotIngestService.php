@@ -22,8 +22,10 @@ use Modules\Calculator\V2\Models\PvLot;
  */
 class PvLotIngestService
 {
-    public function __construct(private readonly BranchStatsService $branchStats)
-    {
+    public function __construct(
+        private readonly BranchStatsService $branchStats,
+        private readonly ActivationLockGuard $lockGuard,
+    ) {
     }
 
     /**
@@ -81,6 +83,10 @@ class PvLotIngestService
      */
     public function reverseUnmatchedLotsForOrder(int $orderId, string $reason): array
     {
+        // Ревью W1 MF-7 (amendments #5): reversal мутирует PV-лоты — advisory-lock
+        // активаций обязан держать внешний оркестратор (возврат T12 / админ-операция).
+        $this->lockGuard->assertLockHeld();
+
         $result = DB::transaction(function () use ($orderId, $reason) {
             $lots = PvLot::query()
                 ->where('origin_order_id', $orderId)

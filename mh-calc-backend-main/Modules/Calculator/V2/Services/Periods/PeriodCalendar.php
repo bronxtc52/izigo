@@ -94,13 +94,15 @@ class PeriodCalendar
      */
     public function fromCode(string $code): PeriodWindow
     {
-        if (preg_match('/^(\d{4})-(\d{2})-H([12])$/', $code, $m)) {
+        // Месяц строго 01..12 (примечание ревью W1 #1): '(\d{2})' пропускал '2026-13',
+        // который Carbon нормализует в 2027-01 — окно не того месяца.
+        if (preg_match('/^(\d{4})-(0[1-9]|1[0-2])-H([12])$/', $code, $m)) {
             $anchor = CarbonImmutable::create((int) $m[1], (int) $m[2], $m[3] === '1' ? 1 : 16, 0, 0, 0, 'UTC');
 
             return $this->halfMonthFor($anchor);
         }
 
-        if (preg_match('/^(\d{4})-(\d{2})$/', $code, $m)) {
+        if (preg_match('/^(\d{4})-(0[1-9]|1[0-2])$/', $code, $m)) {
             return $this->monthFor(CarbonImmutable::create((int) $m[1], (int) $m[2], 1, 0, 0, 0, 'UTC'));
         }
 

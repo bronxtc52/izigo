@@ -93,17 +93,24 @@ class VolumeAdminController
     {
         $data = $request->validate([
             'member_id' => 'required|integer|exists:members,id',
-            'period_key' => ['required', 'string', 'regex:/^\d{4}-\d{2}-(H1|H2)$/'],
+            'period_key' => ['required', 'string', 'regex:/^\d{4}-(0[1-9]|1[0-2])-(H1|H2)$/'],
             'run_uuid' => 'sometimes|string|max:64',
         ]);
 
         return $this->guarded(function () use ($data) {
-            $match = $this->matching->runMatching(
-                (int) $data['member_id'],
-                PvLotVolumeService::cutoffForPeriod($data['period_key']),
-                $data['period_key'],
-                $data['run_uuid'] ?? ('period:' . $data['period_key']),
-            );
+            // Ревью W1 MF-7 (amendments #5): контроллер — внешний оркестратор ручного
+            // матчинга, он и берёт advisory-lock активаций (сериализация с инжестом
+            // лотов оплаты и V1-пересчётом); сервис внутри — assertLockHeld().
+            $match = \Illuminate\Support\Facades\DB::transaction(function () use ($data) {
+                app(\Modules\Calculator\Services\ActivationService::class)->acquireActivationLock();
+
+                return $this->matching->runMatching(
+                    (int) $data['member_id'],
+                    PvLotVolumeService::cutoffForPeriod($data['period_key']),
+                    $data['period_key'],
+                    $data['run_uuid'] ?? ('period:' . $data['period_key']),
+                );
+            });
 
             return $match->load('allocations');
         });

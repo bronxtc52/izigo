@@ -47,6 +47,11 @@ class PvLotVolumeService implements PvLotService
 
     public function runMatchingForPeriod(string $periodCode): void
     {
+        // Ревью W1 MF-7 (amendments #5): периодный матчинг мутирует PV-лоты —
+        // оркестратор (закрытие периода T04 / админ-триггер) обязан держать
+        // advisory-lock активаций; здесь только проверяем.
+        $this->lockGuard->assertLockHeld();
+
         $cutoff = self::cutoffForPeriod($periodCode);
         $runUuid = 'period:' . $periodCode;
 
@@ -66,7 +71,9 @@ class PvLotVolumeService implements PvLotService
      */
     public static function cutoffForPeriod(string $periodCode): CarbonImmutable
     {
-        if (! preg_match('/^(\d{4})-(\d{2})-(H1|H2)$/', $periodCode, $m)) {
+        // Месяц строго 01..12: '(\d{2})' пропускал '2026-13', который Carbon
+        // нормализует в 2027-01 — период/cutoff не того окна (примечание ревью W1 #1).
+        if (! preg_match('/^(\d{4})-(0[1-9]|1[0-2])-(H1|H2)$/', $periodCode, $m)) {
             throw new InvalidArgumentException(
                 "Неверный код half-month периода: {$periodCode} (ожидается YYYY-MM-H1|H2)"
             );

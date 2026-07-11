@@ -139,6 +139,20 @@ class PeriodCalendarTest extends TestCase
         $this->calendar->fromCode('2026-13-H9');
     }
 
+    public function testFromCodeRejectsMonth13(): void
+    {
+        // Примечание ревью W1 #1: '(\d{2})' пропускал месяц 13, Carbon нормализовал
+        // '2026-13' в 2027-01 — окно не того месяца.
+        foreach (['2026-13', '2026-00', '2026-13-H1'] as $code) {
+            try {
+                $this->calendar->fromCode($code);
+                $this->fail("Код {$code} должен отклоняться");
+            } catch (\InvalidArgumentException) {
+                $this->addToAssertionCount(1);
+            }
+        }
+    }
+
     public function testWindowForDispatchesAllTypes(): void
     {
         $at = self::utc('2026-07-20 10:00:00');
