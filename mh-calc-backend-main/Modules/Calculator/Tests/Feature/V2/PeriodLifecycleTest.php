@@ -77,7 +77,7 @@ class PeriodLifecycleTest extends TestCase
 
     public function testPolicyVersionResolvedOnStartsAtViaT01Contract(): void
     {
-        $this->app->instance(PolicyVersionResolver::class, new FakePolicyResolver(new FakePolicy(id: 77)));
+        $this->app->instance(PolicyVersionResolver::class, new FakePolicyResolver(new FakePolicy(versionId: 77)));
 
         $period = $this->periods()->ensureByCode('2026-07-H1');
 

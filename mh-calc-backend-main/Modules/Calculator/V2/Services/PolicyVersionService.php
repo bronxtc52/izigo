@@ -42,7 +42,9 @@ class PolicyVersionService implements PolicyVersionResolver
 
     public function forDate(\DateTimeInterface $at): PolicyV2
     {
-        $key = $at->format('Y-m-d H:i:s');
+        // Ключ кэша — UTC-instant (nice-to-have ревью W1: один момент времени в разных
+        // таймзонах не должен давать разные записи кэша/резолвы).
+        $key = CarbonImmutable::instance(\DateTime::createFromInterface($at))->utc()->format('Y-m-d H:i:s.u');
         if (isset($this->resolveCache[$key])) {
             return $this->resolveCache[$key];
         }

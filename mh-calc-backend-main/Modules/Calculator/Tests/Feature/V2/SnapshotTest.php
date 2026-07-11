@@ -40,7 +40,7 @@ class SnapshotTest extends TestCase
     public function testCloseRunFreezesSnapshotWithBaseSections(): void
     {
         $this->travelTo(Carbon::parse('2026-07-20 00:10:00', 'UTC'));
-        $this->app->instance(PolicyVersionResolver::class, new FakePolicyResolver(new FakePolicy(id: 42, config_hash: 'cafebabe')));
+        $this->app->instance(PolicyVersionResolver::class, new FakePolicyResolver(new FakePolicy(versionId: 42, configHash: 'cafebabe')));
 
         $this->registerTg(9001, name: 'Snap');
         $member = $this->memberByTg(9001);

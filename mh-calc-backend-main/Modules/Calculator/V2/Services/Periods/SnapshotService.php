@@ -83,7 +83,11 @@ class SnapshotService
         ];
     }
 
-    /** policy_version_id + config_hash из контракта T01 (MF-5); до T01 — null-поля. */
+    /**
+     * policy_version_id + config_hash из контракта T01 (MF-5) — реальный API
+     * PolicyV2::versionId()/configHash() (ревью W1 MF-2). null-поля — только когда
+     * резолвер не забинден или активной версии нет (T15 backfill).
+     */
     private function policySection(CalcPeriod $period): array
     {
         $section = [
@@ -94,8 +98,8 @@ class SnapshotService
         if ($this->app->bound(PolicyVersionResolver::class)) {
             try {
                 $policy = $this->app->make(PolicyVersionResolver::class)->forDate($period->starts_at);
-                $section['policy_version_id'] = $policy->id ?? $section['policy_version_id'];
-                $section['config_hash'] = $policy->config_hash ?? null;
+                $section['policy_version_id'] = $policy->versionId();
+                $section['config_hash'] = $policy->configHash();
             } catch (\Throwable) {
                 // активной версии нет — секция остаётся с null (T15 backfill)
             }

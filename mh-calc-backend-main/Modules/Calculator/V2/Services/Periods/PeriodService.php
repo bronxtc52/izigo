@@ -114,8 +114,9 @@ class PeriodService
     }
 
     /**
-     * policy_version_id на starts_at через контракт T01 (MF-5). До merge T01 резолвер
-     * не забинден (или активной версии нет) → null; целостность добьёт backfill T15.
+     * policy_version_id на starts_at через контракт T01 (MF-5): реальный API
+     * PolicyV2::versionId() (ревью W1 MF-2). null — только если резолвер не забинден
+     * или активной версии нет; целостность добьёт backfill T15.
      */
     private function resolvePolicyVersionId(PeriodWindow $window): ?int
     {
@@ -124,9 +125,9 @@ class PeriodService
         }
 
         try {
-            $policy = $this->app->make(PolicyVersionResolver::class)->forDate($window->startsAt);
-
-            return $policy->id ?? null;
+            return $this->app->make(PolicyVersionResolver::class)
+                ->forDate($window->startsAt)
+                ->versionId();
         } catch (\Throwable) {
             return null; // активной версии политики нет — период создаём без привязки
         }
