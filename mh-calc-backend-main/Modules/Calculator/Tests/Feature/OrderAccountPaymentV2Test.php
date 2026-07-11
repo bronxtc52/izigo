@@ -308,6 +308,71 @@ class OrderAccountPaymentV2Test extends TestCase
         $this->assertSame(5000, $history[1]['amount_cents']);
     }
 
+    // ------------------------------------------------------------------
+    // MF-6 (ревью W1): гонка «резерв со счетов vs TON-инвойс» на одном заказе.
+    // Обе точки входа обязаны сериализоваться row-lock'ом заказа: без него
+    // double-click проходит обе проверки и инвойс на полную сумму ложится
+    // поверх резерва (переплата участника).
+    // ------------------------------------------------------------------
+
+    /** Слушает SQL и возвращает флаг «orders взят SELECT … FOR UPDATE». */
+    private function spyOrderRowLock(): \Closure
+    {
+        $locked = (object) ['hit' => false];
+        \Illuminate\Support\Facades\DB::listen(function ($query) use ($locked) {
+            $sql = strtolower($query->sql);
+            if (str_contains($sql, 'from "orders"') && str_contains($sql, 'for update')) {
+                $locked->hit = true;
+            }
+        });
+
+        return fn (): bool => $locked->hit;
+    }
+
+    public function testReserveTakesOrderRowLock(): void
+    {
+        $this->enableV2();
+        [, $member, $orderId] = $this->memberWithOrder(9040, 7000);
+        $order = Order::query()->findOrFail($orderId);
+
+        $lockTaken = $this->spyOrderRowLock();
+        app(\Modules\Calculator\V2\Services\Wallet\OrderAccountPaymentService::class)
+            ->reserve($order, 1000, 0);
+
+        $this->assertTrue($lockTaken(), 'MF-6: reserve() обязан взять row-lock заказа до проверки живого инвойса');
+    }
+
+    public function testStartOrderPaymentTakesOrderRowLock(): void
+    {
+        $this->enableV2();
+        [, $member, $orderId] = $this->memberWithOrder(9041, 7000);
+
+        $lockTaken = $this->spyOrderRowLock();
+        app(\Modules\Calculator\Services\PaymentService::class)
+            ->startOrderPayment($member, $orderId);
+
+        $this->assertTrue($lockTaken(), 'MF-6: startOrderPayment обязан взять row-lock заказа до расчёта остатка/создания инвойса');
+    }
+
+    public function testInvoiceOnFullyReservedOrderRejected(): void
+    {
+        // Взаимное исключение по состоянию: заказ полностью зарезервирован в момент
+        // выставления инвойса → остаток 0 → инвойс невозможен (а не инвойс на total).
+        $this->enableV2();
+        [, $member, $orderId] = $this->memberWithOrder(9042, 7000, 3000);
+        $order = Order::query()->findOrFail($orderId);
+        app(\Modules\Calculator\V2\Services\Wallet\OrderAccountPaymentService::class)
+            ->reserve($order, 7000, 3000);
+
+        try {
+            app(\Modules\Calculator\Services\PaymentService::class)->startOrderPayment($member, $orderId);
+            $this->fail('Инвойс на полностью зарезервированный заказ должен отклоняться');
+        } catch (\RuntimeException $e) {
+            $this->assertStringContainsString('зарезервирован', $e->getMessage());
+        }
+        $this->assertSame(0, \Modules\Calculator\Models\Payment::query()->where('order_id', $orderId)->count());
+    }
+
     public function testV1FlowsUntouchedWhenFlagsOff(): void
     {
         // Флаги выключены: заказ оплачивается полностью по-старому, инвойс на total.

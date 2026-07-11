@@ -69,8 +69,18 @@ class OrderAccountPaymentService
         }
 
         return DB::transaction(function () use ($order, $osCents, $bsCents, $total) {
+            // MF-6 (ревью W1): row-lock заказа — единая точка сериализации с
+            // PaymentService::startOrderPayment (та же блокировка там). Без него
+            // конкурентные «резерв + выставление инвойса» проходят обе проверки:
+            // инвойс на полную сумму поверх резерва = переплата участника.
+            $lockedOrder = Order::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
+            if ($lockedOrder->status !== Order::STATUS_PENDING_PAYMENT) {
+                throw new RuntimeException('Заказ уже не ожидает оплаты');
+            }
+
             // Живой TON-инвойс на полную сумму + резерв = риск переплаты. Сначала инвойс
             // должен истечь/провалиться, либо резерв делается ДО выставления инвойса.
+            // Проверка — строго ПОСЛЕ взятия лока заказа.
             $liveInvoice = Payment::query()
                 ->where('order_id', $order->id)
                 ->whereIn('status', [Payment::STATUS_CREATED, Payment::STATUS_PENDING])
@@ -209,6 +219,10 @@ class OrderAccountPaymentService
     public function release(int $orderId): void
     {
         DB::transaction(function () use ($orderId) {
+            // MF-6: тот же row-lock заказа — освобождение резерва сериализуется с
+            // выставлением инвойса на остаток (проверка «живой инвойс» ниже — под локом).
+            Order::query()->whereKey($orderId)->lockForUpdate()->first();
+
             $res = WalletReservationV2::query()
                 ->where('order_id', $orderId)
                 ->where('status', WalletReservationV2::STATUS_RESERVED)

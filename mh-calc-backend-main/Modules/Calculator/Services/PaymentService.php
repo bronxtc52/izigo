@@ -46,39 +46,63 @@ class PaymentService
         // Один живой pending-инвойс на заказ: повторный клик «Оплатить» переиспользует уже
         // существующий незавершённый инвойс (тот же payment_id/memo), а не плодит новый memo.
         // Иначе юзер мог бы оплатить устаревший memo уже отменённого/оплаченного заказа →
-        // принятые деньги без фулфилмента.
+        // принятые деньги без фулфилмента. (Fast-path без лока; повторная проверка — под локом.)
         if (($invoice = $this->reuseLivePendingInvoice($order->id, (int) $member->telegram_id)) !== null) {
             return $invoice;
         }
 
-        // >>> V2 T02 (mh-full-plan): при живом резерве субсчетов ОС/БС инвойс выставляется
-        // на ОСТАТОК (total − резерв). Дремлет за фиче-флагом mh_plan_v2_engine; без резерва
-        // remainderCents == total — поведение V1 не меняется. Полная оплата со счетов
-        // проходит без инвойса (AccountsV2Controller), сюда попасть не должна — guard.
-        $invoiceAmountCents = (int) $order->total_usdt_cents;
-        if (app(\Modules\Calculator\Services\FeatureFlag\FeatureFlagService::class)->isEnabled('mh_plan_v2_engine')) {
-            $invoiceAmountCents = app(\Modules\Calculator\V2\Services\Wallet\OrderAccountPaymentService::class)
-                ->remainderCents($order);
-            if ($invoiceAmountCents <= 0) {
-                throw new RuntimeException('Заказ полностью зарезервирован со счетов — внешний платёж не требуется');
-            }
-        }
-        // <<< V2 T02
-
         try {
-            $payment = Payment::query()->create([
-                'order_id' => $order->id,
-                'member_id' => $member->id,
-                'provider' => str_contains((string) config('calculator.payment_gateway'), 'ton') ? 'ton_pay' : 'fake',
-                'purpose' => Payment::PURPOSE_ORDER,
-                'amount_cents' => $invoiceAmountCents, // V2 T02: остаток при живом резерве (= total без V2)
-                'currency' => config('calculator.commerce_currency', 'USDT'),
-                'status' => Payment::STATUS_CREATED,
-                'external_ref' => null, // заполним pay:{id} в issueInvoice (нужен id); null безопасен под unique
-            ]);
+            // MF-6 (ревью W1): создание Payment-строки — под row-lock'ом заказа, той же
+            // блокировкой, что берёт OrderAccountPaymentService::reserve/release. Иначе
+            // конкурентные «резерв со счетов + выставление инвойса» проходят обе проверки
+            // и инвойс на полную сумму ложится поверх резерва (переплата). HTTP к шлюзу
+            // (issueInvoice) — строго ПОСЛЕ коммита, лок на время сети не держим.
+            $payment = DB::transaction(function () use ($order, $member) {
+                $locked = Order::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
+                if ($locked->status !== Order::STATUS_PENDING_PAYMENT) {
+                    throw new RuntimeException('Заказ уже не ожидает оплаты');
+                }
+
+                // Гонка двух кликов: живой инвойс мог появиться до взятия лока.
+                $existing = Payment::query()
+                    ->where('order_id', $locked->id)
+                    ->where('purpose', Payment::PURPOSE_ORDER)
+                    ->whereIn('status', [Payment::STATUS_CREATED, Payment::STATUS_PENDING])
+                    ->orderByDesc('id')
+                    ->first();
+                if ($existing !== null) {
+                    return $existing;
+                }
+
+                // >>> V2 T02 (mh-full-plan): при живом резерве субсчетов ОС/БС инвойс
+                // выставляется на ОСТАТОК (total − резерв); остаток считается ПОД локом
+                // заказа (MF-6). Дремлет за фиче-флагом mh_plan_v2_engine; без резерва
+                // remainderCents == total — поведение V1 не меняется. Полная оплата со
+                // счетов проходит без инвойса (AccountsV2Controller) — guard.
+                $invoiceAmountCents = (int) $locked->total_usdt_cents;
+                if (app(\Modules\Calculator\Services\FeatureFlag\FeatureFlagService::class)->isEnabled('mh_plan_v2_engine')) {
+                    $invoiceAmountCents = app(\Modules\Calculator\V2\Services\Wallet\OrderAccountPaymentService::class)
+                        ->remainderCents($locked);
+                    if ($invoiceAmountCents <= 0) {
+                        throw new RuntimeException('Заказ полностью зарезервирован со счетов — внешний платёж не требуется');
+                    }
+                }
+                // <<< V2 T02
+
+                return Payment::query()->create([
+                    'order_id' => $locked->id,
+                    'member_id' => $member->id,
+                    'provider' => str_contains((string) config('calculator.payment_gateway'), 'ton') ? 'ton_pay' : 'fake',
+                    'purpose' => Payment::PURPOSE_ORDER,
+                    'amount_cents' => $invoiceAmountCents, // V2 T02: остаток при живом резерве (= total без V2)
+                    'currency' => config('calculator.commerce_currency', 'USDT'),
+                    'status' => Payment::STATUS_CREATED,
+                    'external_ref' => null, // заполним pay:{id} в issueInvoice (нужен id); null безопасен под unique
+                ]);
+            });
         } catch (UniqueConstraintViolationException $e) {
-            // Гонка двух параллельных кликов: партиал-unique индекс не дал создать второй
-            // живой инвойс на этот заказ — переиспользуем уже созданный.
+            // Страховка (не-pgsql/обход лока): партиал-unique индекс не дал создать второй
+            // живой инвойс — транзакция откатана, переиспользуем уже созданный.
             $invoice = $this->reuseLivePendingInvoice($order->id, (int) $member->telegram_id);
             if ($invoice === null) {
                 throw new RuntimeException('Не удалось создать инвойс на оплату заказа');
