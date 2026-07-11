@@ -58,3 +58,46 @@
 ## Рекомендация для Гейта A
 
 План добротный по глубине (ledger-инварианты, идемпотентность, тест-планы с negative/concurrency в каждой задаче), но **вход в волны кодинга — только после**: (а) закрытия 2 critical по 60%-пулу (состав базы + формула + порядок с лидерским/наградами/НС→ОС — это один связанный пакет решений владельца: DEC-014/029/053 + OPEN-POOL-02), (б) заморозки межзадачных контрактов первым коммитом блока (PolicyVersionResolver, владелец NS→OS команды, словарь таблиц/статусов для T13, nullable expiry в T02 credit()), (в) правки текстовых багов планов (grace-state T05, формула T11, семантика T16).
+
+---
+
+# Fixloop — раунд 2 (верификация поправок)
+
+> **Режим:** review-fixloop · **Дата:** 2026-07-12
+> **Вход:** fixlist раунда 1 (11 must-fix + 8 nice-to-have с evidence) + `docs/specs/2026-07-12-mh-full-plan-gateA-amendments.md` (полные планы повторно не отправлялись — verification pass по выдержкам).
+> **Состав (сокращённый, по зонам открытых находок):** correctness = `anthropic/claude-opus-4.8`, security = `openai/gpt-5.5`; chair — оркестратор (Claude Code) по judge.md — оба внешних ревьюера ответили, отдельный внешний судья на 2-ролевом верифай-пассе не гонялся (экономия, семантика слияния тривиальна).
+> **Стоимость раунда 2:** **$0.20** (OpenRouter, 302.05 → 302.25). **Итого оба раунда: $5.67.** Фолбэк-режим: не применялся.
+> Артефакты: `.review/packet-fixloop.md`, `.review/raw/r2_*.json`, `.review/consensus-r2.json`, `.review/history/consensus-round1.json`.
+
+## Вердикт раунда: `approve_with_notes` — план ACCEPTABLE, волны кодинга можно запускать
+
+## Статусы находок
+
+**Must-fix — 11/11 confirmed_fixed:**
+
+| # | Находка р.1 | Поправка | Статус | Ключевое подтверждение совета |
+|---|---|---|---|---|
+| 1 | architect-1 (60%-пул ↔ лидерский fixed point) | MF-1/2 | ✅ confirmed_fixed | лидерский исключён из числителя → цикла нет, T08 читает закоммиченный factor_bps и не считает сам |
+| 2 | correctness-1 (формула фактора = 1) | MF-1/2 | ✅ confirmed_fixed | перепроверка арифметикой: base_bv=10000, Σ=10000 → factor_bps=6000 (0.6); zero-denominator защищён; largest-remainder + Σ≤cap корректны |
+| 3 | correctness-4 (награды vs 60%-база) | MF-1/2 | ✅ confirmed_fixed | исключение оформлено как явное owner-approved исключение из DEC-014; награды идут мимо пула через v2_award_entitlements |
+| 4 | architect-2 (НС→ОС 1/16 vs калибровка, clawback) | MF-4 | ✅ confirmed_fixed | вариант A: деньги достигают ОС только ПОСЛЕ коммита factor_bps → clawback-путь калибровки устранён полностью; clawback остаётся только у возвратов T12 |
+| 5 | architect-3 (контракт PolicyVersionResolver) | MF-5 | ✅ confirmed_fixed | одна сигнатура forDate(DateTimeInterface): PolicyV2; выбор DateTimeInterface вместо CarbonInterface — валидный (Carbon его расширяет) |
+| 6 | correctness-5 (два NsToOsTransferCommand) | MF-6 | ✅ confirmed_fixed | команда/расписание только у T04; коллизия файла устранена |
+| 7 | correctness-6 (grace-state T05) | MF-7 | ✅ confirmed_fixed | writer и scanner сходятся: state='client' + grace_expires_at |
+| 8 | correctness-7 (словарь таблиц T13) | MF-8 | ✅ confirmed_fixed | канонические имена v2_* + статусы зафиксированы, T13 не вводит своих |
+| 9 | product_risk-3 (сгорание award-лотов) | MF-9 | ✅ confirmed_fixed | nullable expiry в credit(), expireLots пропускает NULL |
+| 10 | product_risk-6 (rollback cutover) | MF-10 | ✅ confirmed_fixed (chair, textual) | поправка дословно реализует required-fix р.1: окно «без новых заказов» / компенсирующие reversals + V1-backfill под ACTIVATION_LOCK + staging-репетиция |
+| 11 | product_risk-8 (T16 «компрессия») | MF-11 | ✅ confirmed_fixed (chair, textual) | текст политики переведён на точную семантику DEC-030 «блок без передачи» |
+
+**Nice-to-have — 8/8 приняты:** security-1/2, architect-4/9/7, product_risk-7, correctness-8 — дословно в разделе «Принятые nice-to-have» поправок; architect-6 закрыт внутри MF-8 (`reversal_of_lot_id` закладывает T03). product_risk-7 закрыт как явное решение: внутренне-финансируемые заказы разрешены с полноценным BV + конфиг-рычаг `internal_funding_full_bv`.
+
+**Новые дыры от самих поправок:** совет не нашёл (security-ревьюер — 0 находок; корректность — одна заметка ниже).
+
+## Notes (не блокируют, взять в работу)
+
+1. **[r2 correctness-5, medium/medium] Резидуал MF-4 — два новых user-visible контракта требуют явного sign-off владельца:** (а) лаг доступности H1-структурной вырос до ~2–6 недель (начислено ~15-го, на ОС — 1-го числа следующего месяца) против прежнего «1/16»; (б) сматченный PV, не оплаченный из-за капа/калибровки, теперь сгорает безвозвратно (каскад T06). Оба уже помечены в поправках как решения владельца — зафиксировать подпись в листе решений Гейта A. Технически: добавить в T11 worked example и **ledger-sink счёт для дельты (raw − paid)**, чтобы двойная запись сходилась на калибровке.
+2. **Coverage-оговорка (честность прогона):** пункты 10–11 таблицы и nice-to-have подтверждены chair'ом текстуальной сверкой (поправки дословно повторяют required-fix раунда 1), а не внешней моделью — correctness-ревьюер упёрся в лимит 10 находок на вход и покрыл MF-1..MF-9 + correctness-8. Расхождений при сверке нет.
+
+## Итог Гейта A
+
+`request_changes` (р.1) → поправки → `approve_with_notes` (р.2). Блок допущен к волнам кодинга при условии: amendments-документ обязателен для всех кодинг-агентов (приоритет над текстами планов), note-1 (sign-off владельца + ledger-sink) внести в T11/T06 до старта их волны.
