@@ -47,7 +47,7 @@
 | T01 — Версионируемый конфиг политики V2 | `2026_07_12_10xxxx` |
 | T02 — Счета ОС/НС/БС поверх ledger | `2026_07_12_11xxxx` |
 | T03 — PV/BV раздельно + PV-лоты бинара | `2026_07_12_12xxxx` |
-| T04 — Расчётные периоды и джобы | `2026_07_12_13xxxx` |
+| T04 — Расчётные периоды и джобы | `2026_07_12_13xxxx` — ЗАНЯТО (ветка mh2/t04-periods): `130000_create_v2_calc_periods_table`, `130100_create_v2_calc_runs_table`, `130200_create_v2_calc_snapshots_table`, `130300_create_v2_calc_job_executions_table`, `130400_seed_mh_plan_v2_periods_feature_flag` |
 
 ### Волны 2+ (2026_07_13_*, зарезервировано строками)
 
