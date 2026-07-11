@@ -16,6 +16,21 @@ Route::group([
     'middleware' => ['telegram.auth', 'feature.flag:mh_plan_v2_miniapp'],
 ], function () {
     // >>> V2 T02
+    Route::get('/accounts', [\Modules\Calculator\V2\Http\Controllers\AccountsV2Controller::class, 'accounts'])
+        ->name('accounts');
+    Route::get('/accounts/lots', [\Modules\Calculator\V2\Http\Controllers\AccountsV2Controller::class, 'lots'])
+        ->name('accounts-lots');
+    Route::get('/accounts/history', [\Modules\Calculator\V2\Http\Controllers\AccountsV2Controller::class, 'history'])
+        ->name('accounts-history');
+    // Оплата со счетов меняет деньги → дополнительно гейтится флагом V2-движка:
+    // capture-хук в markPaid дремлет за mh_plan_v2_engine, резерв без него запрещён
+    // (иначе захолженные средства никогда не были бы закапчерены).
+    Route::post('/orders/{id}/account-payment', [\Modules\Calculator\V2\Http\Controllers\AccountsV2Controller::class, 'accountPayment'])
+        ->middleware('feature.flag:mh_plan_v2_engine')
+        ->where('id', '[0-9]+')->name('orders-account-payment');
+    Route::delete('/orders/{id}/account-payment', [\Modules\Calculator\V2\Http\Controllers\AccountsV2Controller::class, 'cancelAccountPayment'])
+        ->middleware('feature.flag:mh_plan_v2_engine')
+        ->where('id', '[0-9]+')->name('orders-account-payment-cancel');
     // <<< V2 T02
 });
 
@@ -25,7 +40,12 @@ Route::group([
     'as' => 'admin.v2.',
     'middleware' => ['web.admin', 'feature.flag:mh_plan_v2_admin'],
 ], function () {
-    // >>> V2 T02: read — ->middleware('calculator.role:owner,finance');
-    //     mutation — ->middleware('calculator.role:owner')
+    // >>> V2 T02: read-only минимум для T13 (роль в middleware, не в комментах — amendments #1)
+    Route::get('/members/{id}/accounts', [\Modules\Calculator\V2\Http\Controllers\AccountsV2Controller::class, 'adminMemberAccounts'])
+        ->middleware('calculator.role:owner,finance')
+        ->where('id', '[0-9]+')->name('members-accounts');
+    Route::get('/members/{id}/lots', [\Modules\Calculator\V2\Http\Controllers\AccountsV2Controller::class, 'adminMemberLots'])
+        ->middleware('calculator.role:owner,finance')
+        ->where('id', '[0-9]+')->name('members-lots');
     // <<< V2 T02
 });
