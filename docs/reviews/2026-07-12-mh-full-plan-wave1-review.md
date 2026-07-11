@@ -101,3 +101,42 @@
 
 ---
 _Артефакты: `.review/consensus.final.json` (вердикт судьи, машиночитаемый), `.review/consensus.json` (до-judge агрегация), `.review/packet-{A,B,C}.red.md` (что видели ревьюеры), `.review/raw/*.json` (сырые ответы ролей). Прошлый прогон Гейта A перенесён в `.review/history/2026-07-12-gateA/`._
+
+---
+
+# Fixloop W1 — верификация фиксов (раунд 2)
+
+> **Режим:** review-fixloop · **Дата:** 2026-07-12 · **Вход:** fixlist MF-1..MF-7 (verbatim) + дифф фиксов `a4a11e4..7443e99` (коммиты b00db5b..7b91be0, U10, 116 KB) · сьют 629 passed
+> **Состав (сокращённый):** correctness = `anthropic/claude-opus-4.8`, security = `openai/gpt-5.5` (0 находок — валидный исход); chair — оркестратор по judge.md. Redaction-скан диффа — чисто.
+> **Стоимость раунда:** **$0.57** (OpenRouter, 311.97 → 312.54). Фолбэк-режим: не применялся.
+> Артефакты: `.review/packet-w1fix.md`, `.review/raw/w1f_*.json`.
+
+## Вердикт раунда: `approve_with_notes` — ACCEPTABLE, волна W1 допускается к мерджу
+
+## Статусы must-fix — 7/7 confirmed_fixed
+
+| # | Находка | Статус | Подтверждение |
+|---|---|---|---|
+| MF-1 | PolicyV2 `->id`/`->config_hash` → fallback=1 | ✅ confirmed_fixed | потребители читают `versionId()`/`configHash()`; `FakePolicy(versionId:, configHash:)` приведён к реальному API; `PolicyProvenanceTest` (108 строк) проверяет provenance с реальным PolicyVersionService (chair, textual + тест в диффе) |
+| MF-2 | периоды/снапшоты теряют provenance | ✅ confirmed_fixed | PeriodService/SnapshotService на `versionId()`/`configHash()`; ассерты «снапшот без versionId() политики» в тестах |
+| MF-3 | перевод всего плоского НС вместо месяца | ✅ confirmed_fixed | `credit()` штампует `meta.ns_month` (обязательно для НС, default = месяц now() UTC, формат-валидация); `executeForCalibratedMonth` суммирует строго по `ns_month=месяц`, идемпотентен по (member, month), `min(month, ns_cents)`-guard с warning-логом дрейфа; дельта калибровки (raw−paid) — в sink `company_pool_retained`, двойная запись сходится |
+| MF-4 | валидатор не запрещал awards в числителе | ✅ confirmed_fixed (совет, explicit) | зеркальный guard `include.awards === false` + негативный тест; null-safety симметрична leadership (bool-валидация до guard'а) |
+| MF-5 | AccountsPolicyV2 хардкод | ✅ confirmed_fixed | резолвер `forDate($at)->accounts()`, fail-safe дефолты из DefaultPolicyConfig с warning (не молча) |
+| MF-6 | гонка «резерв vs TON-инвойс» | ✅ confirmed_fixed (совет, explicit) | `Order lockForUpdate` ПЕРВЫМ в обеих точках входа (`reserve()` и `startOrderPayment()`), проверки живого инвойса/резерва — после лока; порядок локов консистентен (Order → reservation/account) во всех трёх показанных потоках — противоположного порядка совет не нашёл |
+| MF-7 | мутации PV-лотов без ACTIVATION_LOCK | ✅ confirmed_fixed (в объёме W1) | `runMatchingForPeriod`/`reverseUnmatchedLotsForOrder` — `assertLockHeld()`; admin `runMatching` берёт `acquireActivationLock()` в транзакции; `VolumeLockDisciplineTest` (negative). У `reverseUnmatchedLotsForOrder` в W1 нет продакшен-вызывающих (верифицировано grep) — обязательство оркестратора ложится на T12 (см. notes) |
+
+**Спец-вопросы оператора:**
+- **MF-3 / старые НС-начисления без ns_month:** совет пометил blocking-риск «stranded NS»; chair **дропнул как unreachable с аудируемым обоснованием**: ветка release/mh-full-plan не деплоилась, флаги off, T06 (единственный источник НС-кредитов по плану) не смерджен — популяция до-фиксовых НС-проводок пуста во всех реальных окружениях; после фикса `credit()` штампует `ns_month` безусловно (unstamped-строки создать нельзя). Инвариант закреплён в notes как гейт W2.
+- **MF-6 / дедлок-безопасность:** обе точки входа берут row-lock заказа первым, порядок Order → reservation/account консистентен; замечание совета (low) — задокументировать канонический порядок локов — в notes.
+
+## Notes (не блокируют, переходят в гейт W2)
+
+1. **НС-инвариант для W2 (из blocking-находки совета, разжалованной chair'ом):** НС кредитуется ТОЛЬКО через `LedgerV2::credit()` (auto-stamp `ns_month`); T06 не имеет права постить `ACC_NS`-ноги напрямую через `LedgerPostingV2Service::post()`. Внести в контракт-чек мерджа W2 + дешёвый residue-guard (алерт, если `ns_cents` ≠ Σ непереведённых месячных бакетов).
+2. **Месячные суммы = gross-кредиты (совет, medium):** сейчас корректно — иных дебетов НС, кроме самого перевода, в коде нет (верифицировано grep); если T12 (возвраты) введёт дебеты НС — обязателен подекремент месячных бакетов, иначе перевод завысит месяц. Зафиксировать в контракте T12.
+3. **Канонический порядок локов** (совет, low): задокументировать «advisory ACTIVATION_LOCK → Order row-lock → account/lot lock» в README V2 / контракте волны.
+4. **T12-оркестратор reversal'ов** обязан брать `pg_advisory_xact_lock` до `reverseUnmatchedLotsForOrder` (positive-тест под held-lock) — гейт W2.
+5. **Примечание оркестратора (вне вердикта совета):** идемпотентность перевода по ключу `(member, month)` означает, что НС-кредит, застампованный УЖЕ переведённым месяцем M (поздняя корректировка), останется на НС навсегда — по контракту таймингов такого пути в W1–W2 нет (T06 постит до закрытия месяца), но корректировки T12 не должны кредитовать НС прошлыми месяцами. Добавить в контракт-чек T12.
+
+## Итог
+
+`request_changes` (интеграционное ревью W1) → 7 фиксов → `approve_with_notes`. Мердж волны W1 в release/mh-full-plan допущен; notes 1–5 — обязательные пункты контракт-чека гейта W2 (T06/T11/T12).
