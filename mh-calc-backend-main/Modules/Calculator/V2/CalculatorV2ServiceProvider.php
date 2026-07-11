@@ -40,6 +40,20 @@ class CalculatorV2ServiceProvider extends ServiceProvider
         // <<< V2 T02
 
         // >>> V2 T03: bind Contracts\PvLotService::class, Contracts\PaidOrderV2Pipeline::class (singleton)
+        $this->app->bind(
+            \Modules\Calculator\V2\Contracts\PvLotService::class,
+            \Modules\Calculator\V2\Services\Volume\PvLotVolumeService::class,
+        );
+        $this->app->singleton(
+            \Modules\Calculator\V2\Contracts\PaidOrderV2Pipeline::class,
+            function ($app) {
+                $pipeline = new \Modules\Calculator\V2\Services\PaidOrderV2PipelineImpl();
+                // Порядок регистрации = порядок исполнения. T05/T07 дописывают свои шаги СЮДА.
+                $pipeline->register($app->make(\Modules\Calculator\V2\Services\Volume\VolumeCaptureStep::class));
+
+                return $pipeline;
+            },
+        );
         // <<< V2 T03
 
         // >>> V2 T04: bind Contracts\CalcPeriodService::class
