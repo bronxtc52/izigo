@@ -1,0 +1,19 @@
+<?php
+
+namespace Modules\Calculator\V2\Contracts;
+
+/**
+ * V2: read-API статусов/тиров для соседних задач (владелец — T05, имплементация —
+ * StatusReadService). КОНТРАКТ ВОЛНЫ: T06/T08/T09 читают достигнутый ранг, а T07 —
+ * тир, ТОЛЬКО через as-of методы этого интерфейса (v2_rank_history/v2_tier_history);
+ * прямое чтение v2_partner_states.current_rank_code ломает исторические пересчёты
+ * half-month (риск-карта Гейта A).
+ */
+interface StatusReader
+{
+    /** Код высшего ранга, достигнутого к моменту $at (null = ранга ещё нет). */
+    public function rankAsOf(int $memberId, \DateTimeInterface $at): ?string;
+
+    /** Тир контракта, действовавший на момент $at (null = ниже START). */
+    public function tierAsOf(int $memberId, \DateTimeInterface $at): ?string;
+}
