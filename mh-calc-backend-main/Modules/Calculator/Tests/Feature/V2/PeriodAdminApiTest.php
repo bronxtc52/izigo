@@ -130,6 +130,7 @@ class PeriodAdminApiTest extends TestCase
             ->json('data');
 
         $this->assertSame('2026-07-H1', $show['code']);
+        $this->assertSame(1, $show['runs_count'], 'NTH-6 ревью W1: show() обязан отдавать реальный runs_count, а не 0');
         $this->assertCount(1, $show['runs']);
         $this->assertSame('close', $show['runs'][0]['mode']);
         $this->assertSame('succeeded', $show['runs'][0]['status']);

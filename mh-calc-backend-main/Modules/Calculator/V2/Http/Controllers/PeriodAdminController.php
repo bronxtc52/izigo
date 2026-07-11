@@ -52,7 +52,8 @@ class PeriodAdminController
     /** Период + его прогоны (step_results, мета снапшота — payload целиком не отдаём). */
     public function show(int $id): JsonResponse
     {
-        $period = CalcPeriod::query()->with(['runs.snapshot'])->find($id);
+        // withCount — иначе presentPeriod отдаёт runs_count=0 при runs=[…] (NTH-6 ревью W1).
+        $period = CalcPeriod::query()->with(['runs.snapshot'])->withCount('runs')->find($id);
         if ($period === null) {
             return response()->json(['status' => 'error', 'message' => 'Период не найден'], 404);
         }
