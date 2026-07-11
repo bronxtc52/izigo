@@ -267,6 +267,7 @@ require __DIR__ . '/api/monitoring.php';      // C7
 require __DIR__ . '/api/v2_policy.php';       // T01/T13
 require __DIR__ . '/api/v2_accounts.php';     // T02
 require __DIR__ . '/api/v2_periods.php';      // T04
+require __DIR__ . '/api/v2_volumes.php';      // T03
 // <<< V2 routes
 
 
