@@ -10,7 +10,9 @@ use Modules\Calculator\Models\Order;
 use Modules\Calculator\Models\OrderItem;
 use Modules\Calculator\Models\Product;
 use Modules\Calculator\Services\ActivationService;
+use Modules\Calculator\Services\FeatureFlag\FeatureFlagService;
 use Modules\Calculator\Services\LeadService;
+use Modules\Calculator\V2\Contracts\PaidOrderV2Pipeline;
 use RuntimeException;
 
 /**
@@ -23,6 +25,8 @@ class OrderService
     public function __construct(
         private readonly ActivationService $activation,
         private readonly LeadService $leads,
+        private readonly FeatureFlagService $flags,
+        private readonly PaidOrderV2Pipeline $v2Pipeline,
     ) {
     }
 
@@ -207,6 +211,14 @@ class OrderService
 
         $order->activation_event_id = $event->id;
         $order->save();
+
+        // >>> V2 T03: единая точка пост-оплатных V2-хуков (PaidOrderV2Pipeline) — в ТОЙ ЖЕ
+        // транзакции оплаты, под advisory-lock, взятым activate() выше. Шаги пайплайна сами
+        // гейтятся своими флагами; внешний гейт держит V1 hot-path нетронутым, пока V2 выключен.
+        if ($this->flags->isEnabled('mh_plan_v2_engine') || $this->flags->isEnabled('mh_v2_volumes')) {
+            $this->v2Pipeline->runFor($order->id);
+        }
+        // <<< V2 T03
     }
 
     /** Заказы участника, новые сверху. */
