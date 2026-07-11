@@ -56,10 +56,11 @@ class OrderAccountPaymentService
         }
 
         $total = (int) $order->total_usdt_cents;
-        $maxOs = intdiv($total * $this->policy->osOrderPaymentMaxShareBp(now()), 10000);
+        $shareBp = $this->policy->osOrderPaymentMaxShareBp(now());
+        $maxOs = intdiv($total * $shareBp, 10000);
         if ($osCents > $maxOs) {
             throw new OsOrderLimitExceededException(
-                'С основного счёта можно оплатить не более 70% заказа: лимит '
+                'С основного счёта можно оплатить не более ' . ($shareBp / 100) . '% заказа: лимит '
                 . $maxOs . ', запрошено ' . $osCents,
             );
         }
