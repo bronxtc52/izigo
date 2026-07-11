@@ -195,6 +195,15 @@ class PolicyConfigValidatorTest extends TestCase
         }, 'MF-1/2');
     }
 
+    public function testCalibrationAwardsInNumeratorRejected(): void
+    {
+        // Ревью W1 MF-4: квал-награды исключены из числителя решением владельца
+        // (Гейт A, owner-approved исключение из DEC-014) — зеркально leadership.
+        $this->assertRejected(static function (array &$doc) {
+            $doc['calibration']['include']['awards'] = true;
+        }, 'awards');
+    }
+
     public function testRankForeverFalseRejected(): void
     {
         $this->assertRejected(static function (array &$doc) {

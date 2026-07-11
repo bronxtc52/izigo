@@ -457,6 +457,11 @@ class PolicyConfigValidator
         if ($include['leadership'] !== false) {
             throw new InvalidArgumentException('calibration.include.leadership: должен быть false (amendments MF-1/2, DEC-029)');
         }
+        // Ревью W1 MF-4: awards исключены из числителя решением владельца
+        // (Гейт A, owner-approved исключение из DEC-014) — зеркально leadership.
+        if ($include['awards'] !== false) {
+            throw new InvalidArgumentException('calibration.include.awards: должен быть false (amendments MF-1/2, решение владельца Гейта A)');
+        }
     }
 
     // --- примитивы ---
