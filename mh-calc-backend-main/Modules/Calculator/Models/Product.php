@@ -14,6 +14,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property ?string $description
  * @property int $price_usdt_cents
  * @property int $pv
+ * @property ?int $bv_usd_cents BV тарифа в USD-центах (V2, T03); NULL => BV = цене
  * @property int $package_id
  * @property string $sku
  * @property bool $is_active
@@ -27,6 +28,7 @@ class Product extends Model
         'description',
         'price_usdt_cents',
         'pv',
+        'bv_usd_cents',
         'package_id',
         'sku',
         'is_active',
@@ -37,6 +39,7 @@ class Product extends Model
     protected $casts = [
         'price_usdt_cents' => 'integer',
         'pv' => 'integer',
+        'bv_usd_cents' => 'integer',
         'package_id' => 'integer',
         'is_active' => 'boolean',
         'sort' => 'integer',
