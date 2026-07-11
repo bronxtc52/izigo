@@ -18,7 +18,9 @@ class CalculatorV2ServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
-        // >>> V2 T01: bind Contracts\PolicyVersionResolver::class → реализация T01
+        // >>> V2 T01: версии политики — singleton-сервис (per-request кэш резолва)
+        $this->app->singleton(Services\PolicyVersionService::class);
+        $this->app->bind(Contracts\PolicyVersionResolver::class, Services\PolicyVersionService::class);
         // <<< V2 T01
 
         // >>> V2 T02: bind Contracts\LedgerV2::class, Contracts\NsToOsTransfer::class
