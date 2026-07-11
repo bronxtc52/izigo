@@ -82,6 +82,11 @@ class CalculatorServiceProvider extends ServiceProvider
         $this->app->register(RouteServiceProvider::class);
         $this->registerPaymentGateway();
         $this->registerPayoutGateway();
+        // >>> V2 (mh-full-plan): вся DI/команды/расписание V2 — ТОЛЬКО в V2-провайдере,
+        // этот файл больше не трогать (анти-конфликтный каркас, см.
+        // docs/mh-full-plan-migration-ledger.md).
+        $this->app->register(\Modules\Calculator\V2\CalculatorV2ServiceProvider::class);
+        // <<< V2
     }
 
     /** Шлюз on-chain выплат (Фаза 4): драйвер по config calculator.payout_gateway. */
