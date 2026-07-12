@@ -4,12 +4,14 @@ namespace Modules\Calculator\Tests\Feature\V2;
 
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Testing\TestResponse;
 use Modules\Calculator\Models\Product;
 use Modules\Calculator\Tests\Feature\Concerns\SignsTelegramInitData;
 use Modules\Calculator\Tests\Feature\V2\Support\SeedsV2Status;
 use Modules\Calculator\V2\Models\PartnerState;
 use Modules\Calculator\V2\Models\PvLot;
+use Modules\Calculator\V2\Services\Volume\BinaryMatchingService;
 use Tests\TestCase;
 
 /**
@@ -248,6 +250,78 @@ class ClientLifecycleTest extends TestCase
         $this->assertSame(0, $after->where('state', PvLot::STATE_GRACE_HELD)->count(),
             'grace_expired => ноль grace_held (единый инвариант)');
         $this->assertTrue($after->where('id', $held->first()->id)->first()->pv_reversed > 0);
+        $this->travelBack();
+    }
+
+    /**
+     * MF-1b (W2 review, high): пост-дедлайновые FREE-лоты владельца, чей grace истёк
+     * (grace_expired, НЕ активировался в CONSULTANT), НЕ должны потребляться матчингом
+     * T03 — PV не засчитывается в пары, пока владелец не станет CONSULTANT (BR-REG-004,
+     * изоляция grace). Когда владелец ПОЗЖЕ активируется (личный реферал после дедлайна:
+     * grace_expired -> CONSULTANT) — те же лоты легитимно матчатся: PV не теряется,
+     * лишь откладывается.
+     *
+     * Дерево: root -> {A(лево), B(право)}; C под A, D под B (бинарные внуки root, НЕ его
+     * личные L1-рефералы — чтобы их пост-дедлайновые покупки не активировали root).
+     */
+    public function testGraceExpiredOwnerLotsNotMatchableUntilConsultant(): void
+    {
+        $p100 = $this->product(100, 'P100');
+        $this->travelTo(CarbonImmutable::parse('2026-07-05 10:00:00', 'UTC'));
+        [$rootData, $rootRef] = $this->registerTg(600, name: 'Root');
+        [$aData, $aRef] = $this->registerTg(601, $rootRef, 'A');
+        [$bData, $bRef] = $this->registerTg(602, $rootRef, 'B');
+        [$cData] = $this->registerTg(603, $aRef, 'C');
+        [$dData] = $this->registerTg(604, $bRef, 'D');
+
+        $this->buyAndPay($rootData, $p100->id); // root -> CLIENT, дедлайн 04.08
+        $root = $this->memberByTg(600);
+
+        // Дедлайн прошёл — сканер фиксирует просрочку: root -> grace_expired.
+        $this->travelTo(CarbonImmutable::parse('2026-08-10 00:00:00', 'UTC'));
+        $this->artisan('calc-v2:client-grace-scan')->assertSuccessful();
+        $this->assertSame(PartnerState::STATE_GRACE_EXPIRED,
+            PartnerState::query()->find($root->id)->state);
+
+        // Пост-дедлайновые покупки внуков C(лево)/D(право) => FREE-лоты владельца root на
+        // обеих ветках (root grace_expired, не client => hold не срабатывает, лоты FREE).
+        $this->buyAndPay($cData, $p100->id);
+        $this->buyAndPay($dData, $p100->id);
+        $freeLots = PvLot::query()->where('owner_member_id', $root->id)
+            ->where('state', PvLot::STATE_FREE)->get();
+        $this->assertSame(2, $freeLots->count());
+        $this->assertSame(['left', 'right'], $freeLots->pluck('side')->sort()->values()->all(),
+            'предпосылка: FREE-лоты на обеих ветках (иначе матч был бы 0 и без бага)');
+        // root всё ещё grace_expired — внуки не его L1-рефералы.
+        $this->assertSame(PartnerState::STATE_GRACE_EXPIRED,
+            PartnerState::query()->find($root->id)->state);
+
+        $svc = app(BinaryMatchingService::class);
+        $cutoff = CarbonImmutable::parse('2026-09-01 00:00:00', 'UTC');
+
+        // КРАСНОЕ: min(лево,право)=100 «на бумаге», но владелец не активирован =>
+        // матчинг НЕ засчитывает его PV.
+        $m1 = $svc->runMatching($root->id, $cutoff, '2026-08-H2', 'run-expired');
+        $this->assertSame(0, bccomp($m1->matched_pv, '0', 6),
+            'лоты grace_expired-владельца не должны матчиться до активации');
+        $this->assertSame(0, DB::table('v2_pv_lot_allocations')
+            ->where('binary_match_id', $m1->id)->count());
+        // PV не потерян — лоты остались FREE и нетронуты.
+        $this->assertSame(2, PvLot::query()->where('owner_member_id', $root->id)
+            ->where('state', PvLot::STATE_FREE)->count());
+
+        // Владелец активируется: личный реферал A оплачивает ПОСЛЕ дедлайна =>
+        // grace_expired -> CONSULTANT (лестница продолжается).
+        $this->buyAndPay($aData, $p100->id);
+        $this->assertSame(PartnerState::STATE_CONSULTANT,
+            PartnerState::query()->find($root->id)->state);
+
+        // ЗЕЛЁНОЕ: те же (ранее пропущенные) лоты теперь матчабельны — PV лишь отложился.
+        $m2 = $svc->runMatching($root->id, $cutoff, '2026-08-H2', 'run-consultant');
+        $this->assertSame(0, bccomp($m2->matched_pv, '100', 6),
+            'после активации владельца отложенный PV матчится');
+        $this->assertGreaterThan(0, DB::table('v2_pv_lot_allocations')
+            ->where('binary_match_id', $m2->id)->count());
         $this->travelBack();
     }
 

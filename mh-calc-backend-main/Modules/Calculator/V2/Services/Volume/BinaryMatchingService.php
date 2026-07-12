@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\DB;
 use Modules\Calculator\V2\Domain\Volume\LotMatcher;
 use Modules\Calculator\V2\Domain\Volume\LotSlice;
 use Modules\Calculator\V2\Models\BinaryMatch;
+use Modules\Calculator\V2\Models\PartnerState;
 use Modules\Calculator\V2\Models\PvLot;
 
 /**
@@ -56,16 +57,25 @@ class BinaryMatchingService
 
         try {
             $match = DB::transaction(function () use ($memberId, $cutoff, $periodKey, $runUuid) {
-                $lots = PvLot::query()
-                    ->where('owner_member_id', $memberId)
-                    ->where('state', PvLot::STATE_FREE)
-                    ->where('pv_available', '>', 0)
-                    // Полуоткрытое окно [start, cutoff): лот ровно в cutoff — уже следующий период.
-                    ->where('occurred_at', '<', $cutoff)
-                    ->orderBy('occurred_at')
-                    ->orderBy('id')
-                    ->lockForUpdate()
-                    ->get();
+                // MF-1b (W2 review) / BR-REG-004: изоляция grace. Лоты владельца, который
+                // ещё не активировался (CLIENT в grace или просроченный grace_expired),
+                // НЕ матчабельны — их PV не засчитывается в пары, пока владелец не станет
+                // CONSULTANT. Пост-дедлайновые FREE-лоты просроченного клиента остаются
+                // FREE (PV не теряется), но здесь пропускаются; как только владелец
+                // активируется (succeedGrace ИЛИ grace_expired->CONSULTANT), те же лоты
+                // легитимно матчатся следующим прогоном. none/consultant+ — как раньше.
+                $lots = $this->ownerMatchable($memberId)
+                    ? PvLot::query()
+                        ->where('owner_member_id', $memberId)
+                        ->where('state', PvLot::STATE_FREE)
+                        ->where('pv_available', '>', 0)
+                        // Полуоткрытое окно [start, cutoff): лот ровно в cutoff — уже следующий период.
+                        ->where('occurred_at', '<', $cutoff)
+                        ->orderBy('occurred_at')
+                        ->orderBy('id')
+                        ->lockForUpdate()
+                        ->get()
+                    : collect();
 
                 // Остаток BV лота = original − уже потреблённое прошлыми матчами:
                 // за жизнь лота аллокации сходятся ровно в bv_original.
@@ -140,6 +150,24 @@ class BinaryMatchingService
         $this->branchStats->recompute($memberId);
 
         return $match;
+    }
+
+    /**
+     * Матчабелен ли владелец: FREE-лоты участника участвуют в матчинге, только если
+     * он НЕ сидит в grace-лимбе. Deny-list — client (grace ещё не решён) и grace_expired
+     * (просрочка, не активировался). none и consultant+ (а также отсутствие строки статуса,
+     * напр. при выключенном флаге mh_v2_statuses) — матчабельны, легаси-поведение T03.
+     */
+    private function ownerMatchable(int $memberId): bool
+    {
+        $state = DB::table('v2_partner_states')
+            ->where('member_id', $memberId)
+            ->value('state');
+
+        return ! in_array($state, [
+            PartnerState::STATE_CLIENT,
+            PartnerState::STATE_GRACE_EXPIRED,
+        ], true);
     }
 
     /** Финализация периода: все provisional-матчи периода → final (идемпотентно). */
