@@ -22,3 +22,15 @@ V1 денежная база (available) = **0 центов**, V2 проекци
 
 ## Go/no-go
 Оракул: любое расхождение = не-ноль exit + mismatch-строка. Здесь ноль расхождений → **зелёный свет** на cutover. Owner-accept зафиксирован (standing consent на автономный флип при зелёном паритете, решение 2026-07-12). Cutover — на границе полумесяца 2026-07-16 00:00 UTC.
+
+---
+
+## ✅ CUTOVER ВЫПОЛНЕН — 2026-07-12 ~16:40 UTC
+
+Владелец выбрал «сейчас» (балансы нулевые → риск смешанного периода нулевой). Последовательность:
+1. **Бэкап** прод-БД: `izigo-20260712-163305.dump` (308K, на mh-central) + PITR 14 дней.
+2. **cutover-migrate --commit**: Bronze 90→100 PV/100 USDT применён; перенос баланса→ОС = 0 центов (переносить нечего); held = 0; пост-сверка ledger OK (trial balance Δ=0).
+3. **Флип**: все 12 V2-флагов → ON (`mh_plan_v2_engine`, `mh_plan_v2_periods`, admin, miniapp, volumes, statuses, referral, global_bonus, leadership, pool, awards, refunds). `when($flagOn)`-замыкания → рестарт не нужен.
+4. **Смоук**: backend `/api/health` = ok (database ok, scheduler ok); фронт 200; админка 307; **0 ошибок в прод-логах за 8 мин после флипа**.
+
+Движок V2 — боевой. V1 остаётся в коде (откат = флип флагов OFF; для заказов после флипа — компенсирующие reversals по runbook, но их пока нет — активности ноль). Rollback-плейбук: `docs/runbooks/mh-full-plan-cutover.md`.
