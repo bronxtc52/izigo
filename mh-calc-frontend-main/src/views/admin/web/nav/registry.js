@@ -16,6 +16,7 @@ import notificationsNav from './notifications.nav';
 import helpdeskNav from './helpdesk.nav';
 import monitoringNav from './monitoring.nav';
 import i18nNav from './i18n.nav';
+import refundsV2Nav from '../refunds/refunds-v2.nav';
 
 // >>> Block C sections
 export const blockCSections = [
@@ -25,6 +26,7 @@ export const blockCSections = [
     helpdeskNav, // C2 helpdesk — тикеты поддержки (owner+support)
     notificationsNav, // C1 notifications — рассылки (owner+support)
     i18nNav, // C4 i18n — редактируемые переводы (owner-only)
+    refundsV2Nav, // T12 mh-full-plan — возвраты/сторно V2 (owner+finance, flag mh_v2_refunds)
 ];
 // <<< Block C sections
 

@@ -162,6 +162,90 @@ class WalletAccountsV2Service implements LedgerV2, NsToOsTransfer
     }
 
     // ------------------------------------------------------------------
+    // >>> V2 T12: сторно бонус-начислений (возвраты). Обратная проводка на ТОТ ЖЕ
+    //     субсчёт (ОС/НС), где было исходное начисление; нехватка средств
+    //     (уже выведены/потрачены) → clawback-долг. Провенанс/цепочка — v2_reversal_actions.
+    // ------------------------------------------------------------------
+
+    /**
+     * Сторнировать ранее начисленный бонус: снять $amountCents с субсчёта ОС/НС
+     * участника обратной проводкой Dr member_X / Cr commission_expense (зеркало
+     * исходного credit()). Если на субсчёте не хватает средств — недостача уходит
+     * в clawback-долг (Dr member_clawback_debt, паттерн V1 LedgerService), ledger
+     * остаётся сбалансированным, кэш кошелька консистентен.
+     *
+     * Идемпотентно по $idempotencyKey (повтор = no-op). Вызывать ТОЛЬКО под
+     * advisory-lock оркестратора возврата (RefundService::reverse). Для ОС средства
+     * списываются с лотов EARLIEST_EXPIRY_FIRST (reason=reversal, DEC-015);
+     * возвращённый лот НЕ ставится в начало FIFO — компенсационная политика
+     * (план §956/971). $accrualMonth — только НС: декремент месячного бакета
+     * ns_month (контракт-чек W2+ №2), чтобы последующий перевод НС→ОС не переносил
+     * уже сторнированные деньги.
+     *
+     * @return array{debited:int,clawback:int,tx_id:?string,noop:bool}
+     */
+    public function reverseBonusCredit(
+        int $memberId,
+        string $subaccount,
+        int $amountCents,
+        string $idempotencyKey,
+        string $sourceType,
+        ?int $sourceId = null,
+        ?string $accrualMonth = null,
+    ): array {
+        if (! in_array($subaccount, [self::SUBACCOUNT_OS, self::SUBACCOUNT_NS], true)) {
+            throw new \DomainException("Сторно бонуса поддержано только для ОС/НС, дан субсчёт {$subaccount}");
+        }
+        if ($amountCents <= 0) {
+            throw new \DomainException('Reversal amount must be positive');
+        }
+        if ($accrualMonth !== null && $subaccount !== self::SUBACCOUNT_NS) {
+            throw new \DomainException('accrualMonth применим только к НС (декремент бакета ns_month, W2+ №2)');
+        }
+        [$column, $ledgerAccount] = $this->subaccount($subaccount);
+
+        return DB::transaction(function () use (
+            $memberId, $subaccount, $amountCents, $idempotencyKey, $sourceType, $sourceId, $accrualMonth, $column, $ledgerAccount
+        ) {
+            $account = $this->lockAccount($memberId);
+            if ($this->poster->alreadyPosted($idempotencyKey)) {
+                return ['debited' => 0, 'clawback' => 0, 'tx_id' => null, 'noop' => true];
+            }
+
+            $available = $account->{$column};
+            $covered = max(0, min($available, $amountCents));
+            $clawback = $amountCents - $covered;
+
+            $legs = [];
+            if ($covered > 0) {
+                $legs[] = $this->poster->leg($memberId, $ledgerAccount, LedgerPostingV2Service::DR, $covered);
+            }
+            if ($clawback > 0) {
+                // Недостача — долг участника перед компанией (паттерн V1 ACC_CLAWBACK_DEBT).
+                $legs[] = $this->poster->leg($memberId, LedgerService::ACC_CLAWBACK_DEBT, LedgerPostingV2Service::DR, $clawback);
+            }
+            $legs[] = $this->poster->leg(null, LedgerService::ACC_COMMISSION_EXPENSE, LedgerPostingV2Service::CR, $amountCents);
+
+            $meta = ['subaccount' => $subaccount, 'v2_source' => $sourceType, 'reversal' => true];
+            if ($subaccount === self::SUBACCOUNT_NS && $accrualMonth !== null) {
+                $meta['ns_month'] = $accrualMonth; // декремент бакета месяца (W2+ №2)
+            }
+            $txId = $this->poster->post($legs, 'bonus_reversal', $sourceId, $idempotencyKey, $meta);
+
+            if ($subaccount !== self::SUBACCOUNT_NS && $covered > 0) {
+                // ОС: списываем с лотов earliest-expiry-first (reason=reversal — контракт схемы T02).
+                $this->consumeLots($memberId, $subaccount, $covered, WalletLotConsumptionV2::REASON_REVERSAL, $txId);
+            }
+
+            $account->{$column} -= $covered;
+            $this->saveAccount($account);
+
+            return ['debited' => $covered, 'clawback' => $clawback, 'tx_id' => $txId, 'noop' => false];
+        });
+    }
+    // <<< V2 T12
+
+    // ------------------------------------------------------------------
     // Контракт NsToOsTransfer (MF-4: после месячной калибровки; команда — T04)
     // ------------------------------------------------------------------
 
