@@ -131,6 +131,23 @@ class CalculatorV2ServiceProvider extends ServiceProvider
             },
         );
         // <<< V2 T07
+
+        // >>> V2 T09: глобальный бонус (месячные пулы Director..VP, квартальная выплата)
+        $this->app->singleton(\Modules\Calculator\V2\Services\GlobalBonus\ReferralTreePvMonthlyService::class);
+        $this->app->singleton(\Modules\Calculator\V2\Services\GlobalBonus\GlobalBonusMonthlyService::class);
+        $this->app->singleton(\Modules\Calculator\V2\Services\GlobalBonus\GlobalBonusQuarterlyPayoutService::class);
+        // Квартальный handler перебивает Null-дефолт T04 (bindIf → bind).
+        $this->app->bind(
+            Contracts\QuarterGlobalPayoutHandler::class,
+            \Modules\Calculator\V2\Services\GlobalBonus\GlobalBonusQuarterlyPayoutService::class,
+        );
+        // Шаги month-close (tagged). Каскад DEC-053 по order(): allocate 300 →
+        // [T11 калибровка ∈ (300,900) пишет final_cents] → finalize 900.
+        $this->app->tag([
+            \Modules\Calculator\V2\Services\GlobalBonus\GlobalBonusAllocateStep::class,
+            \Modules\Calculator\V2\Services\GlobalBonus\GlobalBonusFinalizeStep::class,
+        ], Services\Periods\PeriodCloseStepRegistry::TAG);
+        // <<< V2 T09
     }
 
     public function boot(): void
@@ -155,7 +172,10 @@ class CalculatorV2ServiceProvider extends ServiceProvider
             Console\QuarterPayoutCommand::class,
             // <<< V2 T04
 
-            // >>> V2 T09: квартальная выплата глобального пула
+            // >>> V2 T09: ручной пересчёт draft-месяца глобального бонуса
+            //     (автоматическая аллокация — шаг month-close; квартальная выплата —
+            //     handler в closeQuarter T04, отдельной команды нет, MF-6).
+            Console\GlobalBonusAllocateMonthCommand::class,
             // <<< V2 T09
 
             // >>> V2 T05: сканер просроченного grace CLIENT (BR-REG-004)
