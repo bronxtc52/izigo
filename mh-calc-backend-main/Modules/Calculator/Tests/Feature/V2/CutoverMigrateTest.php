@@ -3,13 +3,17 @@
 namespace Modules\Calculator\Tests\Feature\V2;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Modules\Calculator\Models\LedgerEntry;
 use Modules\Calculator\Models\MemberWallet;
 use Modules\Calculator\Models\Product;
 use Modules\Calculator\Models\V2\CutoverLog;
 use Modules\Calculator\Models\V2\MemberAccountV2;
 use Modules\Calculator\Models\V2\WalletLotV2;
+use Modules\Calculator\Services\ActivationService;
 use Modules\Calculator\Tests\Feature\V2\Support\SeedsCutoverData;
+use Modules\Calculator\V2\Services\Cutover\CutoverHeldInFlightException;
+use Modules\Calculator\V2\Services\Cutover\OpeningBalanceMigrationService;
 use Tests\TestCase;
 
 /**
@@ -120,6 +124,65 @@ class CutoverMigrateTest extends TestCase
         $this->assertSame(0, WalletLotV2::query()->count());
         $this->assertSame(90, (int) Product::query()->where('sku', 'TARIFF-BRONZE')->value('pv'));
         // Аудит зафиксировал abort по held (action=phase/phase=pre/dry_run=false — уникально для held-гейта).
+        $this->assertDatabaseHas('v2_cutover_log', ['action' => 'phase', 'phase' => 'pre', 'dry_run' => false]);
+    }
+
+    /**
+     * TOCTOU-фикс (hardening T15): held, ставший видимым ТОЛЬКО под локом внутри транзакции
+     * миграции (вывод «в полёте», проскочивший быстрый пре-чек команды), обязан откатить ВСЮ
+     * миграцию атомарно — ни лота, ни проводки, ни изменения кошелька/ОС. Тест бьёт прямо в
+     * авторитетный предохранитель: сервис вызывается внутри транзакции под ACTIVATION_LOCK
+     * (в обход пре-чека команды), held стоит на кошельке участника → CutoverHeldInFlightException.
+     * До фикса migrateMember игнорировал held и переносил available → расщепление V1/V2.
+     */
+    public function test_migration_aborts_atomically_when_held_visible_under_lock(): void
+    {
+        $a = $this->seedMember(9001);
+        $this->deposit($a->id, 10000);
+        $this->hold($a->id, 3000); // вывод «в полёте»: available 7000 / held 3000
+
+        $svc = app(OpeningBalanceMigrationService::class);
+        $ledgerBefore = LedgerEntry::query()->count();
+
+        $threw = false;
+        try {
+            DB::transaction(function () use ($svc) {
+                app(ActivationService::class)->acquireActivationLock();
+                $svc->assertNoHeldInFlight(); // авторитетный held-предохранитель под локом
+                $svc->commitAll();
+            });
+        } catch (CutoverHeldInFlightException $e) {
+            $threw = true;
+            $this->assertSame(3000, $e->heldCents);
+            $this->assertSame(1, $e->heldMembers);
+        }
+
+        $this->assertTrue($threw, 'миграция обязана бросить при held>0, видимом под локом');
+        // Атомарный откат: ни лота, ни ОС-счёта, кошелёк не тронут, ledger без новых проводок.
+        $this->assertSame(0, WalletLotV2::query()->count());
+        $this->assertSame(0, MemberAccountV2::query()->where('os_available_cents', '>', 0)->count());
+        $this->assertSame(7000, (int) MemberWallet::query()->where('member_id', $a->id)->value('available_cents'));
+        $this->assertSame(3000, (int) MemberWallet::query()->where('member_id', $a->id)->value('held_cents'));
+        $this->assertSame($ledgerBefore, LedgerEntry::query()->count());
+    }
+
+    /**
+     * Тот же TOCTOU-предохранитель на уровне КОМАНДЫ: когда held виден под локом внутри
+     * транзакции, команда ловит бросок, откатывает всё и пишет abort phase=rolled_back
+     * (отличимо от пре-чека phase=pre), возвращая FAILURE. Здесь held стоит и на пре-чеке,
+     * и под локом — доказывает, что путь команды тоже атомарен (двойная защита).
+     */
+    public function test_command_writes_rolled_back_audit_but_pre_check_guards_first(): void
+    {
+        $a = $this->seedMember(9001);
+        $this->deposit($a->id, 10000);
+        $this->hold($a->id, 3000);
+        $this->seedBronze();
+
+        // Пре-чек команды срабатывает первым (held виден и снаружи) → phase=pre, FAILURE.
+        $this->artisan('calc-v2:cutover-migrate', ['--commit' => true])->assertExitCode(1);
+        $this->assertSame(0, WalletLotV2::query()->count());
+        $this->assertSame(90, (int) Product::query()->where('sku', 'TARIFF-BRONZE')->value('pv'));
         $this->assertDatabaseHas('v2_cutover_log', ['action' => 'phase', 'phase' => 'pre', 'dry_run' => false]);
     }
 

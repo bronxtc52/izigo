@@ -52,6 +52,32 @@ class OpeningBalanceMigrationService
     }
 
     /**
+     * АВТОРИТЕТНЫЙ held-предохранитель (TOCTOU-фикс). Вызывать ТОЛЬКО внутри транзакции,
+     * держащей ACTIVATION_LOCK, ДО любых записей миграции. Блокирующим чтением (lockForUpdate)
+     * фиксирует все кошельки с held>0 в снапшоте транзакции: любой вывод, созданный между
+     * быстрым пре-чеком команды и стартом этой транзакции, теперь виден и откатывает ВСЮ
+     * миграцию (бросок CutoverHeldInFlightException). Пре-чек снаружи остаётся быстрым fail;
+     * авторитетный аборт — здесь. Покрывает и held-only кошельки (available==0), которых нет
+     * в наборе миграции (migrateMember их не итерирует).
+     */
+    public function assertNoHeldInFlight(): void
+    {
+        $this->assertInTransaction();
+
+        $held = MemberWallet::query()
+            ->where('held_cents', '>', 0)
+            ->lockForUpdate()
+            ->get(['member_id', 'held_cents']);
+
+        if ($held->isNotEmpty()) {
+            throw new CutoverHeldInFlightException(
+                (int) $held->sum('held_cents'),
+                $held->count(),
+            );
+        }
+    }
+
+    /**
      * Read-only план переноса (dry-run): по каждому участнику с available_cents>0 —
      * сколько уйдёт на ОС и был ли он уже перенесён. Без единой записи.
      *
@@ -134,6 +160,13 @@ class OpeningBalanceMigrationService
 
         // Единый порядок локов: V1 wallet → V2 account.
         $wallet = MemberWallet::query()->where('member_id', $memberId)->lockForUpdate()->first();
+        // Айтайт-точка TOCTOU-фикса: кошелёк залочен (lockForUpdate) — читаем held в снапшоте
+        // ПОД локом. Вывод, стартовавший после пре-чека, либо уже закоммитил held>0 (видим здесь),
+        // либо ждёт за нашим локом. held>0 => деньги партнёра расщепились бы V1/V2 => откат всей
+        // миграции (ловится в CutoverMigrateCommand, пишущей abort в v2_cutover_log).
+        if ($wallet !== null && (int) $wallet->held_cents > 0) {
+            throw new CutoverHeldInFlightException((int) $wallet->held_cents, 1, $memberId);
+        }
         $available = $wallet !== null ? (int) $wallet->available_cents : 0;
         if ($available <= 0) {
             return null;

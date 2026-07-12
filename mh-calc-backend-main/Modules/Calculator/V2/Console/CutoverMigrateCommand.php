@@ -138,45 +138,72 @@ class CutoverMigrateCommand extends Command
         }
 
         // --- COMMIT: одна транзакция под ACTIVATION_LOCK ---
-        $result = DB::transaction(function () use ($bronze, $opening, $activation, $actor) {
-            // Единый порядок локов с активациями/закрытиями периодов V2 (0x12916001).
-            $activation->acquireActivationLock();
+        try {
+            $result = DB::transaction(function () use ($bronze, $opening, $activation, $actor) {
+                // Единый порядок локов с активациями/закрытиями периодов V2 (0x12916001).
+                $activation->acquireActivationLock();
 
-            $bronzeResult = $bronze->apply();
-            if ($bronzeResult !== null && $bronzeResult['before'] !== $bronzeResult['after']) {
+                // TOCTOU-фикс: авторитетный held-предохранитель ВНУТРИ транзакции под тем же локом.
+                // Пре-чек выше — быстрый fail снаружи; здесь блокирующим чтением ловим вывод,
+                // созданный в окне между пре-чеком и стартом транзакции. held>0 => откат всего.
+                $opening->assertNoHeldInFlight();
+
+                $bronzeResult = $bronze->apply();
+                if ($bronzeResult !== null && $bronzeResult['before'] !== $bronzeResult['after']) {
+                    CutoverLog::query()->create([
+                        'action' => CutoverLog::ACTION_BRONZE_TARIFF,
+                        'phase' => CutoverLog::PHASE_MIGRATED,
+                        'actor' => $actor,
+                        'dry_run' => false,
+                        'detail' => $bronzeResult,
+                    ]);
+                }
+
+                $migration = $opening->commitAll();
+                foreach ($migration['entries'] as $entry) {
+                    CutoverLog::query()->create([
+                        'action' => CutoverLog::ACTION_OPENING,
+                        'phase' => CutoverLog::PHASE_MIGRATED,
+                        'actor' => $actor,
+                        'dry_run' => false,
+                        'member_id' => $entry['member_id'],
+                        'amount_cents' => $entry['amount_cents'],
+                        'tx_id' => $entry['tx_id'],
+                    ]);
+                }
+
                 CutoverLog::query()->create([
-                    'action' => CutoverLog::ACTION_BRONZE_TARIFF,
+                    'action' => CutoverLog::ACTION_PHASE,
                     'phase' => CutoverLog::PHASE_MIGRATED,
                     'actor' => $actor,
                     'dry_run' => false,
-                    'detail' => $bronzeResult,
+                    'amount_cents' => $migration['total_cents'],
+                    'detail' => ['migrated' => $migration['migrated'], 'skipped' => $migration['skipped']],
                 ]);
-            }
 
-            $migration = $opening->commitAll();
-            foreach ($migration['entries'] as $entry) {
-                CutoverLog::query()->create([
-                    'action' => CutoverLog::ACTION_OPENING,
-                    'phase' => CutoverLog::PHASE_MIGRATED,
-                    'actor' => $actor,
-                    'dry_run' => false,
-                    'member_id' => $entry['member_id'],
-                    'amount_cents' => $entry['amount_cents'],
-                    'tx_id' => $entry['tx_id'],
-                ]);
-            }
-
+                return $migration;
+            });
+        } catch (\Modules\Calculator\V2\Services\Cutover\CutoverHeldInFlightException $e) {
+            // Held обнаружен под локом ВНУТРИ транзакции — вся миграция откатана атомарно
+            // (ни лота, ни проводки, ни Bronze→100). Аудит пишем ПОСЛЕ отката (иначе он бы тоже
+            // откатился вместе с транзакцией). phase=rolled_back отличает in-txn abort от пре-чека.
+            $this->error('ABORT: '.$e->getMessage());
             CutoverLog::query()->create([
                 'action' => CutoverLog::ACTION_PHASE,
-                'phase' => CutoverLog::PHASE_MIGRATED,
+                'phase' => CutoverLog::PHASE_ROLLED_BACK,
                 'actor' => $actor,
                 'dry_run' => false,
-                'amount_cents' => $migration['total_cents'],
-                'detail' => ['migrated' => $migration['migrated'], 'skipped' => $migration['skipped']],
+                'amount_cents' => $e->heldCents,
+                'detail' => [
+                    'aborted' => true,
+                    'reason' => 'held_in_flight_txn',
+                    'held_members' => $e->heldMembers,
+                    'member_id' => $e->memberId,
+                ],
             ]);
 
-            return $migration;
-        });
+            return self::FAILURE;
+        }
 
         // --- Пост-проверка сверки ---
         $post = $reconciliation->check();
