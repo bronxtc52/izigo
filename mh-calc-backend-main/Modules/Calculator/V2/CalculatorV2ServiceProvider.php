@@ -186,6 +186,23 @@ class CalculatorV2ServiceProvider extends ServiceProvider
             \Modules\Calculator\V2\Services\Pool\Steps\PoolCalibrationCloseStep::class,
         ], Services\Periods\PeriodCloseStepRegistry::TAG);
         // <<< V2 T11
+
+        // >>> V2 T08: лидерский бонус глубиной до 7 (CAL-LED-001, DEC-029/030 на ОС)
+        $this->app->singleton(\Modules\Calculator\V2\Domain\Bonus\LeadershipCalculator::class);
+        // База лидерского — net структурной премии ПОСЛЕ капов и 60%-калибровки T11
+        // (DEC-029; единственная точка стыка с T06/T11, план §630).
+        $this->app->bind(
+            \Modules\Calculator\V2\Services\Bonus\LeadershipBaseSourceInterface::class,
+            \Modules\Calculator\V2\Services\Bonus\StructureBonusBaseSource::class,
+        );
+        $this->app->singleton(\Modules\Calculator\V2\Services\Bonus\LeadershipBonusService::class);
+        $this->app->singleton(\Modules\Calculator\V2\Services\Bonus\Steps\LeadershipCloseStep::class);
+        // Шаг MONTH-close: order 800 — СТРОГО ПОСЛЕ шага 60%-калибровки T11 (T11.order < 800,
+        // DEC-053 raw→капы→60%-пул→лидерский→posting), до финализации глобального T09 (900).
+        $this->app->tag([
+            \Modules\Calculator\V2\Services\Bonus\Steps\LeadershipCloseStep::class,
+        ], Services\Periods\PeriodCloseStepRegistry::TAG);
+        // <<< V2 T08
     }
 
     public function boot(): void
@@ -228,6 +245,11 @@ class CalculatorV2ServiceProvider extends ServiceProvider
             //     (регулярный вызов — шаг month-close T04, MF-6).
             Console\PoolCalibrateCommand::class,
             // <<< V2 T11
+
+            // >>> V2 T08: ручной прогон/backfill лидерского бонуса периода
+            //     (штатно — шаг MONTH-close LeadershipCloseStep после калибровки T11).
+            Console\LeadershipRunCommand::class,
+            // <<< V2 T08
         ]);
     }
 
