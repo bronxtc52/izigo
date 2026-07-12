@@ -167,6 +167,25 @@ class CalculatorV2ServiceProvider extends ServiceProvider
             },
         );
         // <<< V2 T10
+
+        // >>> V2 T11: 60%-калибровка выплат (payout pool, DEC-014/029/053) —
+        //     единственный владелец формулы factor_bps (amendments MF-1/2).
+        $this->app->singleton(\Modules\Calculator\V2\Services\Pool\PeriodBvProvider::class);
+        $this->app->singleton(\Modules\Calculator\V2\Services\Pool\PoolCalibrationService::class);
+        $this->app->singleton(\Modules\Calculator\V2\Services\Pool\PoolReportService::class);
+        $this->app->singleton(\Modules\Calculator\V2\Services\Pool\Steps\PoolCalibrationCloseStep::class);
+        // Реализация reader'а factor_bps перебивает Null-дефолт T04 (bindIf → bind):
+        // T08 (лидерский) и T04 NsToOsTransfer читают закоммиченный factor_bps месяца.
+        $this->app->bind(
+            Contracts\PoolCalibrationReader::class,
+            \Modules\Calculator\V2\Services\Pool\PoolCalibrationReadService::class,
+        );
+        // Шаг month-close (tagged). Каскад DEC-053 по order(): global allocate (300) →
+        // 60%-калибровка (500) → global finalize (900).
+        $this->app->tag([
+            \Modules\Calculator\V2\Services\Pool\Steps\PoolCalibrationCloseStep::class,
+        ], Services\Periods\PeriodCloseStepRegistry::TAG);
+        // <<< V2 T11
     }
 
     public function boot(): void
@@ -204,6 +223,11 @@ class CalculatorV2ServiceProvider extends ServiceProvider
             // >>> V2 T06: ручной пере-прогон структурной премии окна (диагностика/восстановление)
             Console\StructureBonusRunCommand::class,
             // <<< V2 T06
+
+            // >>> V2 T11: ручной/аварийный пересчёт 60%-калибровки draft-месяца
+            //     (регулярный вызов — шаг month-close T04, MF-6).
+            Console\PoolCalibrateCommand::class,
+            // <<< V2 T11
         ]);
     }
 
