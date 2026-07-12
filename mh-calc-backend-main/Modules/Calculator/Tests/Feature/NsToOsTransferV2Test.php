@@ -197,4 +197,35 @@ class NsToOsTransferV2Test extends TestCase
         app(NsToOsTransfer::class)->executeForCalibratedMonth('2026-07', 10000);
         $this->assertSame(1000, $this->account($m->id)->os_available_cents);
     }
+
+    public function testWithinMonthReversalIsNettedNotTransferred(): void
+    {
+        // MF-W5-1 (контракт-чек W2+ №2): сторно НС текущего месяца штампует ns_month на
+        // DR-ноге; перевод НС→ОС обязан НЕТТИТЬ CR−DR по месяцу, иначе перенёс бы уже
+        // сторнированные деньги. Плоский кап min(monthCents, ns_cents) маскирует баг при
+        // ОДНОМ месяце — берём ДВА: сторно июля не должно красть из августовского баланса.
+        $m = $this->memberWithNs(1000, '2026-07');                                   // июль CR 1000
+        $this->wallet->credit($m->id, 'ns', 1000, "v2:t:aug:{$m->id}", accrualMonth: '2026-08'); // авг CR 1000
+
+        // Сторно 300 июльского начисления (путь T12 reverseBonusCredit НС с accrualMonth).
+        $res = $this->wallet->reverseBonusCredit(
+            memberId: $m->id, subaccount: 'ns', amountCents: 300,
+            idempotencyKey: "v2:t:rev-jul:{$m->id}", sourceType: 'structural', accrualMonth: '2026-07',
+        );
+        $this->assertSame(300, $res['debited']);
+        $this->assertSame(0, $res['clawback']);
+        $this->assertSame(1700, $this->account($m->id)->ns_cents);
+
+        // Июль: переносится нетто 1000−300 = 700 (НЕ 1000).
+        $this->wallet->executeForCalibratedMonth('2026-07', 10000);
+        $a = $this->account($m->id);
+        $this->assertSame(700, $a->os_available_cents, 'июль: нетто CR−DR = 700, сторнированное не уносится');
+        $this->assertSame(1000, $a->ns_cents, 'август не тронут (сторно июля не украло из его баланса)');
+
+        // Август переносится целиком под своим фактором.
+        $this->wallet->executeForCalibratedMonth('2026-08', 10000);
+        $a = $this->account($m->id);
+        $this->assertSame(1700, $a->os_available_cents);
+        $this->assertSame(0, $a->ns_cents);
+    }
 }

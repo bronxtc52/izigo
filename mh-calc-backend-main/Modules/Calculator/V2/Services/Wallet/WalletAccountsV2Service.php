@@ -262,12 +262,19 @@ class WalletAccountsV2Service implements LedgerV2, NsToOsTransfer
         // по атрибуции meta.ns_month кредит-проводок НС (штампует credit()), а не весь
         // плоский баланс. Начисления соседних месяцев остаются на НС до СВОЕЙ калибровки
         // (иначе уехали бы в ОС под чужим factor_bps).
+        //
+        // MF-W5-1 (контракт-чек W2+ №2): НЕТТИМ CR − DR по бакету ns_month. Сторно НС
+        // текущего месяца (reverseBonusCredit НС, T12) штампует meta.ns_month на DR-ноге;
+        // без вычитания DR перевод перенёс бы уже сторнированные деньги на ОС. Плоский кап
+        // min(monthCents, ns_cents) защищал только по суммарному балансу, не по-месячно.
         $monthSums = \Modules\Calculator\Models\LedgerEntry::query()
             ->where('account_type', LedgerPostingV2Service::ACC_NS)
-            ->where('direction', LedgerPostingV2Service::CR)
             ->whereRaw("(meta->>'ns_month') = ?", [$month])
             ->groupBy('member_id')
-            ->selectRaw('member_id, SUM(amount_cents) AS cents')
+            ->selectRaw(
+                'member_id, SUM(CASE WHEN direction = ? THEN amount_cents ELSE -amount_cents END) AS cents',
+                [LedgerPostingV2Service::CR],
+            )
             ->pluck('cents', 'member_id');
 
         foreach ($monthSums as $memberId => $monthCents) {

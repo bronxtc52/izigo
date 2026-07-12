@@ -3,6 +3,7 @@
 namespace Modules\Calculator\V2\Services\Refunds;
 
 use Modules\Calculator\V2\Contracts\LedgerV2;
+use Modules\Calculator\V2\Domain\CalcPeriod;
 use Modules\Calculator\V2\Models\LeadershipBonusLine;
 use Modules\Calculator\V2\Models\OrderReturn;
 use Modules\Calculator\V2\Models\ReferralReward;
@@ -147,6 +148,22 @@ class BonusReversalService
             // возвращённого BV к сматченному BV строки (owner проверяет перед post).
             $matchedBv = max(1, (int) $struct->matched_bv_cents);
             $portion = min((int) $return->returned_bv_cents, $matchedBv);
+
+            // MF-W5-1: структурная ОТКРЫТОГО (незакрытого) периода ещё лежит на НС —
+            // не переведена на ОС. Её реверс должен ДЕБЕТОВАТЬ НС и уменьшить месячный
+            // бакет ns_month (accrualMonth), иначе перевод НС→ОС перенёс бы сторнированное
+            // (контракт-чек W2+ №2). Проводим сразу (авто), owner-approve не нужен —
+            // симметрично начислению; лидерский в открытом месяце ещё не начислен
+            // (month-only, после калибровки), каскада лидерского нет.
+            $period = CalcPeriod::query()->find($struct->period_id);
+            if ($period !== null && ! $period->isClosed()) {
+                $this->reverseStructuralOnNs($return, $struct, $portion, $matchedBv);
+
+                continue;
+            }
+
+            // Закрытый (возможно откалиброванный → на ОС) период: деньги сторнируются
+            // корректирующей проводкой на ОС после owner-approve (DEC-027, W2+ №5).
             $estimate = intdiv((int) $struct->net_cents * $portion, $matchedBv);
             if ($estimate <= 0) {
                 continue;
@@ -200,5 +217,56 @@ class BonusReversalService
         }
 
         return $proposed;
+    }
+
+    /**
+     * MF-W5-1: сторно структурной премии, ещё НЕ переведённой на ОС (НС открытого месяца).
+     * Дебетует НС на пропорциональную сырую (after_cap) долю с явным accrualMonth —
+     * это штампует meta.ns_month на DR-ноге, и executeForCalibratedMonth (нетто CR−DR)
+     * корректно уменьшит переносимую на ОС сумму. Нехватка НС → clawback (маловероятно
+     * внутри открытого месяца). Провенанс — v2_reversal_actions (posted).
+     */
+    private function reverseStructuralOnNs(OrderReturn $return, StructureBonus $struct, int $portion, int $matchedBv): void
+    {
+        // НС хранит СЫРОЙ after_cap (до 60%-калибровки; net_cents ещё == after_cap в
+        // открытом месяце). Реверсим сырую долю — перевод сам умножит остаток на factor.
+        $rawNs = intdiv((int) $struct->after_cap_cents * $portion, $matchedBv);
+        if ($rawNs <= 0) {
+            return;
+        }
+
+        $key = "v2:reversal:{$return->id}:structural_ns:{$struct->id}";
+        $res = $this->wallet->reverseBonusCredit(
+            memberId: $struct->member_id,
+            subaccount: LedgerV2::SUBACCOUNT_NS,
+            amountCents: $rawNs,
+            idempotencyKey: $key,
+            sourceType: 'structural',
+            sourceId: $struct->id,
+            accrualMonth: $struct->accrual_month,
+        );
+
+        ReversalAction::query()->firstOrCreate(
+            ['idempotency_key' => "{$key}:action"],
+            [
+                'return_id' => $return->id,
+                'action_type' => ReversalAction::TYPE_BONUS_REVERSAL,
+                'bonus_type' => ReversalAction::BONUS_STRUCTURAL,
+                'target_type' => 'structure_bonus',
+                'target_id' => $struct->id,
+                'amount_cents' => -$rawNs,
+                'snapshot_json' => [
+                    'accrual_month' => $struct->accrual_month,
+                    'after_cap_cents' => (int) $struct->after_cap_cents,
+                    'matched_bv_cents' => (int) $struct->matched_bv_cents,
+                    'returned_bv_cents' => (int) $return->returned_bv_cents,
+                    'debited' => $res['debited'],
+                    'clawback' => $res['clawback'],
+                    'basis' => 'ns_within_month_reversal',
+                ],
+                'ledger_tx_id' => $res['tx_id'],
+                'status' => ReversalAction::STATUS_POSTED,
+            ],
+        );
     }
 }

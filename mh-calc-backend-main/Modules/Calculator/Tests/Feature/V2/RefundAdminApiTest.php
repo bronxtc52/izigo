@@ -13,10 +13,12 @@ use Modules\Calculator\Tests\Feature\Concerns\SignsTelegramInitData;
 use Modules\Calculator\V2\Models\BinaryMatch;
 use Modules\Calculator\V2\Models\OrderReturn;
 use Modules\Calculator\V2\Models\PeriodCorrection;
+use Modules\Calculator\V2\Models\ReversalAction;
 use Modules\Calculator\V2\Models\StructureBonus;
 use Modules\Calculator\V2\Services\DefaultPolicyConfig;
 use Modules\Calculator\V2\Services\PolicyVersionService;
 use Modules\Calculator\V2\Services\Volume\BinaryMatchingService;
+use Modules\Calculator\V2\Services\Wallet\WalletAccountsV2Service;
 use RuntimeException;
 use Tests\TestCase;
 
@@ -309,5 +311,117 @@ class RefundAdminApiTest extends TestCase
             ->assertOk()->assertJsonPath('data.0.id', $corr->id);
         // finance НЕ утверждает (owner-only).
         $this->postJson("/api/v1/admin/v2/period-corrections/{$corr->id}/approve", [], $fin)->assertStatus(403);
+    }
+
+    // ------------------------------------------------------------------ MF-W5-1: открытый период
+
+    /** Возврат, задевающий сматченный лот + posted-структурную в ОТКРЫТОМ (незакрытом) периоде на НС. */
+    private function buildOpenPeriodStructural(): array
+    {
+        $this->enableFeatureFlags('mh_v2_volumes', 'mh_v2_refunds');
+        $bronze = $this->product(9000, 90, 9000);
+        [, $rootRef] = $this->registerTg(920, name: 'Root');
+        [$aData] = $this->registerTg(921, $rootRef, 'A');
+        [$bData] = $this->registerTg(922, $rootRef, 'B');
+        $orderA = $this->buyAndPay($aData, $bronze->id);
+        $this->buyAndPay($bData, $bronze->id);
+        $rootId = $this->memberByTg(920)->id;
+
+        $match = app(BinaryMatchingService::class)
+            ->runMatching($rootId, now()->addMinute(), '2026-07-H1', 'run-open-1');
+
+        // ОТКРЫТЫЙ half-month период + posted-структурная (ещё на НС, не переведена на ОС).
+        $periodId = DB::table('v2_calc_periods')->insertGetId([
+            'period_type' => 'half_month', 'code' => '2026-07-H1-open',
+            'starts_at' => '2026-07-01 00:00:00', 'ends_at' => '2026-07-16 00:00:00',
+            'timezone' => 'UTC', 'status' => 'open', 'policy_version_id' => 1,
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+        $struct = StructureBonus::query()->create([
+            'period_id' => $periodId, 'member_id' => $rootId, 'policy_version_id' => 1,
+            'rank_code' => 'CONSULTANT', 'rate_bps' => 500, 'matched_pv' => '90',
+            'matched_bv_cents' => 9000, 'match_group_id' => $match->id, 'gross_cents' => 450,
+            'half_cap_cents' => 50000, 'monthly_cap_cents' => 50000, 'cap_remaining_before_cents' => 50000,
+            'after_cap_cents' => 450, 'net_cents' => 450, 'accrual_month' => '2026-07',
+            'status' => StructureBonus::STATUS_POSTED,
+            'posting_idempotency_key' => "v2:structure:{$periodId}:{$rootId}",
+        ]);
+
+        // T06 при закрытии half-month закредитовал бы НС сырым after_cap — симулируем.
+        app(WalletAccountsV2Service::class)->credit(
+            $rootId, 'ns', 450, "v2:structure_ns:{$periodId}:{$rootId}",
+            sourceType: 'structure_bonus', sourceId: $struct->id, accrualMonth: '2026-07',
+        );
+
+        return ['orderA' => $orderA, 'match' => $match, 'struct' => $struct, 'root' => $rootId];
+    }
+
+    public function testOpenPeriodStructuralReversesOnNsWithoutCorrection(): void
+    {
+        $ctx = $this->buildOpenPeriodStructural();
+        $headers = $this->owner();
+        $rootId = $ctx['root'];
+
+        $this->assertSame(450, (int) DB::table('v2_member_accounts')->where('member_id', $rootId)->value('ns_cents'));
+
+        $resp = $this->postJson('/api/v1/admin/v2/refunds',
+            ['order_id' => $ctx['orderA'], 'kind' => 'full', 'reason' => 'открытый период'], $headers)
+            ->assertStatus(201);
+        // Открытый период → авто-сторно на НС, БЕЗ ручного утверждения.
+        $resp->assertJsonPath('data.status', OrderReturn::STATUS_REVERSED);
+
+        // НС уменьшен на сторнированную структурную (450 → 0). OS-корректировка НЕ создана.
+        $this->assertSame(0, (int) DB::table('v2_member_accounts')->where('member_id', $rootId)->value('ns_cents'));
+        $this->assertSame(0, PeriodCorrection::query()->where('bonus_type', 'structural')->count());
+
+        // Провенанс: bonus_reversal структурной на НС (amount −450).
+        $return = OrderReturn::query()->where('order_id', $ctx['orderA'])->sole();
+        $act = ReversalAction::query()->where('return_id', $return->id)
+            ->where('action_type', ReversalAction::TYPE_BONUS_REVERSAL)
+            ->where('bonus_type', ReversalAction::BONUS_STRUCTURAL)->sole();
+        $this->assertSame(-450, (int) $act->amount_cents);
+        $this->assertSame('ns_within_month_reversal', $act->snapshot_json['basis']);
+
+        // Перевод НС→ОС июля НЕ переносит сторнированное (нетто 0).
+        app(WalletAccountsV2Service::class)->executeForCalibratedMonth('2026-07', 10000);
+        $this->assertSame(0, (int) DB::table('v2_member_accounts')->where('member_id', $rootId)->value('os_available_cents'));
+    }
+
+    // ------------------------------------------------------------------ MF-W5-2/3: частичные возвраты
+
+    public function testPartialReturnsCumulativeCoverageMarkRefundedOnlyWhenFull(): void
+    {
+        $this->enableFeatureFlags('mh_v2_volumes', 'mh_v2_refunds');
+        $headers = $this->owner();
+        [$bData] = $this->registerTg(930, name: 'B');
+        $orderId = $this->buyAndPay($bData, $this->product(9000, 90, 9000)->id, qty: 2);
+        $itemId = (int) DB::table('order_items')->where('order_id', $orderId)->value('id');
+
+        // Первый частичный (1 из 2) — заказ остаётся paid, повторный возврат остатка возможен.
+        $this->postJson('/api/v1/admin/v2/refunds', [
+            'order_id' => $orderId, 'kind' => 'partial', 'reason' => 'часть 1',
+            'idempotency_key' => 'p1', 'lines' => [['order_item_id' => $itemId, 'qty' => 1]],
+        ], $headers)->assertStatus(201)->assertJsonPath('data.status', OrderReturn::STATUS_REVERSED);
+        $this->assertSame(Order::STATUS_PAID, Order::find($orderId)->status);
+
+        // Второй частичный (остаток) — НЕ 422; полное покрытие → заказ refunded.
+        $this->postJson('/api/v1/admin/v2/refunds', [
+            'order_id' => $orderId, 'kind' => 'partial', 'reason' => 'часть 2',
+            'idempotency_key' => 'p2', 'lines' => [['order_item_id' => $itemId, 'qty' => 1]],
+        ], $headers)->assertStatus(201);
+        $this->assertSame(Order::STATUS_REFUNDED, Order::find($orderId)->status);
+    }
+
+    public function testPartialWithoutLinesRejectedWithClearMessage(): void
+    {
+        $this->enableFeatureFlags('mh_v2_volumes', 'mh_v2_refunds');
+        $headers = $this->owner();
+        [$bData] = $this->registerTg(931, name: 'B');
+        $orderId = $this->buyAndPay($bData, $this->product()->id);
+
+        $this->postJson('/api/v1/admin/v2/refunds',
+            ['order_id' => $orderId, 'kind' => 'partial', 'reason' => 'без строк'], $headers)
+            ->assertStatus(422)
+            ->assertJsonFragment(['message' => 'Частичный возврат требует непустой список позиций (lines[])']);
     }
 }
