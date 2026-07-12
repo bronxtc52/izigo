@@ -266,6 +266,15 @@ class OrderService
         if (in_array($status, $fulfilment, true) && $order->status === Order::STATUS_PENDING_PAYMENT) {
             throw new RuntimeException('Нельзя исполнять неоплаченный заказ');
         }
+        // T12 guard: при включённых возвратах V2 прямой перевод ОПЛАЧЕННОГО заказа в
+        // refunded мимо RefundService запрещён — иначе финансовое сторно (реверс
+        // бонусов/лотов) не выполнится. Возврат оформляется через admin/v2/refunds.
+        if ($status === Order::STATUS_REFUNDED
+            && $order->status === Order::STATUS_PAID
+            && $this->flags->isEnabled('mh_v2_refunds')
+        ) {
+            throw new RuntimeException('Возврат оплаченного заказа — только через RefundService (admin/v2/refunds)');
+        }
 
         $order->status = $status;
         if ($trackingNo !== null) {
