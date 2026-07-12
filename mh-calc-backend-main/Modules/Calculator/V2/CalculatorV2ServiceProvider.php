@@ -73,6 +73,34 @@ class CalculatorV2ServiceProvider extends ServiceProvider
         $this->app->bindIf(Contracts\PoolCalibrationReader::class, Services\Periods\NullPoolCalibrationReader::class);
         $this->app->bindIf(Contracts\QuarterGlobalPayoutHandler::class, Services\Periods\NullQuarterGlobalPayoutHandler::class);
         // <<< V2 T04
+
+        // >>> V2 T05: лестница статусов, CLIENT/grace, тиры
+        // Контракты T05→T03: lifetime PV сторон и аннулирование grace-PV читают v2_pv_lots.
+        $this->app->bind(
+            Contracts\BinaryVolumeReaderInterface::class,
+            Services\Status\PvLotBinaryVolumeReader::class,
+        );
+        $this->app->bind(
+            Contracts\PvLotAnnulmentInterface::class,
+            Services\Status\GracePvLotAnnulmentService::class,
+        );
+        // Read-API статусов/тиров для соседей (T06/T07/T08/T09/T14) — только as-of.
+        $this->app->singleton(Services\Status\StatusReadService::class);
+        $this->app->bind(Contracts\StatusReader::class, Services\Status\StatusReadService::class);
+        $this->app->singleton(Services\Status\TierService::class);
+        $this->app->singleton(Services\Status\ClientLifecycleService::class);
+        $this->app->singleton(Services\Status\RankEvaluationService::class);
+        // Свой шаг пост-оплаты — ПОСЛЕ VolumeCaptureStep T03 (нужны снапшоты/лоты).
+        // extend вместо правки closure T03: T05-регистрация целиком в этом маркере.
+        $this->app->extend(
+            Contracts\PaidOrderV2Pipeline::class,
+            function (Contracts\PaidOrderV2Pipeline $pipeline, $app) {
+                $pipeline->register($app->make(Services\Status\StatusesStep::class));
+
+                return $pipeline;
+            },
+        );
+        // <<< V2 T05
     }
 
     public function boot(): void
@@ -99,6 +127,10 @@ class CalculatorV2ServiceProvider extends ServiceProvider
 
             // >>> V2 T09: квартальная выплата глобального пула
             // <<< V2 T09
+
+            // >>> V2 T05: сканер просроченного grace CLIENT (BR-REG-004)
+            Console\ClientGraceScanCommand::class,
+            // <<< V2 T05
         ]);
     }
 
@@ -128,6 +160,15 @@ class CalculatorV2ServiceProvider extends ServiceProvider
             $schedule->command('calc-v2:month-close')->dailyAt('00:30')->withoutOverlapping(30)->when($flagOn);
             $schedule->command('calc-v2:quarter-payout')->dailyAt('00:40')->withoutOverlapping(30)->when($flagOn);
             // <<< V2 T04
+
+            // >>> V2 T05: grace-скан каждые 15 минут (BR-REG-004, amendments MF-7);
+            //     идемпотентен и no-op за выключенным mh_v2_statuses.
+            $statusesOn = fn (): bool => $this->app
+                ->make(\Modules\Calculator\Services\FeatureFlag\FeatureFlagService::class)
+                ->isEnabled(\Modules\Calculator\V2\Services\Status\StatusesStep::FLAG);
+            $schedule->command('calc-v2:client-grace-scan')
+                ->everyFifteenMinutes()->withoutOverlapping(30)->when($statusesOn);
+            // <<< V2 T05
         });
     }
 }
