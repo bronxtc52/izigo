@@ -59,7 +59,7 @@
 | T06 — Структурная премия (бинар) с капами | `2026_07_13_11xxxx` — ЗАНЯТО (ветка mh2/t06-structural-bonus): `110000_create_v2_structure_bonuses_table` |
 | T07 — Реферальная премия | `2026_07_13_12xxxx` — ЗАНЯТО (ветка mh2/t07-referral-bonus): `120000_create_v2_referral_rewards_table`, `120100_seed_mh_v2_referral_feature_flag` (флаг `mh_v2_referral` OFF) |
 | T08 — Лидерский бонус | `2026_07_13_13xxxx` |
-| T09 — Глобальный пул | `2026_07_13_14xxxx` |
+| T09 — Глобальный пул | `2026_07_13_14xxxx` — ЗАНЯТО (ветка mh2/t09-global-bonus): `140000_create_v2_global_bonus_months`, `140010_create_v2_global_bonus_pools`, `140020_create_v2_global_bonus_qualifications`, `140030_create_v2_global_bonus_allocations` (+ partial unique unallocated), `140040_create_v2_global_bonus_payouts`, `140050_seed_feature_flag_mh_v2_global_bonus` (флаг `mh_v2_global_bonus` OFF) |
 | T10 — Награды (award entitlements) | `2026_07_13_15xxxx` |
 | T11 — Калибровка 60%-пула (PoolFactorService) | `2026_07_13_16xxxx` |
 | T12 — Возвраты/reversals | `2026_07_13_17xxxx` |
