@@ -213,6 +213,14 @@ class CalculatorV2ServiceProvider extends ServiceProvider
         $this->app->singleton(\Modules\Calculator\V2\Services\Refunds\RequalificationService::class);
         $this->app->singleton(\Modules\Calculator\V2\Services\Refunds\RefundService::class);
         // <<< V2 T12
+
+        // >>> V2 T15: cutover V1→V2 (opening-миграция main→ОС, паритет, сверка ledger).
+        //     Пишут ТОЛЬКО через примитивы T02; флаги НЕ трогают (флип движка — координатор).
+        $this->app->singleton(\Modules\Calculator\V2\Services\Cutover\BronzeTariffCutoverService::class);
+        $this->app->singleton(\Modules\Calculator\V2\Services\Cutover\OpeningBalanceMigrationService::class);
+        $this->app->singleton(\Modules\Calculator\V2\Services\Cutover\LedgerReconciliationService::class);
+        $this->app->singleton(\Modules\Calculator\V2\Services\Cutover\ParityCheckService::class);
+        // <<< V2 T15
     }
 
     public function boot(): void
@@ -260,6 +268,11 @@ class CalculatorV2ServiceProvider extends ServiceProvider
             //     (штатно — шаг MONTH-close LeadershipCloseStep после калибровки T11).
             Console\LeadershipRunCommand::class,
             // <<< V2 T08
+
+            // >>> V2 T15: cutover-инструментарий (ручной, НЕ авто на деплое, флаги не трогает).
+            Console\CutoverMigrateCommand::class,
+            Console\ParityCheckCommand::class,
+            // <<< V2 T15
         ]);
     }
 
