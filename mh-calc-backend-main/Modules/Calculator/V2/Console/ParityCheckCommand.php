@@ -63,6 +63,15 @@ class ParityCheckCommand extends Command
             ($summary['conservation_ok'] ?? false) ? 'ДА' : 'НЕТ',
         ));
         $this->line(sprintf('Необъяснённая дельта = %d центов', $run->unexplained_delta_cents));
+        $this->line(sprintf(
+            'Деньги «в полёте» (НЕ переносятся, остаются на V1): held = %d центов у %d партнёров · clawback-долг = %d центов',
+            $summary['held_total_cents'] ?? 0,
+            $summary['members_with_held'] ?? 0,
+            $summary['clawback_total_cents'] ?? 0,
+        ));
+        if (($summary['members_with_held'] ?? 0) > 0) {
+            $this->warn('Есть открытые выводы (held>0): разрулите их ДО cutover — cutover-migrate --commit будет заблокирован.');
+        }
 
         $drift = $summary['engine_vs_persisted_drift'] ?? [];
         if ($drift !== []) {

@@ -2,8 +2,10 @@
 
 namespace Modules\Calculator\Tests\Feature\V2\Support;
 
+use Illuminate\Support\Facades\DB;
 use Modules\Calculator\Models\Member;
 use Modules\Calculator\Models\Product;
+use Modules\Calculator\Models\WithdrawalRequest;
 use Modules\Calculator\Services\LedgerService;
 
 /**
@@ -35,6 +37,19 @@ trait SeedsCutoverData
     protected function deposit(int $memberId, int $cents): void
     {
         app(LedgerService::class)->deposit($memberId, $cents, "seed:deposit:m{$memberId}");
+    }
+
+    /** Поставить часть баланса в held: заявка на вывод «в полёте» (available → held). */
+    protected function hold(int $memberId, int $cents): void
+    {
+        $w = WithdrawalRequest::create([
+            'member_id' => $memberId,
+            'amount_cents' => $cents,
+            'payout_details' => 'ton:seed',
+            'status' => WithdrawalRequest::STATUS_REQUESTED,
+            'requested_at' => now(),
+        ]);
+        DB::transaction(fn () => app(LedgerService::class)->hold($w));
     }
 
     /** Тариф Bronze в исходном состоянии 90 PV / 90 USDT (до правки cutover). */

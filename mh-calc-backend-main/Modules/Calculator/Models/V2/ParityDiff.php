@@ -15,6 +15,8 @@ class ParityDiff extends Model
     public $timestamps = false;
 
     public const CHECK_MONEY = 'money_conservation';
+    public const CHECK_HELD = 'held_in_flight';
+    public const CHECK_CLAWBACK = 'clawback_debt';
     public const CHECK_ACCRUED = 'accrued_income';
     public const CHECK_TREE = 'tree_composition';
 

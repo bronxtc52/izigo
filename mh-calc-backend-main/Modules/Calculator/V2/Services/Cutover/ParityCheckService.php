@@ -62,10 +62,22 @@ class ParityCheckService
         $v1PersistedByMember = MemberEarning::query()->pluck('total', 'member_id')
             ->map(fn ($t) => $this->decimalToCents((string) $t))->all();
 
-        // Денежная база: available (кэш) и свёртка ledger member_available.
-        $availByMember = MemberWallet::query()->pluck('available_cents', 'member_id')
-            ->map(fn ($v) => (int) $v)->all();
+        // Денежная база: available/held/clawback (кэш) и свёртки ledger по счетам.
+        // MF-2: полный баланс (available + held + clawback), не только available.
+        $walletRows = MemberWallet::query()->get(['member_id', 'available_cents', 'held_cents', 'clawback_debt_cents']);
+        $availByMember = [];
+        $heldByMember = [];
+        $clawbackByMember = [];
+        foreach ($walletRows as $w) {
+            $mid = (int) $w->member_id;
+            $availByMember[$mid] = (int) $w->available_cents;
+            $heldByMember[$mid] = (int) $w->held_cents;
+            $clawbackByMember[$mid] = (int) $w->clawback_debt_cents;
+        }
         $ledgerAvailByMember = $this->ledgerFoldForAccount(LedgerService::ACC_AVAILABLE);
+        $ledgerHeldByMember = $this->ledgerFoldForAccount(LedgerService::ACC_HELD);
+        // clawback долг — debit-normal: положительный долг = Σdebit − Σcredit = −fold.
+        $ledgerClawbackByMember = array_map(fn ($v) => -$v, $this->ledgerFoldForAccount(LedgerService::ACC_CLAWBACK_DEBT));
 
         // Генеалогия: спонсоры из members.
         $sponsorByMember = Member::query()->pluck('sponsor_id', 'id')
@@ -102,6 +114,9 @@ class ParityCheckService
         ];
         $engineDrift = [];
         $diffRows = [];
+        $heldTotal = 0;
+        $clawbackTotal = 0;
+        $membersWithHeld = 0;
 
         foreach ($ids as $mid) {
             $mid = (int) $mid;
@@ -122,6 +137,44 @@ class ParityCheckService
             }
             $byClass[$moneyClass]++;
 
+            // --- held_in_flight (MF-2): деньги в холде НЕ переносятся (V1-путь), но обязаны
+            // быть видимы на гейте; расхождение кэша с ledger = дрейф = mismatch (блокирует). ---
+            $held = $heldByMember[$mid] ?? 0;
+            $ledgerHeld = $ledgerHeldByMember[$mid] ?? 0;
+            $heldDelta = $held - $ledgerHeld;
+            if ($held !== 0 || $ledgerHeld !== 0) {
+                $heldClass = $heldDelta === 0 ? ParityDiff::CLASS_MATCH : ParityDiff::CLASS_MISMATCH;
+                $diffRows[] = $this->row($run->id, $mid, ParityDiff::CHECK_HELD, $held, $ledgerHeld, $heldDelta, $heldClass,
+                    $heldDelta === 0
+                        ? 'Открытый вывод в холде — остаётся на V1-пути, НЕ переносится в ОС (cutover обязан быть разрулен до флипа)'
+                        : 'ДРЕЙФ кэша held vs ledger — баланс недостоверен, cutover блокируется');
+                if ($heldClass === ParityDiff::CLASS_MISMATCH) {
+                    $unexplained += abs($heldDelta);
+                }
+                $byClass[$heldClass]++;
+                $heldTotal += $held;
+                if ($held > 0) {
+                    $membersWithHeld++;
+                }
+            }
+
+            // --- clawback_debt (MF-2): долг перед компанией; виден на гейте; дрейф = mismatch. ---
+            $clawback = $clawbackByMember[$mid] ?? 0;
+            $ledgerClawback = $ledgerClawbackByMember[$mid] ?? 0;
+            $clawbackDelta = $clawback - $ledgerClawback;
+            if ($clawback !== 0 || $ledgerClawback !== 0) {
+                $clawbackClass = $clawbackDelta === 0 ? ParityDiff::CLASS_MATCH : ParityDiff::CLASS_MISMATCH;
+                $diffRows[] = $this->row($run->id, $mid, ParityDiff::CHECK_CLAWBACK, $clawback, $ledgerClawback, $clawbackDelta, $clawbackClass,
+                    $clawbackDelta === 0
+                        ? 'Долг clawback перед компанией — учитывается по V1-пути, НЕ переносится в ОС'
+                        : 'ДРЕЙФ кэша clawback vs ledger — баланс недостоверен, cutover блокируется');
+                if ($clawbackClass === ParityDiff::CLASS_MISMATCH) {
+                    $unexplained += abs($clawbackDelta);
+                }
+                $byClass[$clawbackClass]++;
+                $clawbackTotal += $clawback;
+            }
+
             // --- tree_composition ---
             $dbSponsor = $sponsorByMember[$mid] ?? null;
             $netSponsor = $networkSponsor[$mid] ?? null;
@@ -132,9 +185,8 @@ class ParityCheckService
                 $treeOk
                     ? 'Генеалогия совпадает (V2 читает те же members.sponsor_id/path)'
                     : 'Узел отсутствует в сети V1-движка или спонсор разошёлся (db=' . var_export($dbSponsor, true) . ', net=' . var_export($netSponsor, true) . ')');
-            if (! $treeOk) {
-                $unexplained += 0; // структурное расхождение не денежное, но фиксируем как mismatch
-            }
+            // Структурное расхождение не денежное (unexplained не растёт), но это mismatch-строка —
+            // гейт отклоняет отчёт по byClass[MISMATCH] (MF-1), а не только по денежной дельте.
             $byClass[$treeClass]++;
 
             // --- accrued_income (plan_change / match) ---
@@ -167,8 +219,14 @@ class ParityCheckService
                 'members' => count($ids),
                 'by_classification' => $byClass,
                 'conservation_ok' => $v1Total === $v2Total && $unexplained === 0,
+                // MF-2: held/clawback НЕ переносятся (V1-путь), но их тоталы явно на гейте —
+                // владелец обязан видеть деньги «в полёте» до подписания cutover.
+                'held_total_cents' => $heldTotal,
+                'clawback_total_cents' => $clawbackTotal,
+                'members_with_held' => $membersWithHeld,
                 'engine_vs_persisted_drift' => $engineDrift,
-                'note' => 'V2 — другая модель; сопоставлены только обязанные совпасть выходы (деньги, дерево). '
+                'note' => 'V2 — другая модель; сопоставлены только обязанные совпасть выходы (деньги, held, clawback, дерево). '
+                    . 'held/clawback остаются на V1-пути (не переносятся в ОС), но видны на гейте. '
                     . 'Новые механики V2 (PV/тиры/статусы/бонусы) стартуют с нуля и здесь помечены plan_change/v2_only.',
             ],
             'finished_at' => now(),

@@ -40,9 +40,28 @@ class ParityRun extends Model
         return $this->hasMany(ParityDiff::class, 'run_id');
     }
 
-    /** Отчёт можно принять (owner sign-off), только если нет необъяснённых расхождений. */
+    /**
+     * Отчёт можно принять (owner sign-off) только если прогон завершён И нет НИ ОДНОЙ
+     * mismatch-строки любого типа (не только денежной) И сохранение денег сошлось И
+     * необъяснённая денежная дельта нулевая. MF-1: раньше гейт смотрел только на
+     * unexplained_delta==0, из-за чего рассинхрон генеалогии (tree_composition) с нулевой
+     * денежной дельтой проскакивал мимо go/no-go.
+     */
     public function isAcceptable(): bool
     {
-        return $this->status === self::STATUS_DONE && (int) $this->unexplained_delta_cents === 0;
+        if ($this->status !== self::STATUS_DONE) {
+            return false;
+        }
+        if ((int) $this->unexplained_delta_cents !== 0) {
+            return false;
+        }
+
+        $summary = $this->summary ?? [];
+        $mismatch = (int) ($summary['by_classification'][ParityDiff::CLASS_MISMATCH] ?? 0);
+        if ($mismatch !== 0) {
+            return false;
+        }
+
+        return ($summary['conservation_ok'] ?? false) === true;
     }
 }

@@ -76,4 +76,57 @@ class ParityCheckTest extends TestCase
         $this->assertSame(500, (int) $run->unexplained_delta_cents);
         $this->assertFalse($run->isAcceptable());
     }
+
+    /**
+     * MF-1: рассинхрон генеалогии (узел вне сети V1-движка) при НУЛЕВОЙ денежной дельте
+     * обязан отклонять отчёт. Раньше isAcceptable() гейтил только unexplained==0 →
+     * tree-mismatch печатался, но отчёт считался приемлемым (дыра go/no-go).
+     */
+    public function test_tree_mismatch_blocks_accept_even_with_zero_money_delta(): void
+    {
+        $m = $this->seedMember(9001);
+        $this->deposit($m->id, 10000); // деньги полностью консистентны → нет денежного mismatch
+
+        // Охват включает несуществующий узел (member удалён/опечатка в scope):
+        // денежной дельты нет, но дерево расходится (узла нет в сети V1-движка).
+        $run = app(ParityCheckService::class)->run([$m->id, 999999]);
+
+        $this->assertSame(0, (int) $run->unexplained_delta_cents);
+        $tree = ParityDiff::query()->where('run_id', $run->id)
+            ->where('member_id', 999999)->where('check', ParityDiff::CHECK_TREE)->first();
+        $this->assertNotNull($tree);
+        $this->assertSame(ParityDiff::CLASS_MISMATCH, $tree->classification);
+        // Гейт ОБЯЗАН отклонить: нулевая денежная дельта не делает отчёт приемлемым при mismatch дерева.
+        $this->assertFalse($run->isAcceptable());
+    }
+
+    public function test_parity_command_exits_nonzero_on_tree_mismatch(): void
+    {
+        $m = $this->seedMember(9001);
+        $this->deposit($m->id, 10000);
+
+        $this->artisan('calc-v2:parity-check', ['--members' => $m->id . ',999999'])
+            ->assertExitCode(1);
+    }
+
+    /**
+     * MF-2(а/б): held-баланс (заявка на вывод «в полёте») обязан быть виден на гейте —
+     * отдельной строкой отчёта и в сводных тоталах. Раньше оракул читал только available.
+     */
+    public function test_parity_surfaces_held_balance(): void
+    {
+        $m = $this->seedMember(9001);
+        $this->deposit($m->id, 10000);
+        $this->hold($m->id, 3000); // 3000 в held, 7000 в available
+
+        $run = app(ParityCheckService::class)->run();
+
+        $held = ParityDiff::query()->where('run_id', $run->id)
+            ->where('member_id', $m->id)->where('check', ParityDiff::CHECK_HELD)->first();
+        $this->assertNotNull($held, 'held обязан быть виден в отчёте паритета');
+        $this->assertSame(3000, (int) $held->v1_amount_cents);
+        $this->assertSame(ParityDiff::CLASS_MATCH, $held->classification); // кэш == ledger, дрейфа нет
+        $this->assertSame(3000, (int) ($run->summary['held_total_cents'] ?? 0));
+        $this->assertSame(1, (int) ($run->summary['members_with_held'] ?? 0));
+    }
 }
