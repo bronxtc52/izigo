@@ -68,7 +68,7 @@ class CutoverMigrateTest extends TestCase
             $this->assertNotNull($lot, "нет opening-лота у {$mid}");
             $this->assertSame($amount, (int) $lot->amount_cents);
             $this->assertNull($lot->expires_at, 'opening-лот обязан быть бессрочным');
-            $this->assertSame('opening_migration', $lot->source_type);
+            $this->assertSame('v2_opening', $lot->source_type); // единый source_type проводки и лота (should-fix #5)
             // Кэши: V1 available → 0, V2 ОС = перенесённое.
             $this->assertSame(0, (int) MemberWallet::query()->where('member_id', $mid)->value('available_cents'));
             $this->assertSame($amount, (int) MemberAccountV2::query()->where('member_id', $mid)->value('os_available_cents'));
@@ -101,6 +101,26 @@ class CutoverMigrateTest extends TestCase
         $this->assertSame(0, (int) MemberWallet::query()->where('member_id', $a->id)->value('available_cents'));
         // Bronze всё ещё 100 (повторный apply — no-op).
         $this->assertSame(100, (int) Product::query()->where('sku', 'TARIFF-BRONZE')->value('pv'));
+    }
+
+    /**
+     * MF-2(в): открытый вывод (held_cents>0) обязан заблокировать --commit до его
+     * разруливания — иначе деньги «в полёте» тихо расщепляются между V1 и V2.
+     */
+    public function test_commit_aborts_when_member_has_held_balance(): void
+    {
+        $a = $this->seedMember(9001);
+        $this->deposit($a->id, 10000);
+        $this->hold($a->id, 3000); // заявка на вывод «в полёте»
+        $this->seedBronze();
+
+        $this->artisan('calc-v2:cutover-migrate', ['--commit' => true])->assertExitCode(1);
+
+        // Ни одной проводки/лота, тариф не тронут (abort ДО транзакции).
+        $this->assertSame(0, WalletLotV2::query()->count());
+        $this->assertSame(90, (int) Product::query()->where('sku', 'TARIFF-BRONZE')->value('pv'));
+        // Аудит зафиксировал abort по held (action=phase/phase=pre/dry_run=false — уникально для held-гейта).
+        $this->assertDatabaseHas('v2_cutover_log', ['action' => 'phase', 'phase' => 'pre', 'dry_run' => false]);
     }
 
     public function test_commit_aborts_on_reconciliation_drift(): void

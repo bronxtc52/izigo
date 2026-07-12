@@ -4,6 +4,7 @@ namespace Modules\Calculator\V2\Console;
 
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
+use Modules\Calculator\Models\MemberWallet;
 use Modules\Calculator\Models\V2\CutoverLog;
 use Modules\Calculator\Services\ActivationService;
 use Modules\Calculator\V2\Services\Cutover\BronzeTariffCutoverService;
@@ -61,11 +62,21 @@ class CutoverMigrateCommand extends Command
         $projected = $opening->projectedTotalCents();
         $this->newLine();
         $this->line('План переноса main-баланс → ОС opening (бессрочный лот):');
-        $this->table(
-            ['member_id', 'available_cents', 'уже перенесён'],
-            array_map(fn ($r) => [$r['member_id'], $r['available_cents'], $r['already_migrated'] ? 'да' : 'нет'], $plan),
-        );
+        // Should-fix #3: суммы по строкам (member_id/available_cents) печатаем ТОЛЬКО в dry-run
+        // (оператор-превью); при реальном --commit — только агрегат, чтобы денежная детализация
+        // построчно не попадала в stdout/ACA console-логи (детали живут в v2_cutover_log).
+        if (! $commit) {
+            $this->table(
+                ['member_id', 'available_cents', 'уже перенесён'],
+                array_map(fn ($r) => [$r['member_id'], $r['available_cents'], $r['already_migrated'] ? 'да' : 'нет'], $plan),
+            );
+        }
         $this->line(sprintf('Итого к переносу: %d центов по %d партнёрам.', $projected, count($plan)));
+
+        // --- Деньги «в полёте» (held) — открытые выводы блокируют commit (MF-2в) ---
+        $heldTotal = (int) MemberWallet::query()->where('held_cents', '>', 0)->sum('held_cents');
+        $heldMembers = (int) MemberWallet::query()->where('held_cents', '>', 0)->count();
+        $this->line(sprintf('Открытые выводы (held): %d центов у %d партнёров (НЕ переносятся, остаются на V1-пути).', $heldTotal, $heldMembers));
 
         // --- Сверка ledger (прекондишен) ---
         $recon = $reconciliation->check();
@@ -100,6 +111,27 @@ class CutoverMigrateCommand extends Command
                 'actor' => $actor,
                 'dry_run' => false,
                 'detail' => ['aborted' => true, 'reconciliation' => $recon],
+            ]);
+
+            return self::FAILURE;
+        }
+
+        // --- MF-2в: открытые выводы (held>0) блокируют commit ---
+        // Деньги «в полёте» тихо расщепились бы между V1 (held) и V2 (opening) — владелец
+        // обязан сначала разрулить выводы (release/markPaid), потом запускать cutover.
+        if ($heldMembers > 0) {
+            $this->error(sprintf(
+                'ABORT: есть открытые выводы (held>0) у %d партнёров на %d центов — перенос НЕ выполнен. '
+                . 'Разрулите выводы (одобрить+выплатить или отклонить) ДО cutover.',
+                $heldMembers, $heldTotal,
+            ));
+            CutoverLog::query()->create([
+                'action' => CutoverLog::ACTION_PHASE,
+                'phase' => CutoverLog::PHASE_PRE,
+                'actor' => $actor,
+                'dry_run' => false,
+                'amount_cents' => $heldTotal,
+                'detail' => ['aborted' => true, 'reason' => 'held_in_flight', 'held_members' => $heldMembers],
             ]);
 
             return self::FAILURE;

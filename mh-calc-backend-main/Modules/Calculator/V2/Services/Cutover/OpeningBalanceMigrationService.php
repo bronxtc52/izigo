@@ -32,6 +32,13 @@ use Modules\Calculator\V2\Services\Wallet\WalletAccountsV2Service;
  */
 class OpeningBalanceMigrationService
 {
+    /**
+     * Единый провенанс opening-переноса и для ledger-проводки, и для лота ОС
+     * (should-fix #5). Значение ≤16 символов — влезает в ledger_entries.source_type
+     * varchar(16) (лот допускает до 32).
+     */
+    public const SOURCE_TYPE = 'v2_opening';
+
     public function __construct(
         private readonly LedgerPostingV2Service $poster,
         private readonly WalletAccountsV2Service $accounts,
@@ -134,11 +141,11 @@ class OpeningBalanceMigrationService
         $account = $this->accounts->lockAccount($memberId);
 
         // Reclass: Dr member_available / Cr member_os_available (Σ сохраняется, trial balance == 0).
-        // sourceType 'v2_opening' ≤16 символов (ledger_entries.source_type varchar(16)).
+        // Единый source_type для проводки и лота (self::SOURCE_TYPE ≤16 символов).
         $txId = $this->poster->post([
             $this->poster->leg($memberId, LedgerService::ACC_AVAILABLE, LedgerPostingV2Service::DR, $available),
             $this->poster->leg($memberId, LedgerPostingV2Service::ACC_OS_AVAILABLE, LedgerPostingV2Service::CR, $available),
-        ], 'v2_opening', null, $key, ['from' => 'member_available', 'to' => 'os_available']);
+        ], self::SOURCE_TYPE, null, $key, ['from' => 'member_available', 'to' => 'os_available']);
 
         // Бессрочный opening-лот ОС (MF-9 допускает expires_at=null; owner-решение по деньгам).
         WalletLotV2::query()->create([
@@ -148,7 +155,7 @@ class OpeningBalanceMigrationService
             'available_cents' => $available,
             'earned_at' => now(),
             'expires_at' => null, // бессрочный — деньги партнёра не сгорают на cutover
-            'source_type' => 'opening_migration',
+            'source_type' => self::SOURCE_TYPE,
             'status' => WalletLotV2::STATUS_ACTIVE,
             'idempotency_key' => $key,
         ]);
