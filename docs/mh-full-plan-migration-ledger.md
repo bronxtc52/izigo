@@ -59,15 +59,15 @@
 | T05 — Лестница 12 статусов + CLIENT + тиры | `2026_07_13_10xxxx` — ЗАНЯТО (ветка mh2/t05-ranks-tiers): `100000_create_v2_partner_states_table`, `100100_create_v2_tier_history_table`, `100200_create_v2_qualification_evaluations_table`, `100300_create_v2_rank_history_table`, `100400_seed_v2_statuses_feature_flag` (флаг `mh_v2_statuses` OFF) |
 | T06 — Структурная премия (бинар) с капами | `2026_07_13_11xxxx` — ЗАНЯТО (ветка mh2/t06-structural-bonus): `110000_create_v2_structure_bonuses_table` |
 | T07 — Реферальная премия | `2026_07_13_12xxxx` — ЗАНЯТО (ветка mh2/t07-referral-bonus): `120000_create_v2_referral_rewards_table`, `120100_seed_mh_v2_referral_feature_flag` (флаг `mh_v2_referral` OFF) |
-| T08 — Лидерский бонус | `2026_07_13_13xxxx` |
+| T08 — Лидерский бонус | `2026_07_13_16xxxx` — ЗАНЯТО (ветка mh2/t08-leader-bonus): `160000_create_v2_leadership_bonus_lines_table`, `160100_seed_v2_leadership_feature_flag` (флаг `mh_v2_leadership` OFF). Слот 16xxxx по Волне W4 (было 13xxxx до MF/W4) |
 | T09 — Глобальный пул | `2026_07_13_14xxxx` — ЗАНЯТО (ветка mh2/t09-global-bonus): `140000_create_v2_global_bonus_months`, `140010_create_v2_global_bonus_pools`, `140020_create_v2_global_bonus_qualifications`, `140030_create_v2_global_bonus_allocations` (+ partial unique unallocated), `140040_create_v2_global_bonus_payouts`, `140050_seed_feature_flag_mh_v2_global_bonus` (флаг `mh_v2_global_bonus` OFF) |
 | T10 — Награды (award entitlements) | `2026_07_13_15xxxx` — ЗАНЯТО (ветка mh2/t10-qualification-awards): `150000_create_v2_award_entitlements_table`, `150100_seed_v2_awards_feature_flag` (флаг `mh_v2_awards` OFF) |
-| T11 — Калибровка 60%-пула (PoolFactorService) | `2026_07_13_16xxxx` |
-| T12 — Возвраты/reversals | `2026_07_13_17xxxx` |
-| T13 — Админка V2 | `2026_07_13_18xxxx` |
-| T14 — Mini App V2 | `2026_07_13_19xxxx` |
-| T15 — Cutover V1→V2 | `2026_07_13_20xxxx` |
-| T16 — Текст политики v3 | `2026_07_13_21xxxx` |
+| T11 — Калибровка 60%-пула (PoolFactorService) | `2026_07_13_17xxxx` (Волна W4; T08 занял 16xxxx) |
+| T12 — Возвраты/reversals | `2026_07_13_18xxxx` (сдвиг +1 из-за W4) |
+| T13 — Админка V2 | `2026_07_13_19xxxx` |
+| T14 — Mini App V2 | `2026_07_13_20xxxx` |
+| T15 — Cutover V1→V2 | `2026_07_13_21xxxx` |
+| T16 — Текст политики v3 | `2026_07_13_22xxxx` |
 
 ## Анти-конфликтный каркас (что уже существует — НЕ создавать заново)
 
