@@ -20,12 +20,14 @@
 import notificationsTab from './notifications.tab'; // C1 notifications — inbox
 import helpdeskTab from './helpdesk.tab'; // C2 helpdesk — tickets
 import assistantTab from './assistant.tab'; // AI assistant — knowledge base Q&A
+import planv2Tab from './planv2.tab'; // T14 MH-план V2 — счета/статусы/награды
 
 // >>> Block C tabs
 export const blockCTabs = [
     notificationsTab, // C1 notifications — inbox (колокольчик)
     helpdeskTab, // C2 helpdesk — поддержка (тикеты + чат)
     assistantTab, // AI-ассистент — вопросы по KB (за флагом ai_assistant)
+    planv2Tab, // T14 MH-план V2 — счета/статусы/награды (за флагом mh_plan_v2_miniapp)
     // C6 copartners — profile-extra
 ];
 // <<< Block C tabs

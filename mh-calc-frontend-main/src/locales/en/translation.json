@@ -518,5 +518,88 @@
     "thinking": "Thinking...",
     "unavailable": "Assistant is temporarily unavailable. Please try again later or contact support.",
     "rate_limited": "Too many requests. Please wait a moment."
+  },
+  "planv2": {
+    "title": "My Plan",
+    "section_status": "Status",
+    "section_accounts": "Accounts",
+    "section_awards": "Awards",
+    "unavailable": "Plan data is not available yet",
+    "status_none": "No status",
+    "status_max": "Top status",
+    "tier_label": "Contract tier",
+    "personal_pv": "Accumulated PV",
+    "current_status": "Current status",
+    "next_status": "Next",
+    "small_branch_pv": "Small-leg PV",
+    "referrals_l1": "First-line referrals",
+    "qualification_variants": "Qualification options",
+    "variants_hint": "Meet any one of the options",
+    "variant": "Option",
+    "satisfied": "Met",
+    "need_anchor": "{{count}} × {{rank}} on first line",
+    "need_support": "{{count}} × {{rank}} in support",
+    "distinct_branches": "From distinct root branches",
+    "ladder": "Status ladder",
+    "you_are_here": "You are here",
+    "account": {
+      "os": "Main account",
+      "ns": "Accumulation account",
+      "bs": "Bonus account"
+    },
+    "account_short": {
+      "os": "Main",
+      "ns": "Accum.",
+      "bs": "Bonus"
+    },
+    "os_note": "Withdrawable + pay up to {{pct}}% of order",
+    "ns_note": "Transfer to Main: {{date}}",
+    "bs_note": "Purchases only, not withdrawable",
+    "upcoming_expirations": "Upcoming expirations",
+    "active_lots": "Active lots",
+    "no_lots": "No active lots",
+    "expires": "until",
+    "no_expiry": "No expiry",
+    "history": "Transaction history",
+    "no_history": "No transactions yet",
+    "load_more": "Load more",
+    "no_awards": "No awards yet",
+    "awards_hint": "Awards are credited to the Bonus account; payouts are manual",
+    "stage": "stage",
+    "status": {
+      "CLIENT": "Client",
+      "CONSULTANT": "Consultant",
+      "MANAGER": "Manager",
+      "BRONZE_MANAGER": "Bronze Manager",
+      "SILVER_MANAGER": "Silver Manager",
+      "GOLD_MANAGER": "Gold Manager",
+      "PLATINUM_MANAGER": "Platinum Manager",
+      "DIRECTOR": "Director",
+      "PEARL_DIRECTOR": "Pearl Director",
+      "SAPPHIRE_DIRECTOR": "Sapphire Director",
+      "DIAMOND_DIRECTOR": "Diamond Director",
+      "VICE_PRESIDENT": "Vice President"
+    },
+    "tier": {
+      "START": "Start",
+      "BUSINESS": "Business",
+      "ELITE": "Elite"
+    },
+    "award_state": {
+      "locked": "Locked",
+      "earned": "Earned",
+      "granted": "Credited",
+      "on_hold": "On hold",
+      "paid_out": "Paid out",
+      "forfeited": "Forfeited"
+    },
+    "source": {
+      "bonus_v2": "Bonus",
+      "ns_transfer": "NS→OS transfer",
+      "acct_charge": "Account charge",
+      "withdrawal_v2": "Withdrawal",
+      "lot_expiry": "Lot expiry"
+    },
+    "locale_tag": "en-US"
   }
 }
