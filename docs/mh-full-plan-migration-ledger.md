@@ -98,3 +98,10 @@ T08 (лидерский) = 2026_07_13_16xxxx · T11 (60%-калибровка) =
   `170010_create_v2_pool_calibration_items_table`, `170020_seed_v2_pool_feature_flag`
   (флаг `mh_v2_pool` OFF). Контракт T11→T08/T04: factor_bps committed-строки
   v2_pool_calibrations читают PoolCalibrationReader (T08) и NsToOsTransfer (T04).
+
+## Волна W4 — смержена, 1 CRITICAL в фиксе (2026-07-12)
+T11 (60%-калибровка) + T08 (лидерский) смержены (release c3243a1, 849 passed). Интеграционное ревью:
+MF-W4-1 CRITICAL (деньги) — лидерский считал от НЕкалиброванной базы (net=after_cap, factor не
+применён); переплата при factor<10000. В фиксе (repro-first + интеграционный голден T11→T08).
+Совет был деградирован (только Sonnet дал находки; GPT-5.1 пусто, Gemini invalid) — но оркестратор
+независимо нашёл тот же баг, двойное подтверждение. Ревью-стоимость ≈$0.35.
