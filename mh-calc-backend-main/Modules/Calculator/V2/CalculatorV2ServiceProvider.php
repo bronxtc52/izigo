@@ -115,6 +115,22 @@ class CalculatorV2ServiceProvider extends ServiceProvider
             \Modules\Calculator\V2\Services\Bonus\Steps\StructureBonusPostStep::class,
         ], Services\Periods\PeriodCloseStepRegistry::TAG);
         // <<< V2 T06
+
+        // >>> V2 T07: реферальная премия по тирам (10% L1 / 0-5-8% L2, на ОС сразу после оплаты)
+        $this->app->singleton(Services\Referral\ReferralRateResolver::class);
+        $this->app->singleton(Services\Referral\ReferralBonusService::class);
+        // Свой шаг пост-оплаты — ПОСЛЕ VolumeCaptureStep (T03, снапшоты BV) и StatusesStep
+        // (T05, тир получателя). extend вместо правки closure T03/T05: регистрация целиком
+        // в этом маркере; markPaid не правим (единственная точка — PaidOrderV2Pipeline, NTH-4).
+        $this->app->extend(
+            Contracts\PaidOrderV2Pipeline::class,
+            function (Contracts\PaidOrderV2Pipeline $pipeline, $app) {
+                $pipeline->register($app->make(Services\Referral\ReferralBonusStep::class));
+
+                return $pipeline;
+            },
+        );
+        // <<< V2 T07
     }
 
     public function boot(): void
