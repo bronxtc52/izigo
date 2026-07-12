@@ -276,6 +276,7 @@ require __DIR__ . '/api/v2_awards.php';       // T10
 require __DIR__ . '/api/v2_pool.php';         // T11
 require __DIR__ . '/api/v2_leadership.php';   // T08
 require __DIR__ . '/api/v2_refunds.php';      // T12
+require __DIR__ . '/api/miniapp_v2.php';      // T14 (Mini App read-слой плана)
 // <<< V2 routes
 
 
