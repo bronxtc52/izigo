@@ -163,7 +163,7 @@ class StructureBonusService
             'cap_remaining_before_cents' => $calc->capRemainingBeforeCents,
             'after_cap_cents' => $calc->afterCapCents,
             'forfeited_cents' => $calc->forfeitedCents,
-            'net_cents' => $calc->afterCapCents, // = after_cap до 60%-пула T11; база лидерского T08 (DEC-029)
+            'net_cents' => $calc->afterCapCents, // = after_cap ПОКА; T11 перепишет на калиброванное (after_cap×factor) на month-close ДО лидерского T08 (MF-W4-1, DEC-029)
             'accrual_month' => $accrualMonth,
             'status' => StructureBonus::STATUS_CALCULATED,
             'posting_idempotency_key' => sprintf('v2:structure:%d:%d', $period->id, $ownerId),

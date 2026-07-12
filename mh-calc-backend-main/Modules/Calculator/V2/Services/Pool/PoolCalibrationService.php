@@ -23,9 +23,12 @@ use Modules\Calculator\V2\Models\StructureBonus;
  * базы, иначе цикл), награды (owner-исключение Гейта A).
  *
  * factor_bps по PoolFactor (целочисленно). Применение:
- *  - структурная: НЕ постим здесь — перевод НС→ОС по закоммиченному factor_bps делает
- *    T02 NsToOsTransfer (per-member floor + дельта в company_pool_retained двойной записью);
- *    items(structure) — проекция этого перевода (state=projected).
+ *  - структурная: денег здесь НЕ постим, НО пишем ЕДИНУЮ истину «фактически выплачено» —
+ *    калиброванный net_cents (= after_cap × factor, per-member floor) в каждую строку
+ *    v2_structure_bonuses ДО шага лидерского (MF-W4-1, order 500 < 800). Это база
+ *    лидерского T08 (DEC-029). Сам перевод НС→ОС по closed-committed factor_bps делает
+ *    T04 NsToOsTransfer из СЫРОГО НС в ledger (закредитован after_cap на half-month posting,
+ *    net_cents он не читает — двойного factor нет); items(structure) — проекция перевода.
  *  - глобальная: пишем final_cents member-аллокаций (distribute largest-remainder) ДО
  *    финализации месяца T09 (order 500 < 900); неаллоцированный остаток факторингу не
  *    подлежит (уже деньги компании).
@@ -146,6 +149,17 @@ class PoolCalibrationService
                 ]);
             }
 
+            // --- MF-W4-1: ЕДИНАЯ ИСТИНА выплаченной структурной в v2_structure_bonuses ---
+            // Пишем калиброванный net_cents (= after_cap × factor, floor) КАЖДОЙ строки
+            // структурной премии месяца ДО шага лидерского (order 500 < 800, DEC-053),
+            // чтобы база лидерского T08 (DEC-029) читала ФАКТИЧЕСКИ выплаченное, а не
+            // некалиброванный after_cap. НС→ОС (T04) двойного factor не создаёт: он читает
+            // сырой НС из ledger (закредитован after_cap на half-month posting ДО этой
+            // калибровки) и множит factor сам — net_cents он не читает.
+            if ($includeStructure) {
+                $this->writeCalibratedStructureNet($monthCode, $factor);
+            }
+
             // --- items(global) + запись final_cents (только draft-месяц) ---
             $applyGlobal = $globalMonth !== null && ! $globalMonth->isFinal();
             foreach ($globalByAlloc as $allocId => $raw) {
@@ -197,6 +211,48 @@ class PoolCalibrationService
         }
 
         return $out;
+    }
+
+    /**
+     * MF-W4-1: записать калиброванную выплату структурной премии (net_cents) в каждую
+     * строку v2_structure_bonuses месяца — ЕДИНАЯ истина «фактически выплачено», которую
+     * читает база лидерского T08 (DEC-029).
+     *
+     * Per-member floor (зеркалит перевод НС→ОС T02): калиброванную сумму участника
+     * распределяем по ЕГО строкам методом наибольшего остатка (distribute), так что
+     * Σ строк = intdiv(Σ after_cap × factor) ТОЧНО — без per-row дрейфа и без расхождения
+     * с суммой, которую НС→ОС переводит на ОС (та тоже per-member floor). retained
+     * (after_cap − paid) фиксируем в pool_adjustment_cents, factor — в pool_coefficient
+     * (аудит/отчёт T11). Идемпотентно: закрытый месяц заморожен, повтор даёт те же суммы.
+     */
+    private function writeCalibratedStructureNet(string $monthCode, PoolFactor $factor): void
+    {
+        $rows = StructureBonus::query()
+            ->where('accrual_month', $monthCode)
+            ->whereIn('status', [StructureBonus::STATUS_CALCULATED, StructureBonus::STATUS_POSTED])
+            ->orderBy('member_id')
+            ->orderBy('id')
+            ->get(['id', 'member_id', 'after_cap_cents']);
+
+        $afterCapByRowByMember = [];
+        foreach ($rows as $r) {
+            $afterCapByRowByMember[(int) $r->member_id][(int) $r->id] = (int) $r->after_cap_cents;
+        }
+
+        $coefficient = number_format($factor->factorBps / PoolFactor::FULL_BPS, 8, '.', '');
+
+        foreach ($afterCapByRowByMember as $rowsAfterCap) {
+            $paidByRow = $factor->distribute($rowsAfterCap);
+            foreach ($rowsAfterCap as $rowId => $afterCap) {
+                $paid = $paidByRow[$rowId];
+                StructureBonus::query()->whereKey($rowId)->update([
+                    'net_cents' => $paid,
+                    'pool_coefficient' => $coefficient,
+                    'pool_adjustment_cents' => $afterCap - $paid,
+                    'updated_at' => now(),
+                ]);
+            }
+        }
     }
 
     /**
