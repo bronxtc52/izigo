@@ -56,11 +56,13 @@ class ParityRun extends Model
             return false;
         }
 
-        $summary = $this->summary ?? [];
-        $mismatch = (int) ($summary['by_classification'][ParityDiff::CLASS_MISMATCH] ?? 0);
-        if ($mismatch !== 0) {
+        // Гейт выводим из ИСТОЧНИКА ИСТИНЫ (строки v2_parity_diffs), а не из денормализованного
+        // summary-счётчика: денежный go/no-go не должен зависеть от корректности агрегата.
+        if ($this->diffs()->where('classification', ParityDiff::CLASS_MISMATCH)->exists()) {
             return false;
         }
+
+        $summary = $this->summary ?? [];
 
         return ($summary['conservation_ok'] ?? false) === true;
     }
