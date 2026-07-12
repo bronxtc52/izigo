@@ -19,7 +19,20 @@ class StatusReadService implements StatusReader
     {
     }
 
-    /** Код высшего ранга, достигнутого к моменту $at (null = ранга нет). */
+    /**
+     * Код высшего ранга, достигнутого к моменту $at (null = ранга нет).
+     *
+     * Резолв = max(rank_ordinal) среди строк с achieved_at <= $at. Корректность
+     * опирается на ИНВАРИАНТ МОНОТОННОСТИ (architect, W2 review): achieved_at не
+     * убывает с ростом rank_ordinal (высший ранг достигнут не раньше низшего), а сама
+     * achieved_at строки неизменна после первой записи. Инвариант ОБЕСПЕЧЕН, не
+     * допущение: (1) append-once — unique(member_id, rank_code) (миграция 100300) +
+     * insertOrIgnore в recordRank/recordAchievedRanks делают achieved_at каждого ранга
+     * immutable (пересчёт half-month не переписывает); (2) upward-only — ранги пишутся
+     * непрерывным диапазоном [current+1 … achieved] одним evaluation-таймстампом,
+     * current_rank_code только растёт. Коды рангов append-only и не ремапятся между
+     * версиями политики => резолв version-agnostic (architect-2).
+     */
     public function rankAsOf(int $memberId, \DateTimeInterface $at): ?string
     {
         return DB::table('v2_rank_history')

@@ -81,7 +81,19 @@ class TierService
         return (string) ($row->total ?? '0');
     }
 
-    /** as-of чтение тира из истории (контракт для T07). */
+    /**
+     * as-of чтение тира из истории (контракт для T07): тир с последним effective_at
+     * среди строк с effective_at <= $at.
+     *
+     * Корректность опирается на ИНВАРИАНТ МОНОТОННОСТИ (architect, W2 review): тир
+     * повышается только вверх, а effective_at не убывает с ростом ordinal тира
+     * (высший тир достигнут не раньше низшего) — иначе «последний по времени» вернул бы
+     * младший тир (тир не понижается, DEC-020/027). Инвариант ОБЕСПЕЧЕН, не допущение:
+     * (1) append-once — unique(member_id, tier) (миграция 100100) + firstOrCreate в
+     * applyPaidOrder делают строку тира immutable; (2) upward-only — строка пишется лишь
+     * при newOrdinal > currentOrdinal, current_tier только растёт. Коды тиров append-only
+     * и не ремапятся между версиями политики => резолв version-agnostic (architect-2).
+     */
     public function tierAsOf(int $memberId, \DateTimeInterface $at): ?string
     {
         return DB::table('v2_tier_history')
