@@ -16,6 +16,7 @@
 | 2026-07-12 | W0 scaffold — проверка «каркас ничего не ломает» | 414 passed (1451 assertions) — без регрессий. |
 | — | W1 (T01–T04) — старт | _заполняется оркестратором_ |
 | 2026-07-13 | **W2 (T05)** — лестница 12 статусов + CLIENT/grace + тиры (ветка `mh2/t05-ranks-tiers`) | 44 новых теста (22 unit ядра лестницы/тиров + 22 feature grace/персистентность/RBAC). Прогон `izigo_test_t05`: **666 passed**; 4 падения (KycTest/HealthEndpoint) — пре-существующие, воспроизводятся на чистом `release/mh-full-plan` (env APP_KEY/KYC-флаг), не связаны с T05. Флаг `mh_v2_statuses` OFF. |
+| 2026-07-13 | **W? (T07)** — реферальная премия по тирам 10% L1 / 0-5-8% L2, на ОС сразу после оплаты (ветка `mh2/t07-referral-bonus`) | 22 новых теста (6 unit матрицы ставок ReferralRateResolver + 16 feature ДЕНЬГИ/идемпотентность/stop_at_elite/RBAC). Прогон `izigo_test_t07`: **692 passed**; те же 5 пре-существующих падений (KycTest/HealthEndpoint/WebAdminAuditTail-kyc) воспроизводятся на чистом base с реверсом T07 — не связаны с T07. Флаг `mh_v2_referral` OFF. Шаг `ReferralBonusStep` регистрируется в `PaidOrderV2Pipeline` (markPaid не тронут). |
 
 ## Baseline
 
@@ -56,7 +57,7 @@
 |--------|------|
 | T05 — Лестница 12 статусов + CLIENT + тиры | `2026_07_13_10xxxx` — ЗАНЯТО (ветка mh2/t05-ranks-tiers): `100000_create_v2_partner_states_table`, `100100_create_v2_tier_history_table`, `100200_create_v2_qualification_evaluations_table`, `100300_create_v2_rank_history_table`, `100400_seed_v2_statuses_feature_flag` (флаг `mh_v2_statuses` OFF) |
 | T06 — Структурная премия (бинар) с капами | `2026_07_13_11xxxx` — ЗАНЯТО (ветка mh2/t06-structural-bonus): `110000_create_v2_structure_bonuses_table` |
-| T07 — Реферальная премия | `2026_07_13_12xxxx` |
+| T07 — Реферальная премия | `2026_07_13_12xxxx` — ЗАНЯТО (ветка mh2/t07-referral-bonus): `120000_create_v2_referral_rewards_table`, `120100_seed_mh_v2_referral_feature_flag` (флаг `mh_v2_referral` OFF) |
 | T08 — Лидерский бонус | `2026_07_13_13xxxx` |
 | T09 — Глобальный пул | `2026_07_13_14xxxx` |
 | T10 — Награды (award entitlements) | `2026_07_13_15xxxx` |
