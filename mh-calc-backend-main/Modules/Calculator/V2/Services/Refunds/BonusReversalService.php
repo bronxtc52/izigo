@@ -4,11 +4,15 @@ namespace Modules\Calculator\V2\Services\Refunds;
 
 use Modules\Calculator\V2\Contracts\LedgerV2;
 use Modules\Calculator\V2\Domain\CalcPeriod;
+use Modules\Calculator\V2\Models\GlobalBonusAllocation;
+use Modules\Calculator\V2\Models\GlobalBonusMonth;
 use Modules\Calculator\V2\Models\LeadershipBonusLine;
 use Modules\Calculator\V2\Models\OrderReturn;
+use Modules\Calculator\V2\Models\OrderVolumeSnapshot;
 use Modules\Calculator\V2\Models\ReferralReward;
 use Modules\Calculator\V2\Models\ReversalAction;
 use Modules\Calculator\V2\Models\StructureBonus;
+use Modules\Calculator\V2\Services\GlobalBonus\GlobalBonusMonthlyService;
 use Modules\Calculator\V2\Services\Wallet\WalletAccountsV2Service;
 
 /**
@@ -35,6 +39,7 @@ class BonusReversalService
     public function __construct(
         private readonly WalletAccountsV2Service $wallet,
         private readonly PeriodCorrectionService $corrections,
+        private readonly GlobalBonusMonthlyService $globalMonthly,
     ) {
     }
 
@@ -265,6 +270,104 @@ class BonusReversalService
                     'basis' => 'ns_within_month_reversal',
                 ],
                 'ledger_tx_id' => $res['tx_id'],
+                'status' => ReversalAction::STATUS_POSTED,
+            ],
+        );
+    }
+
+    /**
+     * MF-W5-4: сторно глобального бонуса (решение владельца, dec-triage §«глобальный»).
+     *
+     *  - ОТКРЫТЫЙ (draft) месяц: возврат уменьшает eligible global BV окна
+     *    (allocateForMonth: base = Σ PAID − Σ returned_bv) → детерминированный ПЕРЕСЧЁТ
+     *    долей/аллокаций draft-месяца. Авто, проводок ledger в draft нет.
+     *  - ФИНАЛИЗИРОВАННЫЙ месяц / ВЫПЛАЧЕННЫЙ квартал: авто-сторно НЕ проводится
+     *    (immutable-снапшот DEC-036, квартальная выплата могла уйти) — фиксируется
+     *    owner-manual note, решение принимает владелец вручную.
+     *
+     * @return bool true, если возврат требует ручного решения владельца по глобальному
+     */
+    public function reverseGlobalForReturn(OrderReturn $return): bool
+    {
+        $paidAt = OrderVolumeSnapshot::query()
+            ->where('order_id', $return->order_id)
+            ->value('paid_at');
+        if ($paidAt === null) {
+            return false; // нет снапшота оплаты — глобального вклада нет
+        }
+
+        $monthPeriod = CalcPeriod::query()
+            ->where('period_type', CalcPeriod::TYPE_MONTH)
+            ->where('starts_at', '<=', $paidAt)
+            ->where('ends_at', '>', $paidAt)
+            ->first();
+        if ($monthPeriod === null) {
+            // Месячный период ещё не заведён: при первом расчёте месяца base уже вычтет
+            // returned_bv (см. GlobalBonusMonthlyService::allocateForMonth). Проводки нет.
+            return false;
+        }
+
+        $month = GlobalBonusMonth::query()->where('month_period_id', $monthPeriod->id)->first();
+        if ($month === null) {
+            return false; // глобальный месяца ещё не считался — учтётся при расчёте
+        }
+
+        if ($month->isFinal()) {
+            $paidQuarter = GlobalBonusAllocation::query()
+                ->where('global_bonus_month_id', $month->id)
+                ->where('kind', GlobalBonusAllocation::KIND_MEMBER)
+                ->where('status', GlobalBonusAllocation::STATUS_PAID)
+                ->exists();
+            $this->recordGlobalNote(
+                $return,
+                $monthPeriod->id,
+                ReversalAction::TYPE_QUALIFICATION_NOTE,
+                $paidQuarter ? 'final_paid_quarter_owner_manual' : 'final_month_owner_manual',
+                ownerManual: true,
+            );
+
+            return true;
+        }
+
+        // draft: возврат уже создан (returned_bv учтётся base'ом) → пересчёт долей месяца.
+        $this->globalMonthly->allocateForMonth($monthPeriod);
+        $this->recordGlobalNote(
+            $return,
+            $monthPeriod->id,
+            ReversalAction::TYPE_BONUS_REVERSAL,
+            'draft_recomputed',
+            ownerManual: false,
+        );
+
+        return false;
+    }
+
+    private function recordGlobalNote(
+        OrderReturn $return,
+        int $monthPeriodId,
+        string $actionType,
+        string $basis,
+        bool $ownerManual,
+    ): void {
+        ReversalAction::query()->firstOrCreate(
+            ['idempotency_key' => "v2:reversal:{$return->id}:global"],
+            [
+                'return_id' => $return->id,
+                'action_type' => $actionType,
+                'bonus_type' => ReversalAction::BONUS_GLOBAL,
+                'target_type' => 'global_bonus_month',
+                'target_id' => $monthPeriodId,
+                'amount_cents' => 0,
+                'snapshot_json' => [
+                    'basis' => $basis,
+                    'owner_manual' => $ownerManual,
+                    'returned_bv_cents' => (int) $return->returned_bv_cents,
+                    'note' => $ownerManual
+                        ? 'Глобальный бонус финализирован/выплачен — авто-сторно НЕ проводится; '
+                            . 'уменьшение базы/долей требует ручного решения владельца (DEC-036).'
+                        : 'Глобальный бонус открытого месяца: eligible BV уменьшен на returned_bv, '
+                            . 'доли месяца пересчитаны (draft).',
+                ],
                 'status' => ReversalAction::STATUS_POSTED,
             ],
         );

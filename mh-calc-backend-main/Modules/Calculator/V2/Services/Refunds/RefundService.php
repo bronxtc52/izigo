@@ -153,10 +153,14 @@ class RefundService
         //    закрытые периоды → корректировки (owner-approve).
         $proposals = $this->bonus->proposePeriodEffectsForReturn($return, $pv['affected_match_ids']);
 
-        // 4) Пере-оценка квалификаций (ранг/награда/тир — навсегда; только PV-база).
+        // 4) Глобальный (MF-W5-4): draft-месяц — пересчёт базы/долей; финализированный/
+        //    выплаченный квартал — owner-manual (авто-сторно нет).
+        $globalNeedsManual = $this->bonus->reverseGlobalForReturn($return);
+
+        // 5) Пере-оценка квалификаций (ранг/награда/тир — навсегда; только PV-база).
         $this->requal->recordForReturn($return);
 
-        return $proposals > 0;
+        return $proposals > 0 || $globalNeedsManual;
     }
 
     /**

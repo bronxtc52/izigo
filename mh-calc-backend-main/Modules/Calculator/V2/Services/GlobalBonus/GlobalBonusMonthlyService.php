@@ -12,6 +12,7 @@ use Modules\Calculator\V2\Models\GlobalBonusAllocation;
 use Modules\Calculator\V2\Models\GlobalBonusMonth;
 use Modules\Calculator\V2\Models\GlobalBonusPool;
 use Modules\Calculator\V2\Models\GlobalBonusQualification;
+use Modules\Calculator\V2\Models\OrderReturn;
 use Modules\Calculator\V2\Models\OrderVolumeSnapshot;
 
 /**
@@ -68,10 +69,23 @@ class GlobalBonusMonthlyService
             $policy = $this->policies->forDate($start);
             $config = new GlobalBonusConfig($policy->globalPool());
 
-            $globalBvCents = (int) OrderVolumeSnapshot::query()
+            $paidBvCents = (int) OrderVolumeSnapshot::query()
                 ->where('paid_at', '>=', $start)
                 ->where('paid_at', '<', $end)
                 ->sum('bv_usd_cents');
+
+            // MF-W5-4: возвраты уменьшают eligible global BV окна (durable — переживает
+            // пересчёт draft-месяца, т.к. считается из строк возвратов, а не из снапшотов).
+            // Снапшоты заказа immutable (DEC-003); реверс-снапшотов нет, поэтому вычитаем
+            // returned_bv возвратов, чьи заказы оплачены в окне месяца.
+            $reversedBvCents = (int) OrderReturn::query()
+                ->whereIn('order_id', OrderVolumeSnapshot::query()
+                    ->where('paid_at', '>=', $start)
+                    ->where('paid_at', '<', $end)
+                    ->select('order_id'))
+                ->sum('returned_bv_cents');
+
+            $globalBvCents = max(0, $paidBvCents - $reversedBvCents);
 
             $month = GlobalBonusMonth::query()->updateOrCreate(
                 ['month_period_id' => $monthPeriod->id],
