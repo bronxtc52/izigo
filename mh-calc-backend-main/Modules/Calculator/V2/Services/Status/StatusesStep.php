@@ -50,7 +50,8 @@ class StatusesStep implements PaidOrderV2Step
         $this->tiers->applyPaidOrder($buyerId, $orderId, $paidAt, $policy);
 
         // 2) Grace-hold входящих лотов, чьи владельцы сидят в grace (не потреблять матчингом).
-        $this->lifecycle->holdIncomingLotsForGraceClients($orderId);
+        // MF-1: владельцев с уже прошедшим дедлайном hold сперва просрочит (expire-if-due).
+        $this->lifecycle->holdIncomingLotsForGraceClients($orderId, $paidAt);
 
         // 3) CLIENT-активация покупателя (первая квалифицирующая покупка >= 100 PV).
         $becameClient = $this->lifecycle->onQualifyingOrderPaid($buyerId, $orderPv, $paidAt, $policy);

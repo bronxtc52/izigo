@@ -90,19 +90,50 @@ class ClientLifecycleService
      * Лоты свежеоплаченного заказа, владельцы которых сидят в grace (state=client,
      * исход не решён) — в grace_held, чтобы матчинг T03 их не потребил до исхода.
      * Вызывается StatusesStep ПОСЛЕ VolumeCaptureStep на каждом заказе.
+     *
+     * MF-1 (W2 review): grace_held ставим ТОЛЬКО владельцам, чей grace ещё НЕ истёк
+     * на момент оплаты ($paidAt); владельцев, чей дедлайн уже прошёл (сканер не успел
+     * отработать между дедлайном и приходом лота), сперва проводим через expireGrace()
+     * — ИНАЧЕ входящий лот с occurred_at > дедлайна запирается в grace_held навсегда:
+     * аннулирование grace-периода фильтрует occurred_at<=grace_expires_at и его не
+     * достаёт, а succeedGrace (grace_held->free) сработает лишь при появлении реферала.
+     * Порядок фиксирован: expire-if-due -> hold.
      */
-    public function holdIncomingLotsForGraceClients(int $orderId): void
+    public function holdIncomingLotsForGraceClients(int $orderId, CarbonImmutable $paidAt): void
     {
         $this->lockGuard->assertLockHeld();
 
-        PvLot::query()
+        // 1) Владельцы входящих лотов, чей grace УЖЕ просрочен на момент оплаты, —
+        // фиксируем просрочку до любого hold (аннулирование grace-периода + expired).
+        $expiredOwners = PvLot::query()
             ->where('origin_order_id', $orderId)
             ->where('state', PvLot::STATE_FREE)
-            ->whereIn('owner_member_id', function ($q) {
+            ->whereIn('owner_member_id', function ($q) use ($paidAt) {
                 $q->select('member_id')
                     ->from('v2_partner_states')
                     ->where('state', PartnerState::STATE_CLIENT)
-                    ->whereNull('grace_outcome');
+                    ->whereNull('grace_outcome')
+                    ->where('grace_expires_at', '<', $paidAt);
+            })
+            ->distinct()
+            ->pluck('owner_member_id');
+
+        foreach ($expiredOwners as $ownerId) {
+            $this->expireGrace((int) $ownerId);
+        }
+
+        // 2) grace_held — только владельцам, чей grace ещё активен (дедлайн >= оплаты).
+        // Лоты только что просроченных владельцев остаются FREE (occurred_at уже за
+        // дедлайном — это не grace-период PV; учтутся, если владелец станет CONSULTANT).
+        PvLot::query()
+            ->where('origin_order_id', $orderId)
+            ->where('state', PvLot::STATE_FREE)
+            ->whereIn('owner_member_id', function ($q) use ($paidAt) {
+                $q->select('member_id')
+                    ->from('v2_partner_states')
+                    ->where('state', PartnerState::STATE_CLIENT)
+                    ->whereNull('grace_outcome')
+                    ->where('grace_expires_at', '>=', $paidAt);
             })
             ->update(['state' => PvLot::STATE_GRACE_HELD, 'updated_at' => now()]);
     }

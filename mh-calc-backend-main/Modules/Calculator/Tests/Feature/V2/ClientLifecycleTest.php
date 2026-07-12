@@ -183,6 +183,74 @@ class ClientLifecycleTest extends TestCase
         $this->travelBack();
     }
 
+    /**
+     * MF-1 (W2 review): лот, пришедший ПОСЛЕ дедлайна grace, но ДО прогона сканера,
+     * не должен застрять в grace_held навсегда. У просроченного CLIENT hold обязан
+     * сперва зафиксировать просрочку (expireGrace), а не запирать новый лот в
+     * grace_held, откуда аннулирование (occurred_at<=deadline) его уже не достанет.
+     */
+    public function testIncomingLotForAlreadyExpiredClientDoesNotStickInGraceHeld(): void
+    {
+        $p100 = $this->product(100, 'P100');
+        $this->travelTo(CarbonImmutable::parse('2026-07-05 10:00:00', 'UTC'));
+        [$rootData, , , $cData] = $this->tree();
+
+        $this->buyAndPay($rootData, $p100->id); // root -> CLIENT, дедлайн 04.08
+        $root = $this->memberByTg(600);
+
+        // Дедлайн уже прошёл, сканер ещё НЕ прогонялся; покупка даунлайна C создаёт
+        // FREE-лот владельца root с occurred_at ПОСЛЕ дедлайна.
+        $this->travelTo(CarbonImmutable::parse('2026-08-06 10:00:00', 'UTC'));
+        $this->buyAndPay($cData, $p100->id);
+
+        // Инвариант MF-1/architect-3: у просроченного клиента НЕТ застрявших grace_held.
+        $rootLots = PvLot::query()->where('owner_member_id', $root->id)->get();
+        $this->assertSame(0, $rootLots->where('state', PvLot::STATE_GRACE_HELD)->count(),
+            'лот после дедлайна не должен запираться в grace_held');
+
+        // hold обязан был прогнать владельца через expireGrace ДО себя.
+        $state = PartnerState::query()->find($root->id);
+        $this->assertSame(PartnerState::STATE_GRACE_EXPIRED, $state->state);
+        $this->assertSame(PartnerState::OUTCOME_ANNULLED, $state->grace_outcome);
+        $this->travelBack();
+    }
+
+    /**
+     * architect-3 (W2 review): на терминальном исходе grace аннулируются ВСЕ grace_held
+     * лоты владельца, а не только те, что попали в окно occurred_at<=deadline. Иначе
+     * лот, оказавшийся в grace_held с occurred_at после дедлайна, переживает expiry.
+     */
+    public function testGraceExpiryAnnulsAllGraceHeldRegardlessOfOccurredAt(): void
+    {
+        $p100 = $this->product(100, 'P100');
+        $this->travelTo(CarbonImmutable::parse('2026-07-05 10:00:00', 'UTC'));
+        [$rootData, , , $cData] = $this->tree();
+
+        $this->buyAndPay($rootData, $p100->id); // root -> CLIENT
+        $root = $this->memberByTg(600);
+
+        // Покупка C в пределах grace -> реальный grace_held лот владельца root.
+        $this->buyAndPay($cData, $p100->id);
+        $held = PvLot::query()->where('owner_member_id', $root->id)
+            ->where('state', PvLot::STATE_GRACE_HELD)->get();
+        $this->assertGreaterThanOrEqual(1, $held->count());
+
+        // Симулируем лот, попавший в grace_held с occurred_at ПОСЛЕ дедлайна
+        // (граничный сценарий architect-3).
+        PvLot::query()->whereIn('id', $held->pluck('id'))
+            ->update(['occurred_at' => CarbonImmutable::parse('2026-08-06 12:00:00', 'UTC')]);
+
+        // Дедлайн прошёл — сканер должен аннулировать ВСЕ grace_held.
+        $this->travelTo(CarbonImmutable::parse('2026-08-10 00:00:00', 'UTC'));
+        $this->artisan('calc-v2:client-grace-scan')->assertSuccessful();
+
+        $after = PvLot::query()->where('owner_member_id', $root->id)->get();
+        $this->assertSame(0, $after->where('state', PvLot::STATE_GRACE_HELD)->count(),
+            'grace_expired => ноль grace_held (единый инвариант)');
+        $this->assertTrue($after->where('id', $held->first()->id)->first()->pv_reversed > 0);
+        $this->travelBack();
+    }
+
     public function testReferralExactlyOnDeadlineQualifiesInclusive(): void
     {
         $p100 = $this->product(100, 'P100');
