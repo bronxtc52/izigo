@@ -203,6 +203,16 @@ class CalculatorV2ServiceProvider extends ServiceProvider
             \Modules\Calculator\V2\Services\Bonus\Steps\LeadershipCloseStep::class,
         ], Services\Periods\PeriodCloseStepRegistry::TAG);
         // <<< V2 T08
+
+        // >>> V2 T12: возвраты/сторно (reversal всех бонусов, корректировки закрытых
+        //     периодов). Оркестратор RefundService берёт advisory-lock ACTIVATION_LOCK.
+        $this->app->singleton(\Modules\Calculator\V2\Services\Refunds\ReversalPlanner::class);
+        $this->app->singleton(\Modules\Calculator\V2\Services\Refunds\PvLotReversalService::class);
+        $this->app->singleton(\Modules\Calculator\V2\Services\Refunds\PeriodCorrectionService::class);
+        $this->app->singleton(\Modules\Calculator\V2\Services\Refunds\BonusReversalService::class);
+        $this->app->singleton(\Modules\Calculator\V2\Services\Refunds\RequalificationService::class);
+        $this->app->singleton(\Modules\Calculator\V2\Services\Refunds\RefundService::class);
+        // <<< V2 T12
     }
 
     public function boot(): void
