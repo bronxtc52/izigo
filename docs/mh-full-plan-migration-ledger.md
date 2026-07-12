@@ -55,7 +55,7 @@
 | Задача | Слот |
 |--------|------|
 | T05 — Лестница 12 статусов + CLIENT + тиры | `2026_07_13_10xxxx` — ЗАНЯТО (ветка mh2/t05-ranks-tiers): `100000_create_v2_partner_states_table`, `100100_create_v2_tier_history_table`, `100200_create_v2_qualification_evaluations_table`, `100300_create_v2_rank_history_table`, `100400_seed_v2_statuses_feature_flag` (флаг `mh_v2_statuses` OFF) |
-| T06 — Структурная премия (бинар) с капами | `2026_07_13_11xxxx` |
+| T06 — Структурная премия (бинар) с капами | `2026_07_13_11xxxx` — ЗАНЯТО (ветка mh2/t06-structural-bonus): `110000_create_v2_structure_bonuses_table` |
 | T07 — Реферальная премия | `2026_07_13_12xxxx` |
 | T08 — Лидерский бонус | `2026_07_13_13xxxx` |
 | T09 — Глобальный пул | `2026_07_13_14xxxx` |

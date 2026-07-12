@@ -101,6 +101,20 @@ class CalculatorV2ServiceProvider extends ServiceProvider
             },
         );
         // <<< V2 T05
+
+        // >>> V2 T06: структурная (бинарная) премия 5-9% от matched BV с капами
+        $this->app->singleton(\Modules\Calculator\V2\Domain\Bonus\StructureBonusCalculator::class);
+        $this->app->singleton(\Modules\Calculator\V2\Services\Bonus\StructureBonusService::class);
+        $this->app->singleton(\Modules\Calculator\V2\Services\Bonus\StructureBonusPostingService::class);
+        $this->app->singleton(\Modules\Calculator\V2\Services\Bonus\Steps\StructureBonusCalculateStep::class);
+        $this->app->singleton(\Modules\Calculator\V2\Services\Bonus\Steps\StructureBonusPostStep::class);
+        // Шаги закрытия half-month: calc (order 100) → post (order 900); DEC-053
+        // оставляет место 60%-пулу T11 и лидерскому T08 МЕЖДУ ними.
+        $this->app->tag([
+            \Modules\Calculator\V2\Services\Bonus\Steps\StructureBonusCalculateStep::class,
+            \Modules\Calculator\V2\Services\Bonus\Steps\StructureBonusPostStep::class,
+        ], Services\Periods\PeriodCloseStepRegistry::TAG);
+        // <<< V2 T06
     }
 
     public function boot(): void
@@ -131,6 +145,10 @@ class CalculatorV2ServiceProvider extends ServiceProvider
             // >>> V2 T05: сканер просроченного grace CLIENT (BR-REG-004)
             Console\ClientGraceScanCommand::class,
             // <<< V2 T05
+
+            // >>> V2 T06: ручной пере-прогон структурной премии окна (диагностика/восстановление)
+            Console\StructureBonusRunCommand::class,
+            // <<< V2 T06
         ]);
     }
 

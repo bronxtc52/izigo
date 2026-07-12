@@ -269,6 +269,7 @@ require __DIR__ . '/api/v2_accounts.php';     // T02
 require __DIR__ . '/api/v2_periods.php';      // T04
 require __DIR__ . '/api/v2_statuses.php';     // T05
 require __DIR__ . '/api/v2_volumes.php';      // T03
+require __DIR__ . '/api/v2_structure_bonus.php'; // T06
 // <<< V2 routes
 
 
