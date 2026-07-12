@@ -17,6 +17,7 @@
 | — | W1 (T01–T04) — старт | _заполняется оркестратором_ |
 | 2026-07-13 | **W2 (T05)** — лестница 12 статусов + CLIENT/grace + тиры (ветка `mh2/t05-ranks-tiers`) | 44 новых теста (22 unit ядра лестницы/тиров + 22 feature grace/персистентность/RBAC). Прогон `izigo_test_t05`: **666 passed**; 4 падения (KycTest/HealthEndpoint) — пре-существующие, воспроизводятся на чистом `release/mh-full-plan` (env APP_KEY/KYC-флаг), не связаны с T05. Флаг `mh_v2_statuses` OFF. |
 | 2026-07-13 | **W? (T07)** — реферальная премия по тирам 10% L1 / 0-5-8% L2, на ОС сразу после оплаты (ветка `mh2/t07-referral-bonus`) | 22 новых теста (6 unit матрицы ставок ReferralRateResolver + 16 feature ДЕНЬГИ/идемпотентность/stop_at_elite/RBAC). Прогон `izigo_test_t07`: **692 passed**; те же 5 пре-существующих падений (KycTest/HealthEndpoint/WebAdminAuditTail-kyc) воспроизводятся на чистом base с реверсом T07 — не связаны с T07. Флаг `mh_v2_referral` OFF. Шаг `ReferralBonusStep` регистрируется в `PaidOrderV2Pipeline` (markPaid не тронут). |
+| 2026-07-13 | **T10** — квалификационные награды USD (Manager..VP на БС, ручная выплата; ветка `mh2/t10-qualification-awards`) | 22 новых теста (грант/скачок DEC-040, все 10 сумм из PolicyVersion, VP этапы 2-3 DEC-042, идемпотентность, ручной payout/hold/release/forfeit, RBAC owner/finance, storno-безопасность DEC-027, гейт флага). Прогон `izigo_test_t10`: **691 passed**; те же 5 пре-существующих падений (HealthEndpoint MissingAppKey + 3×KycTest + WebAdminAuditTail-kyc), env-обусловлены, к T10 не относятся. Флаг `mh_v2_awards` OFF. Триггер наград — записи `v2_rank_history` (T05 события не эмитит) через `AwardsStep` в пайплайне пост-оплаты. |
 
 ## Baseline
 
@@ -60,7 +61,7 @@
 | T07 — Реферальная премия | `2026_07_13_12xxxx` — ЗАНЯТО (ветка mh2/t07-referral-bonus): `120000_create_v2_referral_rewards_table`, `120100_seed_mh_v2_referral_feature_flag` (флаг `mh_v2_referral` OFF) |
 | T08 — Лидерский бонус | `2026_07_13_13xxxx` |
 | T09 — Глобальный пул | `2026_07_13_14xxxx` — ЗАНЯТО (ветка mh2/t09-global-bonus): `140000_create_v2_global_bonus_months`, `140010_create_v2_global_bonus_pools`, `140020_create_v2_global_bonus_qualifications`, `140030_create_v2_global_bonus_allocations` (+ partial unique unallocated), `140040_create_v2_global_bonus_payouts`, `140050_seed_feature_flag_mh_v2_global_bonus` (флаг `mh_v2_global_bonus` OFF) |
-| T10 — Награды (award entitlements) | `2026_07_13_15xxxx` |
+| T10 — Награды (award entitlements) | `2026_07_13_15xxxx` — ЗАНЯТО (ветка mh2/t10-qualification-awards): `150000_create_v2_award_entitlements_table`, `150100_seed_v2_awards_feature_flag` (флаг `mh_v2_awards` OFF) |
 | T11 — Калибровка 60%-пула (PoolFactorService) | `2026_07_13_16xxxx` |
 | T12 — Возвраты/reversals | `2026_07_13_17xxxx` |
 | T13 — Админка V2 | `2026_07_13_18xxxx` |

@@ -148,6 +148,25 @@ class CalculatorV2ServiceProvider extends ServiceProvider
             \Modules\Calculator\V2\Services\GlobalBonus\GlobalBonusFinalizeStep::class,
         ], Services\Periods\PeriodCloseStepRegistry::TAG);
         // <<< V2 T09
+
+        // >>> V2 T10: квалификационные награды (Manager..VP) на БС, ручная выплата
+        $this->app->singleton(Services\Awards\QualificationAwardService::class);
+        // Хук наград VP (этапы 2-3) для T09 — контракт GlobalQualificationAwardHook.
+        $this->app->bind(
+            Contracts\GlobalQualificationAwardHook::class,
+            Services\Awards\QualificationAwardService::class,
+        );
+        // Свой шаг пост-оплаты — ПОСЛЕ StatusesStep T05 (нужны свежие v2_rank_history).
+        // extend вместо правки closure T03/T05: регистрация T10 целиком в этом маркере.
+        $this->app->extend(
+            Contracts\PaidOrderV2Pipeline::class,
+            function (Contracts\PaidOrderV2Pipeline $pipeline, $app) {
+                $pipeline->register($app->make(Services\Awards\AwardsStep::class));
+
+                return $pipeline;
+            },
+        );
+        // <<< V2 T10
     }
 
     public function boot(): void
