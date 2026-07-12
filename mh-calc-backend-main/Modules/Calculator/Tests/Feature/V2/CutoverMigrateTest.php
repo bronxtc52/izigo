@@ -139,4 +139,31 @@ class CutoverMigrateTest extends TestCase
         $this->assertSame(90, (int) Product::query()->where('sku', 'TARIFF-BRONZE')->value('pv'));
         $this->assertSame(11000, (int) MemberWallet::query()->where('member_id', $a->id)->value('available_cents'));
     }
+
+    /**
+     * Cutover-инвариант: правка тарифа Bronze→100 PV НЕ откатывается ProductSeeder'ом
+     * на следующем деплое/рестарте (start.sh гоняет сидер каждый раз). Сидер сохраняет
+     * рантайм pv/price существующего тарифа (firstOrNew, create-only для pv/price).
+     */
+    public function test_product_seeder_does_not_revert_bronze_after_cutover(): void
+    {
+        $a = $this->seedMember(9001);
+        $this->deposit($a->id, 10000);
+        $this->seedBronze();
+
+        // Cutover поднял Bronze до 100.
+        $this->artisan('calc-v2:cutover-migrate', ['--commit' => true])->assertExitCode(0);
+        $this->assertSame(100, (int) Product::query()->where('sku', 'TARIFF-BRONZE')->value('pv'));
+
+        // Повторный прогон сидера (эмуляция деплоя) НЕ возвращает 90.
+        (new \Modules\Calculator\Database\Seeders\ProductSeeder())->run();
+
+        $bronze = Product::query()->where('sku', 'TARIFF-BRONZE')->first();
+        $this->assertSame(100, (int) $bronze->pv, 'ProductSeeder не должен откатывать cutover Bronze→100');
+        $this->assertSame(10000, (int) $bronze->price_usdt_cents);
+        // Отсутствующий тариф сидер по-прежнему создаёт с дефолтами.
+        Product::query()->where('sku', 'TARIFF-SILVER')->delete();
+        (new \Modules\Calculator\Database\Seeders\ProductSeeder())->run();
+        $this->assertSame(180, (int) Product::query()->where('sku', 'TARIFF-SILVER')->value('pv'));
+    }
 }
