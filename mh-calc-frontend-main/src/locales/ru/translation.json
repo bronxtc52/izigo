@@ -627,5 +627,88 @@
     "thinking": "Думаю...",
     "unavailable": "Ассистент временно недоступен. Попробуйте позже или обратитесь в поддержку.",
     "rate_limited": "Слишком много запросов. Пожалуйста, подождите немного."
+  },
+  "planv2": {
+    "title": "Мой план",
+    "section_status": "Статус",
+    "section_accounts": "Счета",
+    "section_awards": "Награды",
+    "unavailable": "Данные плана пока недоступны",
+    "status_none": "Нет статуса",
+    "status_max": "Максимальный статус",
+    "tier_label": "Тир контракта",
+    "personal_pv": "Накопленный PV",
+    "current_status": "Текущий статус",
+    "next_status": "Следующий",
+    "small_branch_pv": "PV малой ветки",
+    "referrals_l1": "Рефералы 1-й линии",
+    "qualification_variants": "Варианты квалификации",
+    "variants_hint": "Достаточно выполнить любой из вариантов",
+    "variant": "Вариант",
+    "satisfied": "Выполнено",
+    "need_anchor": "{{count}} × {{rank}} на 1-й линии",
+    "need_support": "{{count}} × {{rank}} в поддержке",
+    "distinct_branches": "Из разных корневых ветвей",
+    "ladder": "Лестница статусов",
+    "you_are_here": "Вы здесь",
+    "account": {
+      "os": "Основной счёт",
+      "ns": "Накопительный счёт",
+      "bs": "Бонусный счёт"
+    },
+    "account_short": {
+      "os": "Основной",
+      "ns": "Накопит.",
+      "bs": "Бонусный"
+    },
+    "os_note": "Вывод + оплата заказа до {{pct}}%",
+    "ns_note": "Перевод на Основной: {{date}}",
+    "bs_note": "Только покупки, не выводится",
+    "upcoming_expirations": "Ближайшие сгорания",
+    "active_lots": "Активные лоты",
+    "no_lots": "Активных лотов нет",
+    "expires": "до",
+    "no_expiry": "Не сгорает",
+    "history": "История движений",
+    "no_history": "Движений пока нет",
+    "load_more": "Показать ещё",
+    "no_awards": "Наград пока нет",
+    "awards_hint": "Награды начисляются на Бонусный счёт, выплата — вручную",
+    "stage": "этап",
+    "status": {
+      "CLIENT": "Клиент",
+      "CONSULTANT": "Консультант",
+      "MANAGER": "Менеджер",
+      "BRONZE_MANAGER": "Бронзовый менеджер",
+      "SILVER_MANAGER": "Серебряный менеджер",
+      "GOLD_MANAGER": "Золотой менеджер",
+      "PLATINUM_MANAGER": "Платиновый менеджер",
+      "DIRECTOR": "Директор",
+      "PEARL_DIRECTOR": "Жемчужный директор",
+      "SAPPHIRE_DIRECTOR": "Сапфировый директор",
+      "DIAMOND_DIRECTOR": "Бриллиантовый директор",
+      "VICE_PRESIDENT": "Вице-президент"
+    },
+    "tier": {
+      "START": "Старт",
+      "BUSINESS": "Бизнес",
+      "ELITE": "Элита"
+    },
+    "award_state": {
+      "locked": "Не достигнута",
+      "earned": "Достигнута",
+      "granted": "Начислена",
+      "on_hold": "На удержании",
+      "paid_out": "Выплачена",
+      "forfeited": "Аннулирована"
+    },
+    "source": {
+      "bonus_v2": "Бонус",
+      "ns_transfer": "Перевод НС→ОС",
+      "acct_charge": "Оплата со счёта",
+      "withdrawal_v2": "Вывод",
+      "lot_expiry": "Сгорание лота"
+    },
+    "locale_tag": "ru-RU"
   }
 }
