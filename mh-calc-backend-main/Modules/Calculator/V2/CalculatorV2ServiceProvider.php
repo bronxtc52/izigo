@@ -1,0 +1,316 @@
+<?php
+
+namespace Modules\Calculator\V2;
+
+use Illuminate\Support\ServiceProvider;
+
+/**
+ * mh-full-plan: ЕДИНСТВЕННОЕ место DI-регистрации, команд и расписания V2-движка.
+ * Подключён одной строкой (маркер «>>> V2») из CalculatorServiceProvider::register(),
+ * чтобы задачи волн НЕ трогали горячий основной провайдер (карта рисков Гейта A, п.1).
+ *
+ * Каждая задача дописывает СВОЙ блок между маркерами «>>> V2 Txx» ниже — merge-train
+ * разрешает конфликты тривиально. Миграции V2 живут в ОБЩЕМ каталоге
+ * Modules/Calculator/Database/Migrations (слоты — docs/mh-full-plan-migration-ledger.md);
+ * отдельный loadMigrationsFrom здесь НЕ добавлять.
+ */
+class CalculatorV2ServiceProvider extends ServiceProvider
+{
+    public function register(): void
+    {
+        // >>> V2 T01: версии политики — singleton-сервис (per-request кэш резолва)
+        $this->app->singleton(Services\PolicyVersionService::class);
+        $this->app->bind(Contracts\PolicyVersionResolver::class, Services\PolicyVersionService::class);
+        // <<< V2 T01
+
+        // >>> V2 T02: bind Contracts\LedgerV2::class, Contracts\NsToOsTransfer::class
+        $this->app->singleton(\Modules\Calculator\V2\Services\Ledger\LedgerPostingV2Service::class);
+        $this->app->singleton(\Modules\Calculator\V2\Services\Wallet\AccountsPolicyV2::class);
+        $this->app->singleton(\Modules\Calculator\V2\Services\Wallet\WalletAccountsV2Service::class);
+        $this->app->singleton(\Modules\Calculator\V2\Services\Wallet\OrderAccountPaymentService::class);
+        // Оба контракта реализует один сервис (операция НС→ОС — T02; команда/расписание — T04, MF-6).
+        $this->app->bind(
+            \Modules\Calculator\V2\Contracts\LedgerV2::class,
+            \Modules\Calculator\V2\Services\Wallet\WalletAccountsV2Service::class,
+        );
+        $this->app->bind(
+            \Modules\Calculator\V2\Contracts\NsToOsTransfer::class,
+            \Modules\Calculator\V2\Services\Wallet\WalletAccountsV2Service::class,
+        );
+        // <<< V2 T02
+
+        // >>> V2 T03: bind Contracts\PvLotService::class, Contracts\PaidOrderV2Pipeline::class (singleton)
+        $this->app->bind(
+            \Modules\Calculator\V2\Contracts\PvLotService::class,
+            \Modules\Calculator\V2\Services\Volume\PvLotVolumeService::class,
+        );
+        $this->app->singleton(
+            \Modules\Calculator\V2\Contracts\PaidOrderV2Pipeline::class,
+            function ($app) {
+                $pipeline = new \Modules\Calculator\V2\Services\PaidOrderV2PipelineImpl();
+                // Порядок регистрации = порядок исполнения. T05/T07 дописывают свои шаги СЮДА.
+                $pipeline->register($app->make(\Modules\Calculator\V2\Services\Volume\VolumeCaptureStep::class));
+
+                return $pipeline;
+            },
+        );
+        // <<< V2 T03
+
+        // >>> V2 T04: bind Contracts\CalcPeriodService::class
+        $this->app->singleton(Services\Periods\PeriodCalendar::class);
+        $this->app->singleton(Services\Periods\PeriodService::class);
+        $this->app->singleton(Services\Periods\SnapshotService::class);
+        $this->app->singleton(Services\Periods\PeriodCloseStepRegistry::class);
+        $this->app->singleton(Services\Periods\JobExecutionGuard::class);
+        $this->app->singleton(Services\Periods\PeriodCloseService::class);
+        $this->app->singleton(
+            Contracts\CalcPeriodService::class,
+            fn ($app) => $app->make(Services\Periods\PeriodCloseService::class),
+        );
+        // Null-дефолты handler-контрактов (bindIf: реальные биндинги T02/T09/T11
+        // в их маркер-блоках перекрывают, T04 безопасно мерджится первым):
+        $this->app->bindIf(Contracts\NsToOsTransfer::class, Services\Periods\NullNsToOsTransfer::class);
+        $this->app->bindIf(Contracts\PoolCalibrationReader::class, Services\Periods\NullPoolCalibrationReader::class);
+        $this->app->bindIf(Contracts\QuarterGlobalPayoutHandler::class, Services\Periods\NullQuarterGlobalPayoutHandler::class);
+        // <<< V2 T04
+
+        // >>> V2 T05: лестница статусов, CLIENT/grace, тиры
+        // Контракты T05→T03: lifetime PV сторон и аннулирование grace-PV читают v2_pv_lots.
+        $this->app->bind(
+            Contracts\BinaryVolumeReaderInterface::class,
+            Services\Status\PvLotBinaryVolumeReader::class,
+        );
+        $this->app->bind(
+            Contracts\PvLotAnnulmentInterface::class,
+            Services\Status\GracePvLotAnnulmentService::class,
+        );
+        // Read-API статусов/тиров для соседей (T06/T07/T08/T09/T14) — только as-of.
+        $this->app->singleton(Services\Status\StatusReadService::class);
+        $this->app->bind(Contracts\StatusReader::class, Services\Status\StatusReadService::class);
+        $this->app->singleton(Services\Status\TierService::class);
+        $this->app->singleton(Services\Status\ClientLifecycleService::class);
+        $this->app->singleton(Services\Status\RankEvaluationService::class);
+        // Свой шаг пост-оплаты — ПОСЛЕ VolumeCaptureStep T03 (нужны снапшоты/лоты).
+        // extend вместо правки closure T03: T05-регистрация целиком в этом маркере.
+        $this->app->extend(
+            Contracts\PaidOrderV2Pipeline::class,
+            function (Contracts\PaidOrderV2Pipeline $pipeline, $app) {
+                $pipeline->register($app->make(Services\Status\StatusesStep::class));
+
+                return $pipeline;
+            },
+        );
+        // <<< V2 T05
+
+        // >>> V2 T06: структурная (бинарная) премия 5-9% от matched BV с капами
+        $this->app->singleton(\Modules\Calculator\V2\Domain\Bonus\StructureBonusCalculator::class);
+        $this->app->singleton(\Modules\Calculator\V2\Services\Bonus\StructureBonusService::class);
+        $this->app->singleton(\Modules\Calculator\V2\Services\Bonus\StructureBonusPostingService::class);
+        $this->app->singleton(\Modules\Calculator\V2\Services\Bonus\Steps\StructureBonusCalculateStep::class);
+        $this->app->singleton(\Modules\Calculator\V2\Services\Bonus\Steps\StructureBonusPostStep::class);
+        // Шаги закрытия half-month: calc (order 100) → post (order 900); DEC-053
+        // оставляет место 60%-пулу T11 и лидерскому T08 МЕЖДУ ними.
+        $this->app->tag([
+            \Modules\Calculator\V2\Services\Bonus\Steps\StructureBonusCalculateStep::class,
+            \Modules\Calculator\V2\Services\Bonus\Steps\StructureBonusPostStep::class,
+        ], Services\Periods\PeriodCloseStepRegistry::TAG);
+        // <<< V2 T06
+
+        // >>> V2 T07: реферальная премия по тирам (10% L1 / 0-5-8% L2, на ОС сразу после оплаты)
+        $this->app->singleton(Services\Referral\ReferralRateResolver::class);
+        $this->app->singleton(Services\Referral\ReferralBonusService::class);
+        // Свой шаг пост-оплаты — ПОСЛЕ VolumeCaptureStep (T03, снапшоты BV) и StatusesStep
+        // (T05, тир получателя). extend вместо правки closure T03/T05: регистрация целиком
+        // в этом маркере; markPaid не правим (единственная точка — PaidOrderV2Pipeline, NTH-4).
+        $this->app->extend(
+            Contracts\PaidOrderV2Pipeline::class,
+            function (Contracts\PaidOrderV2Pipeline $pipeline, $app) {
+                $pipeline->register($app->make(Services\Referral\ReferralBonusStep::class));
+
+                return $pipeline;
+            },
+        );
+        // <<< V2 T07
+
+        // >>> V2 T09: глобальный бонус (месячные пулы Director..VP, квартальная выплата)
+        $this->app->singleton(\Modules\Calculator\V2\Services\GlobalBonus\ReferralTreePvMonthlyService::class);
+        $this->app->singleton(\Modules\Calculator\V2\Services\GlobalBonus\GlobalBonusMonthlyService::class);
+        $this->app->singleton(\Modules\Calculator\V2\Services\GlobalBonus\GlobalBonusQuarterlyPayoutService::class);
+        // Квартальный handler перебивает Null-дефолт T04 (bindIf → bind).
+        $this->app->bind(
+            Contracts\QuarterGlobalPayoutHandler::class,
+            \Modules\Calculator\V2\Services\GlobalBonus\GlobalBonusQuarterlyPayoutService::class,
+        );
+        // Шаги month-close (tagged). Каскад DEC-053 по order(): allocate 300 →
+        // [T11 калибровка ∈ (300,900) пишет final_cents] → finalize 900.
+        $this->app->tag([
+            \Modules\Calculator\V2\Services\GlobalBonus\GlobalBonusAllocateStep::class,
+            \Modules\Calculator\V2\Services\GlobalBonus\GlobalBonusFinalizeStep::class,
+        ], Services\Periods\PeriodCloseStepRegistry::TAG);
+        // <<< V2 T09
+
+        // >>> V2 T10: квалификационные награды (Manager..VP) на БС, ручная выплата
+        $this->app->singleton(Services\Awards\QualificationAwardService::class);
+        // Хук наград VP (этапы 2-3) для T09 — контракт GlobalQualificationAwardHook.
+        $this->app->bind(
+            Contracts\GlobalQualificationAwardHook::class,
+            Services\Awards\QualificationAwardService::class,
+        );
+        // Свой шаг пост-оплаты — ПОСЛЕ StatusesStep T05 (нужны свежие v2_rank_history).
+        // extend вместо правки closure T03/T05: регистрация T10 целиком в этом маркере.
+        $this->app->extend(
+            Contracts\PaidOrderV2Pipeline::class,
+            function (Contracts\PaidOrderV2Pipeline $pipeline, $app) {
+                $pipeline->register($app->make(Services\Awards\AwardsStep::class));
+
+                return $pipeline;
+            },
+        );
+        // <<< V2 T10
+
+        // >>> V2 T11: 60%-калибровка выплат (payout pool, DEC-014/029/053) —
+        //     единственный владелец формулы factor_bps (amendments MF-1/2).
+        $this->app->singleton(\Modules\Calculator\V2\Services\Pool\PeriodBvProvider::class);
+        $this->app->singleton(\Modules\Calculator\V2\Services\Pool\PoolCalibrationService::class);
+        $this->app->singleton(\Modules\Calculator\V2\Services\Pool\PoolReportService::class);
+        $this->app->singleton(\Modules\Calculator\V2\Services\Pool\Steps\PoolCalibrationCloseStep::class);
+        // Реализация reader'а factor_bps перебивает Null-дефолт T04 (bindIf → bind):
+        // T08 (лидерский) и T04 NsToOsTransfer читают закоммиченный factor_bps месяца.
+        $this->app->bind(
+            Contracts\PoolCalibrationReader::class,
+            \Modules\Calculator\V2\Services\Pool\PoolCalibrationReadService::class,
+        );
+        // Шаг month-close (tagged). Каскад DEC-053 по order(): global allocate (300) →
+        // 60%-калибровка (500) → global finalize (900).
+        $this->app->tag([
+            \Modules\Calculator\V2\Services\Pool\Steps\PoolCalibrationCloseStep::class,
+        ], Services\Periods\PeriodCloseStepRegistry::TAG);
+        // <<< V2 T11
+
+        // >>> V2 T08: лидерский бонус глубиной до 7 (CAL-LED-001, DEC-029/030 на ОС)
+        $this->app->singleton(\Modules\Calculator\V2\Domain\Bonus\LeadershipCalculator::class);
+        // База лидерского — net структурной премии ПОСЛЕ капов и 60%-калибровки T11
+        // (DEC-029; единственная точка стыка с T06/T11, план §630).
+        $this->app->bind(
+            \Modules\Calculator\V2\Services\Bonus\LeadershipBaseSourceInterface::class,
+            \Modules\Calculator\V2\Services\Bonus\StructureBonusBaseSource::class,
+        );
+        $this->app->singleton(\Modules\Calculator\V2\Services\Bonus\LeadershipBonusService::class);
+        $this->app->singleton(\Modules\Calculator\V2\Services\Bonus\Steps\LeadershipCloseStep::class);
+        // Шаг MONTH-close: order 800 — СТРОГО ПОСЛЕ шага 60%-калибровки T11 (T11.order < 800,
+        // DEC-053 raw→капы→60%-пул→лидерский→posting), до финализации глобального T09 (900).
+        $this->app->tag([
+            \Modules\Calculator\V2\Services\Bonus\Steps\LeadershipCloseStep::class,
+        ], Services\Periods\PeriodCloseStepRegistry::TAG);
+        // <<< V2 T08
+
+        // >>> V2 T12: возвраты/сторно (reversal всех бонусов, корректировки закрытых
+        //     периодов). Оркестратор RefundService берёт advisory-lock ACTIVATION_LOCK.
+        $this->app->singleton(\Modules\Calculator\V2\Services\Refunds\ReversalPlanner::class);
+        $this->app->singleton(\Modules\Calculator\V2\Services\Refunds\PvLotReversalService::class);
+        $this->app->singleton(\Modules\Calculator\V2\Services\Refunds\PeriodCorrectionService::class);
+        $this->app->singleton(\Modules\Calculator\V2\Services\Refunds\BonusReversalService::class);
+        $this->app->singleton(\Modules\Calculator\V2\Services\Refunds\RequalificationService::class);
+        $this->app->singleton(\Modules\Calculator\V2\Services\Refunds\RefundService::class);
+        // <<< V2 T12
+
+        // >>> V2 T15: cutover V1→V2 (opening-миграция main→ОС, паритет, сверка ledger).
+        //     Пишут ТОЛЬКО через примитивы T02; флаги НЕ трогают (флип движка — координатор).
+        $this->app->singleton(\Modules\Calculator\V2\Services\Cutover\BronzeTariffCutoverService::class);
+        $this->app->singleton(\Modules\Calculator\V2\Services\Cutover\OpeningBalanceMigrationService::class);
+        $this->app->singleton(\Modules\Calculator\V2\Services\Cutover\LedgerReconciliationService::class);
+        $this->app->singleton(\Modules\Calculator\V2\Services\Cutover\ParityCheckService::class);
+        // <<< V2 T15
+    }
+
+    public function boot(): void
+    {
+        $this->registerCommands();
+        $this->registerCommandSchedules();
+    }
+
+    /** Команды V2 (Console/). Владелец команд периодов/переводов — ТОЛЬКО T04 (amendments MF-6). */
+    protected function registerCommands(): void
+    {
+        $this->commands([
+            // >>> V2 T02: ежедневное сгорание кредит-лотов ОС/БС
+            \Modules\Calculator\V2\Console\WalletLotsExpireCommand::class,
+            // <<< V2 T02
+
+            // >>> V2 T04: команды calc-v2:* (close-half-month, close-month, ns-os-transfer)
+            Console\PeriodsEnsureCommand::class,
+            Console\HalfMonthCloseCommand::class,
+            Console\NsToOsTransferCommand::class,
+            Console\MonthCloseCommand::class,
+            Console\QuarterPayoutCommand::class,
+            // <<< V2 T04
+
+            // >>> V2 T09: ручной пересчёт draft-месяца глобального бонуса
+            //     (автоматическая аллокация — шаг month-close; квартальная выплата —
+            //     handler в closeQuarter T04, отдельной команды нет, MF-6).
+            Console\GlobalBonusAllocateMonthCommand::class,
+            // <<< V2 T09
+
+            // >>> V2 T05: сканер просроченного grace CLIENT (BR-REG-004)
+            Console\ClientGraceScanCommand::class,
+            // <<< V2 T05
+
+            // >>> V2 T06: ручной пере-прогон структурной премии окна (диагностика/восстановление)
+            Console\StructureBonusRunCommand::class,
+            // <<< V2 T06
+
+            // >>> V2 T11: ручной/аварийный пересчёт 60%-калибровки draft-месяца
+            //     (регулярный вызов — шаг month-close T04, MF-6).
+            Console\PoolCalibrateCommand::class,
+            // <<< V2 T11
+
+            // >>> V2 T08: ручной прогон/backfill лидерского бонуса периода
+            //     (штатно — шаг MONTH-close LeadershipCloseStep после калибровки T11).
+            Console\LeadershipRunCommand::class,
+            // <<< V2 T08
+
+            // >>> V2 T15: cutover-инструментарий (ручной, НЕ авто на деплое, флаги не трогает).
+            Console\CutoverMigrateCommand::class,
+            Console\ParityCheckCommand::class,
+            // <<< V2 T15
+        ]);
+    }
+
+    /** Расписание V2 — по образцу основного провайдера (идемпотентность + withoutOverlapping). */
+    protected function registerCommandSchedules(): void
+    {
+        $this->app->booted(function () {
+            $schedule = $this->app->make(\Illuminate\Console\Scheduling\Schedule::class);
+
+            // >>> V2 T02: сгорание лотов ежедневно 00:20 UTC (DEC-019 — без holiday shift);
+            //     команда идемпотентна и no-op за выключенным mh_plan_v2_engine.
+            $schedule->command('mh2:lots-expire')->dailyAt('00:20')->withoutOverlapping(30);
+            // <<< V2 T02
+
+            // >>> V2 T04: schedule calc-v2:* (закрытия периодов; ns-os-transfer ежедневно
+            //     с гейтом «месяц закрыт и откалиброван», amendments MF-4/MF-6).
+            //     Границы периодов и запуски — UTC (роадмап T04, DEC-019 — без переноса
+            //     на праздники); флаг mh_plan_v2_periods дублируется внутри команд
+            //     (deny-by-default, no-op при выключенном).
+            $schedule = $this->app->make(\Illuminate\Console\Scheduling\Schedule::class);
+            $flagOn = fn (): bool => $this->app
+                ->make(\Modules\Calculator\Services\FeatureFlag\FeatureFlagService::class)
+                ->isEnabled('mh_plan_v2_periods');
+            $schedule->command('calc-v2:periods-ensure')->dailyAt('00:01')->withoutOverlapping(30)->when($flagOn);
+            $schedule->command('calc-v2:half-month-close')->dailyAt('00:10')->withoutOverlapping(30)->when($flagOn);
+            $schedule->command('calc-v2:ns-os-transfer')->dailyAt('00:20')->withoutOverlapping(30)->when($flagOn);
+            $schedule->command('calc-v2:month-close')->dailyAt('00:30')->withoutOverlapping(30)->when($flagOn);
+            $schedule->command('calc-v2:quarter-payout')->dailyAt('00:40')->withoutOverlapping(30)->when($flagOn);
+            // <<< V2 T04
+
+            // >>> V2 T05: grace-скан каждые 15 минут (BR-REG-004, amendments MF-7);
+            //     идемпотентен и no-op за выключенным mh_v2_statuses.
+            $statusesOn = fn (): bool => $this->app
+                ->make(\Modules\Calculator\Services\FeatureFlag\FeatureFlagService::class)
+                ->isEnabled(\Modules\Calculator\V2\Services\Status\StatusesStep::FLAG);
+            $schedule->command('calc-v2:client-grace-scan')
+                ->everyFifteenMinutes()->withoutOverlapping(30)->when($statusesOn);
+            // <<< V2 T05
+        });
+    }
+}

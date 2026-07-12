@@ -10,7 +10,9 @@ use Modules\Calculator\Models\Order;
 use Modules\Calculator\Models\OrderItem;
 use Modules\Calculator\Models\Product;
 use Modules\Calculator\Services\ActivationService;
+use Modules\Calculator\Services\FeatureFlag\FeatureFlagService;
 use Modules\Calculator\Services\LeadService;
+use Modules\Calculator\V2\Contracts\PaidOrderV2Pipeline;
 use RuntimeException;
 
 /**
@@ -23,6 +25,8 @@ class OrderService
     public function __construct(
         private readonly ActivationService $activation,
         private readonly LeadService $leads,
+        private readonly FeatureFlagService $flags,
+        private readonly PaidOrderV2Pipeline $v2Pipeline,
     ) {
     }
 
@@ -190,6 +194,16 @@ class OrderService
         $order->status = Order::STATUS_PAID;
         $order->save();
 
+        // >>> V2 T02 (mh-full-plan): capture живого резерва счетов ОС/БС — ДО активации.
+        // Дремлет за фиче-флагом mh_plan_v2_engine (deny-by-default до cutover T15);
+        // нет живого резерва — no-op. Единый порядок локов: advisory-lock активаций
+        // берём ДО ledger-записей capture (жёсткая рамка проекта).
+        if (app(\Modules\Calculator\Services\FeatureFlag\FeatureFlagService::class)->isEnabled('mh_plan_v2_engine')) {
+            $this->activation->acquireActivationLock();
+            app(\Modules\Calculator\V2\Services\Wallet\OrderAccountPaymentService::class)->capture($order->id);
+        }
+        // <<< V2 T02
+
         // Имя купленного товара (снимок на момент покупки) — для текста уведомления об активации,
         // чтобы показать партнёру название его товара, а не легаси-имя пакета (Bronze/Silver/Gold).
         $displayName = OrderItem::query()->where('order_id', $order->id)->value('name_snapshot');
@@ -197,6 +211,14 @@ class OrderService
 
         $order->activation_event_id = $event->id;
         $order->save();
+
+        // >>> V2 T03: единая точка пост-оплатных V2-хуков (PaidOrderV2Pipeline) — в ТОЙ ЖЕ
+        // транзакции оплаты, под advisory-lock, взятым activate() выше. Шаги пайплайна сами
+        // гейтятся своими флагами; внешний гейт держит V1 hot-path нетронутым, пока V2 выключен.
+        if ($this->flags->isEnabled('mh_plan_v2_engine') || $this->flags->isEnabled('mh_v2_volumes')) {
+            $this->v2Pipeline->runFor($order->id);
+        }
+        // <<< V2 T03
     }
 
     /** Заказы участника, новые сверху. */
@@ -243,6 +265,15 @@ class OrderService
         }
         if (in_array($status, $fulfilment, true) && $order->status === Order::STATUS_PENDING_PAYMENT) {
             throw new RuntimeException('Нельзя исполнять неоплаченный заказ');
+        }
+        // T12 guard: при включённых возвратах V2 прямой перевод ОПЛАЧЕННОГО заказа в
+        // refunded мимо RefundService запрещён — иначе финансовое сторно (реверс
+        // бонусов/лотов) не выполнится. Возврат оформляется через admin/v2/refunds.
+        if ($status === Order::STATUS_REFUNDED
+            && $order->status === Order::STATUS_PAID
+            && $this->flags->isEnabled('mh_v2_refunds')
+        ) {
+            throw new RuntimeException('Возврат оплаченного заказа — только через RefundService (admin/v2/refunds)');
         }
 
         $order->status = $status;

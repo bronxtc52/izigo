@@ -140,3 +140,19 @@ export const mmTicketPoll = (i, id, since = 0) =>
 export const mmAssistantAsk = (i, question, locale) =>
     req('/api/v1/cabinet/assistant/ask', i, 'POST', { question, locale });
 // <<< AI assistant
+
+// >>> MH Plan V2
+// T14: read-слой таба «Мой план» Mini App (за флагом mh_plan_v2_miniapp, deny-by-default).
+// Деньги — integer USD-центы (+ decimal-строка); PV — decimal-строка; даты ISO-8601.
+// Все данные — строго свои (скоуп по initData на бэке; чужие недоступны).
+export const mmPlanOverview = (i) => req('/api/v1/cabinet/v2/plan/overview', i);
+export const mmPlanRankProgress = (i) => req('/api/v1/cabinet/v2/plan/rank-progress', i);
+export const mmPlanAccounts = (i) => req('/api/v1/cabinet/v2/plan/accounts', i);
+export const mmPlanAccountLots = (i, account) =>
+    req(`/api/v1/cabinet/v2/plan/accounts/${account}/lots`, i);
+export const mmPlanAccountHistory = (i, account, cursor = null) => {
+    const q = cursor != null ? `?cursor=${encodeURIComponent(cursor)}` : '';
+    return req(`/api/v1/cabinet/v2/plan/accounts/${account}/history${q}`, i);
+};
+export const mmPlanAwards = (i) => req('/api/v1/cabinet/v2/plan/awards', i);
+// <<< MH Plan V2

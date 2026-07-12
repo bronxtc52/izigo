@@ -262,6 +262,23 @@ require __DIR__ . '/api/exports.php';         // C5
 require __DIR__ . '/api/copartners.php';      // C6
 require __DIR__ . '/api/monitoring.php';      // C7
 
+// >>> V2 routes (mh-full-plan) — каждая V2-фича добавляет СВОЙ файл в Routes/api/
+// и одну require-строку в этот блок (см. docs/mh-full-plan-migration-ledger.md).
+require __DIR__ . '/api/v2_policy.php';       // T01/T13
+require __DIR__ . '/api/v2_accounts.php';     // T02
+require __DIR__ . '/api/v2_periods.php';      // T04
+require __DIR__ . '/api/v2_statuses.php';     // T05
+require __DIR__ . '/api/v2_volumes.php';      // T03
+require __DIR__ . '/api/v2_structure_bonus.php'; // T06
+require __DIR__ . '/api/v2_referral.php';     // T07
+require __DIR__ . '/api/v2_global_bonus.php'; // T09
+require __DIR__ . '/api/v2_awards.php';       // T10
+require __DIR__ . '/api/v2_pool.php';         // T11
+require __DIR__ . '/api/v2_leadership.php';   // T08
+require __DIR__ . '/api/v2_refunds.php';      // T12
+require __DIR__ . '/api/miniapp_v2.php';      // T14 (Mini App read-слой плана)
+// <<< V2 routes
+
 
 
 

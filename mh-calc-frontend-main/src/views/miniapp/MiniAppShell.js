@@ -460,9 +460,13 @@ const MiniAppShell = () => {
         { key: 'profile', label: t('miniapp.tab_profile'), icon: <UserOutlined /> },
     ];
     // Админка вынесена в веб (admin.izigo.adarasoft.com) — в Mini App её больше нет.
+    // T14: при включённом mh_plan_v2_miniapp V1-вкладка «Ранг» скрывается — её заменяет
+    // таб «Мой план V2» (иначе двойная правда о ранге на экране до cutover T15). Правится
+    // только состав базовых табов, не switch их рендера (registry-контракт неизменен).
+    const baseTabs = flags?.mh_plan_v2_miniapp === true ? TABS.filter((tb) => tb.key !== 'rank') : TABS;
     // Block C: вкладки фич подмешиваются из registry, отфильтрованные по фиче-флагам
     // (deny-by-default: пустая карта flags => флаговые вкладки скрыты, базовый таб-бар цел).
-    const tabs = [...TABS, ...visibleBlockCTabs(flags).map((tb) => ({ ...tb, label: t(tb.label) }))];
+    const tabs = [...baseTabs, ...visibleBlockCTabs(flags).map((tb) => ({ ...tb, label: t(tb.label) }))];
     // Block C: контекст шелла для render вкладок фич (чтобы не дублировать загрузку данных).
     const blockCCtx = { initData, pal, isDark, wa, me, dash, rank, tree, wallet, reload: load };
 
