@@ -1,9 +1,9 @@
 'use client';
 import React, { useEffect, useState } from 'react';
 import {
-    Card, Table, Tag, Button, Space, Form, Input, Select, Typography, message, Result, Popconfirm,
+    Card, Table, Tag, Button, Space, Form, Input, InputNumber, Select, Typography, message, Result, Popconfirm,
 } from 'antd';
-import { ReloadOutlined } from '@ant-design/icons';
+import { ReloadOutlined, PlusOutlined, MinusCircleOutlined } from '@ant-design/icons';
 import * as api from './refundsApi';
 
 /**
@@ -36,6 +36,7 @@ const RefundsV2View = () => {
     const [forbidden, setForbidden] = useState(false);
     const [submitting, setSubmitting] = useState(false);
     const [form] = Form.useForm();
+    const kind = Form.useWatch('kind', form);
 
     const load = async () => {
         setLoading(true);
@@ -59,12 +60,26 @@ const RefundsV2View = () => {
     }, []);
 
     const submitReturn = async (values) => {
-        setSubmitting(true);
-        const r = await api.createReturnV2({
+        const payload = {
             order_id: Number(values.order_id),
             kind: values.kind,
             reason: values.reason,
-        });
+        };
+        // MF-W5-3: частичный возврат обязан нести позиции (order_item_id + qty), иначе бэк
+        // отклоняет его 422 «требует непустой список позиций». Full — все позиции целиком.
+        if (values.kind === 'partial') {
+            const lines = (values.lines || [])
+                .filter((l) => l && l.order_item_id !== undefined && l.order_item_id !== null && l.order_item_id !== '')
+                .map((l) => ({ order_item_id: Number(l.order_item_id), qty: Number(l.qty) }));
+            if (lines.length === 0) {
+                message.error('Для частичного возврата добавьте хотя бы одну позицию');
+                return;
+            }
+            payload.lines = lines;
+        }
+
+        setSubmitting(true);
+        const r = await api.createReturnV2(payload);
         setSubmitting(false);
         if (r?.error) {
             message.error(`Ошибка возврата (код ${r.error})`);
@@ -167,23 +182,63 @@ const RefundsV2View = () => {
             </Typography.Paragraph>
 
             <Card title="Оформить возврат" size="small">
-                <Form form={form} layout="inline" onFinish={submitReturn}>
-                    <Form.Item name="order_id" rules={[{ required: true, message: 'ID заказа' }]}>
-                        <Input placeholder="ID заказа" style={{ width: 130 }} />
-                    </Form.Item>
-                    <Form.Item name="kind" initialValue="full" rules={[{ required: true }]}>
-                        <Select
-                            style={{ width: 150 }}
-                            options={[
-                                { value: 'full', label: 'Полный' },
-                                { value: 'partial', label: 'Частичный' },
-                            ]}
-                        />
-                    </Form.Item>
-                    <Form.Item name="reason" rules={[{ required: true, message: 'Причина' }]}>
-                        <Input placeholder="Причина" style={{ width: 260 }} />
-                    </Form.Item>
-                    <Form.Item>
+                <Form form={form} layout="vertical" onFinish={submitReturn}>
+                    <Space wrap align="start">
+                        <Form.Item
+                            name="order_id"
+                            label="ID заказа"
+                            rules={[{ required: true, message: 'ID заказа' }]}
+                        >
+                            <Input placeholder="ID заказа" style={{ width: 130 }} />
+                        </Form.Item>
+                        <Form.Item name="kind" label="Тип" initialValue="full" rules={[{ required: true }]}>
+                            <Select
+                                style={{ width: 150 }}
+                                options={[
+                                    { value: 'full', label: 'Полный' },
+                                    { value: 'partial', label: 'Частичный' },
+                                ]}
+                            />
+                        </Form.Item>
+                        <Form.Item name="reason" label="Причина" rules={[{ required: true, message: 'Причина' }]}>
+                            <Input placeholder="Причина" style={{ width: 260 }} />
+                        </Form.Item>
+                    </Space>
+
+                    {kind === 'partial' && (
+                        <Form.Item label="Позиции возврата (order_item_id + кол-во)">
+                            <Form.List name="lines">
+                                {(fields, { add, remove }) => (
+                                    <Space direction="vertical" style={{ width: '100%' }}>
+                                        {fields.map((field) => (
+                                            <Space key={field.key} align="baseline">
+                                                <Form.Item
+                                                    name={[field.name, 'order_item_id']}
+                                                    rules={[{ required: true, message: 'order_item_id' }]}
+                                                    style={{ marginBottom: 0 }}
+                                                >
+                                                    <InputNumber placeholder="order_item_id" min={1} style={{ width: 160 }} />
+                                                </Form.Item>
+                                                <Form.Item
+                                                    name={[field.name, 'qty']}
+                                                    rules={[{ required: true, message: 'кол-во' }]}
+                                                    style={{ marginBottom: 0 }}
+                                                >
+                                                    <InputNumber placeholder="кол-во" min={1} style={{ width: 110 }} />
+                                                </Form.Item>
+                                                <MinusCircleOutlined onClick={() => remove(field.name)} />
+                                            </Space>
+                                        ))}
+                                        <Button type="dashed" onClick={() => add()} icon={<PlusOutlined />}>
+                                            Добавить позицию
+                                        </Button>
+                                    </Space>
+                                )}
+                            </Form.List>
+                        </Form.Item>
+                    )}
+
+                    <Form.Item style={{ marginBottom: 0 }}>
                         <Button type="primary" htmlType="submit" loading={submitting}>
                             Оформить
                         </Button>

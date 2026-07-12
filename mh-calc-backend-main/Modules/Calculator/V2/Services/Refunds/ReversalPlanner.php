@@ -45,7 +45,8 @@ class ReversalPlanner
         }
 
         if ($requestedLines === []) {
-            throw new RefundValidationException('Пустой набор строк возврата');
+            // MF-W5-3: частичный возврат обязан нести позиции (full сам заполняет lines выше).
+            throw new RefundValidationException('Частичный возврат требует непустой список позиций (lines[])');
         }
 
         $lines = [];
