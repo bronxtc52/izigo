@@ -163,6 +163,37 @@ class ClientLifecycleTest extends TestCase
         $this->travelBack();
     }
 
+    /**
+     * Q-W2b (решение владельца 2026-07-12): лапс-клиент (grace истёк, НЕ активировался
+     * в CONSULTANT) НЕ засчитывается как квалифицированный L1-реферал спонсора.
+     * До фикса qualifiedL1Referrals считал его по client_achieved_at и завышал порог ранга.
+     */
+    public function testLapsedClientNotCountedAsQualifiedL1Referral(): void
+    {
+        $p100 = $this->product(100, 'P100');
+        $this->travelTo(CarbonImmutable::parse('2026-07-05 10:00:00', 'UTC'));
+        [, $rootRef] = $this->registerTg(600, name: 'Root');
+        [$aData] = $this->registerTg(601, $rootRef, 'A');
+        $root = $this->memberByTg(600);
+
+        // Личный реферал A становится CLIENT (grace), но НЕ активируется.
+        $this->buyAndPay($aData, $p100->id);
+        $lifecycle = app(\Modules\Calculator\V2\Services\Status\ClientLifecycleService::class);
+
+        // В активном grace A ещё считается (client, не истёк).
+        $this->assertSame(1, $lifecycle->qualifiedL1Referrals($root->id, CarbonImmutable::parse('2026-07-20 10:00:00', 'UTC')));
+
+        // Дедлайн прошёл, A не активировался → grace_expired.
+        $this->travelTo(CarbonImmutable::parse('2026-08-10 00:00:00', 'UTC'));
+        $this->artisan('calc-v2:client-grace-scan')->assertSuccessful();
+        $this->assertSame(PartnerState::STATE_GRACE_EXPIRED, PartnerState::query()->where('member_id', $this->memberByTg(601)->id)->value('state'));
+
+        // Лапс-клиент больше НЕ засчитывается в квалифицированные L1-рефералы root.
+        $this->assertSame(0, $lifecycle->qualifiedL1Referrals($root->id, CarbonImmutable::now()),
+            'лапс-клиент (grace_expired) не должен считаться квалифицированным L1-рефералом');
+        $this->travelBack();
+    }
+
     public function testReferralBelowThresholdDoesNotQualify(): void
     {
         $p100 = $this->product(100, 'P100');

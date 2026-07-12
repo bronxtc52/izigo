@@ -209,11 +209,15 @@ class ClientLifecycleService
     /** Кол-во квалифицированных личных рефералов 1-й линии (DEC-021) на момент $asOf. */
     public function qualifiedL1Referrals(int $memberId, CarbonInterface $asOf): int
     {
+        // Лапс-клиент (grace истёк, не активировался) НЕ считается квалифицированным
+        // рефералом спонсора — решение владельца 2026-07-12 (Q-W2b). Активный grace (client)
+        // и активированный consultant засчитываются; терминальный grace_expired — нет.
         return DB::table('members')
             ->join('v2_partner_states', 'v2_partner_states.member_id', '=', 'members.id')
             ->where('members.sponsor_id', $memberId)
             ->whereNotNull('v2_partner_states.client_achieved_at')
             ->where('v2_partner_states.client_achieved_at', '<=', $asOf)
+            ->where('v2_partner_states.state', '!=', PartnerState::STATE_GRACE_EXPIRED)
             ->count();
     }
 
