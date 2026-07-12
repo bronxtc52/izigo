@@ -6,6 +6,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Modules\Calculator\Tests\Feature\V2\Support\SeedsV2GlobalBonus;
 use Modules\Calculator\V2\Domain\Policy\StatusCode;
+use Modules\Calculator\V2\Models\AwardEntitlement;
 use Modules\Calculator\V2\Models\GlobalBonusAllocation;
 use Modules\Calculator\V2\Models\GlobalBonusMonth;
 use Modules\Calculator\V2\Models\GlobalBonusPool;
@@ -369,6 +370,115 @@ class GlobalBonusMonthlyTest extends TestCase
         $this->service()->finalizeMonth($period);
         $this->assertSame(GlobalBonusMonth::STATUS_FINAL, $this->service()->allocateForMonth($period)->status);
         $this->assertSame($snapshot1, $this->allocationFingerprint(GlobalBonusMonth::query()->where('month_period_id', $period->id)->firstOrFail()));
+    }
+
+    // --- MF-W3-1: стык T09→T10 — финализация месяца зовёт хук наград VP ---
+
+    /** Хелпер: VP-участник с shares≥1 в VP-пуле (referral_tree_pv ≥ base 6M). */
+    private function seedQualifiedVicePresident(): int
+    {
+        $m = $this->makeMember();
+        $this->seedRank($m, StatusCode::VICE_PRESIDENT);
+        // VP one_share base = 6M PV → PV 6M даёт ровно 1 долю (include_personal_pv).
+        $this->seedSnapshot($m, '6000000.000000', 0, $this->paidAt());
+
+        return $m;
+    }
+
+    private function vpTranches(int $memberId): \Illuminate\Support\Collection
+    {
+        return AwardEntitlement::query()
+            ->where('member_id', $memberId)
+            ->where('award_code', AwardEntitlement::CODE_VICE_PRESIDENT)
+            ->orderBy('stage_no')
+            ->get();
+    }
+
+    /**
+     * Финализация месяца порождает VP-транш этапа 2 для VP-участника, закрывшего
+     * месячную квалификацию (shares≥1). До фикса MF-W3-1 хук не звался — 0 траншей.
+     */
+    public function testFinalizeMonthGrantsVpTrancheForQualifiedVicePresident(): void
+    {
+        $this->activateGlobalBonusPolicy();
+        $period = $this->ensurePeriod(self::MONTH);
+
+        $vp = $this->seedQualifiedVicePresident();
+
+        $month = $this->service()->allocateForMonth($period);
+        // Убеждаемся, что квалификация действительно закрыта (shares≥1).
+        $this->assertSame(1, (int) GlobalBonusQualification::query()
+            ->where('global_bonus_month_id', $month->id)->where('member_id', $vp)->value('shares'));
+
+        // До финализации хук не звался — траншей 2/3 нет (только этап 1 не начисляется тут).
+        $this->assertSame(0, $this->vpTranches($vp)->whereIn('stage_no', [2, 3])->count());
+
+        $this->service()->finalizeMonth($period);
+
+        // Ровно один транш этапа 2, monthKey строго YYYY-MM (MF-W3-2).
+        $stage2 = $this->vpTranches($vp)->firstWhere('stage_no', 2);
+        $this->assertNotNull($stage2, 'финализация обязана начислить VP-транш этапа 2');
+        $this->assertSame(self::MONTH, $stage2->trigger_ref);
+        $this->assertSame(AwardEntitlement::TRIGGER_GLOBAL_QUALIFICATION, $stage2->trigger_type);
+        $this->assertSame(5000000, (int) $stage2->amount_cents);
+        $this->assertSame(1, $this->vpTranches($vp)->whereIn('stage_no', [2, 3])->count());
+    }
+
+    /** Director с shares≥1 (не VP) — финализация НЕ создаёт VP-транш (T10 фильтрует ранг). */
+    public function testFinalizeMonthDoesNotGrantTrancheForNonVicePresident(): void
+    {
+        $this->activateGlobalBonusPolicy();
+        $period = $this->ensurePeriod(self::MONTH);
+
+        $dir = $this->makeMember();
+        $this->seedRank($dir, StatusCode::DIRECTOR);
+        $this->seedSnapshot($dir, '100000.000000', 0, $this->paidAt()); // 1 доля director
+
+        $this->service()->allocateForMonth($period);
+        $this->service()->finalizeMonth($period);
+
+        $this->assertSame(0, $this->vpTranches($dir)->count());
+    }
+
+    /** Повторная финализация того же месяца НЕ создаёт второй транш (идемпотентность). */
+    public function testRepeatedFinalizeDoesNotDoubleGrantVpTranche(): void
+    {
+        $this->activateGlobalBonusPolicy();
+        $period = $this->ensurePeriod(self::MONTH);
+
+        $vp = $this->seedQualifiedVicePresident();
+
+        $this->service()->allocateForMonth($period);
+        $this->service()->finalizeMonth($period);
+        // Двойной прогон финализации (already-final → early-return, хук не дёргается).
+        $this->service()->finalizeMonth($period);
+        $this->service()->finalizeMonth($period);
+
+        $this->assertSame(1, $this->vpTranches($vp)->whereIn('stage_no', [2, 3])->count());
+        $this->assertSame(self::MONTH, $this->vpTranches($vp)->firstWhere('stage_no', 2)->trigger_ref);
+    }
+
+    /** Два разных месяца → distinct-квалификации → этапы 2 и 3 (стык живёт end-to-end). */
+    public function testTwoDistinctFinalizedMonthsGrantStagesTwoAndThree(): void
+    {
+        $this->activateGlobalBonusPolicy();
+
+        // Март: этап 2.
+        $march = $this->ensurePeriod(self::MONTH);
+        $vp = $this->seedQualifiedVicePresident();
+        $this->service()->allocateForMonth($march);
+        $this->service()->finalizeMonth($march);
+
+        // Апрель: тот же VP снова квалифицируется (PV в апрельском окне) → этап 3.
+        $april = $this->ensurePeriod('2026-04');
+        $this->seedSnapshot($vp, '6000000.000000', 0, CarbonImmutable::parse('2026-04-10 12:00:00', 'UTC'));
+        $this->service()->allocateForMonth($april);
+        $this->service()->finalizeMonth($april);
+
+        $tranches = $this->vpTranches($vp)->whereIn('stage_no', [2, 3]);
+        $this->assertSame(2, $tranches->count());
+        $this->assertSame('2026-03', $tranches->firstWhere('stage_no', 2)->trigger_ref);
+        $this->assertSame('2026-04', $tranches->firstWhere('stage_no', 3)->trigger_ref);
     }
 
     private function allocationFingerprint(GlobalBonusMonth $month): string

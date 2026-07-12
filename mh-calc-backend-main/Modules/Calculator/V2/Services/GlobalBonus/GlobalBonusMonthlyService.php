@@ -3,6 +3,7 @@
 namespace Modules\Calculator\V2\Services\GlobalBonus;
 
 use Illuminate\Support\Facades\DB;
+use Modules\Calculator\V2\Contracts\GlobalQualificationAwardHook;
 use Modules\Calculator\V2\Contracts\PolicyVersionResolver;
 use Modules\Calculator\V2\Contracts\StatusReader;
 use Modules\Calculator\V2\Domain\CalcPeriod;
@@ -38,6 +39,7 @@ class GlobalBonusMonthlyService
         private readonly PolicyVersionResolver $policies,
         private readonly StatusReader $ranks,
         private readonly ReferralTreePvMonthlyService $tree,
+        private readonly GlobalQualificationAwardHook $awardHook,
     ) {
     }
 
@@ -149,20 +151,43 @@ class GlobalBonusMonthlyService
         });
     }
 
-    /** Финализировать месяц (status=final) — вызывается ПОСЛЕ калибровки T11. Идемпотентно. */
+    /**
+     * Финализировать месяц (status=final) — вызывается ПОСЛЕ калибровки T11. Идемпотентно.
+     *
+     * MF-W3-1: финализация — единственная точка фиксации месячной квалификации, поэтому
+     * ровно здесь дёргается хук наград T10 `onGlobalQualificationCompleted` — по одному
+     * разу на каждого участника, закрывшего квалификацию (shares≥1). Переход draft→final
+     * происходит один раз (повторный finalize отсекается early-return ВЫШЕ этого места),
+     * значит хук НЕ вызывается на draft-пересчётах allocateForMonth и не задваивается на
+     * повторной финализации. T10 сам решает, порождает ли транш (только ранг VP). monthKey
+     * строго 'YYYY-MM' из starts_at периода (MF-W3-2) — совпадает с идемпотентной сверкой
+     * T10 (`trigger_ref === monthKey`). Всё в одной транзакции: либо месяц финализирован И
+     * все хуки отработали, либо откат.
+     */
     public function finalizeMonth(CalcPeriod $monthPeriod): ?GlobalBonusMonth
     {
-        $month = GlobalBonusMonth::query()->where('month_period_id', $monthPeriod->id)->first();
-        if ($month === null || $month->isFinal()) {
-            return $month;
-        }
+        return DB::transaction(function () use ($monthPeriod) {
+            $month = GlobalBonusMonth::query()->where('month_period_id', $monthPeriod->id)->first();
+            if ($month === null || $month->isFinal()) {
+                return $month;
+            }
 
-        $month->update([
-            'status' => GlobalBonusMonth::STATUS_FINAL,
-            'finalized_at' => now(),
-        ]);
+            $month->update([
+                'status' => GlobalBonusMonth::STATUS_FINAL,
+                'finalized_at' => now(),
+            ]);
 
-        return $month->refresh();
+            $monthKey = $monthPeriod->starts_at->format('Y-m');
+            $qualifiedMemberIds = $month->qualifications()
+                ->where('shares', '>=', 1)
+                ->orderBy('member_id')
+                ->pluck('member_id');
+            foreach ($qualifiedMemberIds as $memberId) {
+                $this->awardHook->onGlobalQualificationCompleted((int) $memberId, $monthKey);
+            }
+
+            return $month->refresh();
+        });
     }
 
     /**
