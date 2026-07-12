@@ -273,6 +273,7 @@ require __DIR__ . '/api/v2_structure_bonus.php'; // T06
 require __DIR__ . '/api/v2_referral.php';     // T07
 require __DIR__ . '/api/v2_global_bonus.php'; // T09
 require __DIR__ . '/api/v2_awards.php';       // T10
+require __DIR__ . '/api/v2_pool.php';         // T11
 // <<< V2 routes
 
 
