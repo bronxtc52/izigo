@@ -93,3 +93,8 @@ fixloop W3 acceptable. Сьют 792 passed. NOTE-ы (не блокеры): T10 s
 
 ## Волна W4 — слоты миграций
 T08 (лидерский) = 2026_07_13_16xxxx · T11 (60%-калибровка) = 2026_07_13_17xxxx
+
+- T11 — ЗАНЯТО (ветка mh2/t11-pool-calibration): `170000_create_v2_pool_calibrations_table`,
+  `170010_create_v2_pool_calibration_items_table`, `170020_seed_v2_pool_feature_flag`
+  (флаг `mh_v2_pool` OFF). Контракт T11→T08/T04: factor_bps committed-строки
+  v2_pool_calibrations читают PoolCalibrationReader (T08) и NsToOsTransfer (T04).
