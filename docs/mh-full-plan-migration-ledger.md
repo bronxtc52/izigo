@@ -126,3 +126,14 @@ GlobalBonusMonth.id — провенанс аудита, деньги/идемп
 T15 (миграция прода + паритет V1 vs V2 + cutover) — слот миграций схемы 2026_07_14_20xxxx;
 data-cutover = отдельная artisan-команда (НЕ авто на деплое). T16 (политика v3.0) — docs, зависит от T15.
 Cutover-флип — на границе полумесяца (следующая: 2026-07-16 00:00 UTC).
+
+- T15 — ЗАНЯТО (ветка `mh2/t15-migration-cutover`): `200000_create_v2_cutover_log_table`,
+  `200100_create_v2_parity_runs_table`, `200200_create_v2_parity_diffs_table` (только СХЕМА,
+  additive; данные прода миграцией НЕ переносятся). Инструментарий (за границей прод-исполнения):
+  команды `calc-v2:cutover-migrate` (Bronze→100 + main→ОС opening, dry-run по умолчанию, `--commit`
+  под ACTIVATION_LOCK, идемпотентно) и `calc-v2:parity-check` (read-only оракул V1 vs V2);
+  сервисы `V2/Services/Cutover/*` (Opening/Reconciliation/Bronze/Parity); runbook
+  `docs/runbooks/mh-full-plan-cutover.md` (rollback MF-10). Флаг `mh_plan_v2_engine` (сид W0)
+  команды НЕ трогают — money-cutover (флип) делает координатор под owner-гейтом. Сьют **899 passed**,
+  migrate:fresh OK. Решения владельца: opening-лот бессрочный (expires_at=null), PV/тиры/статусы
+  с нуля (без бэкфила), Bronze 90→100 PV/100 USDT.
