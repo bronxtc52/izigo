@@ -4,6 +4,7 @@ namespace Modules\Calculator\V2\Services\Refunds;
 
 use Illuminate\Support\Facades\DB;
 use Modules\Calculator\Models\Order;
+use Modules\Calculator\Models\OrderItem;
 use Modules\Calculator\Services\ActivationService;
 use Modules\Calculator\V2\Models\OrderReturn;
 use Modules\Calculator\V2\Models\OrderReturnLine;
@@ -123,9 +124,14 @@ class RefundService
                 : OrderReturn::STATUS_REVERSED;
             $return->save();
 
-            // Возврат денег покупателю — вне системы; фиксируем факт статусом заказа.
-            $fresh->status = Order::STATUS_REFUNDED;
-            $fresh->save();
+            // MF-W5-2: заказ помечается refunded ТОЛЬКО при полном покрытии — полный возврат
+            // либо кумулятивный partial, вернувший все заказанные единицы. Частичный возврат
+            // оставляет заказ paid (refundable), иначе следующий partial по другой позиции
+            // упрётся в guard status!=paid (422) и остаток нельзя вернуть.
+            if ($kind === OrderReturn::KIND_FULL || $this->isFullyReturned($order)) {
+                $fresh->status = Order::STATUS_REFUNDED;
+                $fresh->save();
+            }
 
             return $return->fresh(['lines', 'actions', 'corrections']);
         });
@@ -150,6 +156,31 @@ class RefundService
         $this->requal->recordForReturn($return);
 
         return $proposals > 0;
+    }
+
+    /**
+     * MF-W5-2: все ли заказанные единицы заказа возвращены (кумулятивно по всем возвратам,
+     * включая только что созданный)? Полное покрытие → заказ refunded; иначе paid.
+     */
+    private function isFullyReturned(Order $order): bool
+    {
+        $ordered = OrderItem::query()->where('order_id', $order->id)->pluck('qty', 'id');
+        if ($ordered->isEmpty()) {
+            return false;
+        }
+        $returnedQty = OrderReturnLine::query()
+            ->whereIn('return_id', OrderReturn::query()->where('order_id', $order->id)->select('id'))
+            ->groupBy('order_item_id')
+            ->selectRaw('order_item_id, SUM(qty) AS qty')
+            ->pluck('qty', 'order_item_id');
+
+        foreach ($ordered as $itemId => $qty) {
+            if ((int) ($returnedQty[$itemId] ?? 0) < (int) $qty) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /** Advisory-lock оркестратора (только pgsql; юнит-контекст без advisory-локов — no-op). */
