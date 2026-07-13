@@ -138,32 +138,30 @@ HTTP-чек в fleet-реестре watchdog `src/fleet/registry.json` (серв
 curl -fsS https://ca-izigo-backend.livelycoast-2b4dcf83.northeurope.azurecontainerapps.io/api/health
 ```
 
-### ACA liveness/readiness probe на `/api/health` (настраивается ОТДЕЛЬНО)
+### ACA startup/liveness/readiness probes (настраиваются ОТДЕЛЬНО) — скрипт `ops/izigo-aca-probes.sh`
 
 Метрики ACA (RestartCount и т.п.) отражают перезапуски только если у контейнера есть probe.
-Повесить liveness-probe на `/api/health` для `ca-izigo-backend` (пример; порт сверить с ingress
-targetPort бэка):
+Готовый идемпотентный скрипт **`ops/izigo-aca-probes.sh`** вешает на `ca-izigo-backend` ТРИ пробы на
+**targetPort бэка = 8080** (Dockerfile `EXPOSE 8080`, `docker/start.sh` → `artisan serve --port 8080`):
+
+- **Startup** `httpGet /up`, `periodSeconds 5`, `failureThreshold 30` (~150с) — окно на
+  `migrate` + сидеры + `scheduler:heartbeat` ДО открытия порта `artisan serve`. Пока Startup не
+  прошёл, Liveness/Readiness не считаются → долгий старт не крэш-лупит контейнер.
+- **Liveness** `httpGet /up`, `periodSeconds 30`, `failureThreshold 3` — «процесс жив», дёшево,
+  БЕЗ БД. Намеренно **НЕ `/api/health`**: вставший планировщик отдаёт `/api/health` 503, но
+  контейнер из-за этого убивать нельзя (крэш-луп) — это забота readiness.
+- **Readiness** `httpGet /api/health`, `periodSeconds 15`, `failureThreshold 3` — БД + свежесть
+  heartbeat планировщика; 503 выводит реплику из ротации ingress, а Liveness держит контейнер живым.
 
 ```bash
-az containerapp update -n ca-izigo-backend -g rg-izigo-beta-neu \
-  --yaml -  <<'YAML'
-properties:
-  template:
-    containers:
-      - name: ca-izigo-backend
-        probes:
-          - type: Liveness
-            httpGet:
-              path: /api/health
-              port: 8000
-            initialDelaySeconds: 20
-            periodSeconds: 30
-YAML
+cd ~/projects/binar-mlm     # рабочая копия репо
+bash ops/izigo-aca-probes.sh   # покажет текущий спек → применит пробы → выведет ревизии
 ```
 
 > ⚠️ probe на backend, у которого `artisan serve` + `schedule:work` в одном процессе, ставить
 > аккуратно: неверный порт/путь → ACA считает контейнер unhealthy → крэш-луп (см. грабли
-> forecast-mh-app в корневом CLAUDE.md). Проверить ревизию после правки:
+> forecast-mh-app в корневом CLAUDE.md). Порт **8080** (не 8000!) — сверено с Dockerfile/start.sh.
+> Скрипт сам печатает ревизии в конце; дополнительно:
 > `az containerapp revision list -n ca-izigo-backend -g rg-izigo-beta-neu -o table`.
 
 ---
@@ -176,4 +174,5 @@ YAML
 - [ ] 3× `az role assignment create` (Reader / Monitoring Reader / Log Analytics Reader) на MI mh-central
 - [ ] правка `/etc/server-watchdog/server-watchdog.env` (`AZURE_RESOURCE_GROUPS += rg-izigo-beta-neu`)
 - [ ] PR в `bronxtc52/server-watchdog`: `RG_WORKSPACE` + `.env.example`, `npm run build`
-- [ ] (после B-5) `/api/health` в `registry.json` watchdog + ACA liveness-probe
+- [ ] (после B-5) `/api/health` в `registry.json` watchdog
+- [x] ACA startup/liveness/readiness probes на порт 8080 — артефакт `ops/izigo-aca-probes.sh` готов (**apply делает человек** из `az login`-сессии; MSI mh-central read-only на RG)
