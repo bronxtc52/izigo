@@ -107,7 +107,7 @@ export default async function RootLayout({ children }) {
                 clickmap:true,
                 trackLinks:true,
                 accurateTrackBounce:true,
-                webvisor:true
+                webvisor:false
               });
             `,
               }}
