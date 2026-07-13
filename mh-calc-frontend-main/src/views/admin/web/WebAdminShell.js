@@ -75,7 +75,17 @@ const WebAdminShell = () => {
         () => BASE_SECTIONS.find((s) => roles.includes('owner') || s.roles.some((r) => roles.includes(r)))?.key ?? 'dashboard',
     );
 
-    const logout = () => { webApi.clearToken(); router.replace('/admin/login'); };
+    // Выход: отзываем токен на бэкенде (webApi.logout сам чистит локальную сессию в
+    // finally — best-effort), затем всегда уводим на логин, даже при сетевой ошибке.
+    const [loggingOut, setLoggingOut] = useState(false);
+    const logout = async () => {
+        setLoggingOut(true);
+        try {
+            await webApi.logout();
+        } finally {
+            router.replace('/admin/login');
+        }
+    };
     const section = allowed.find((s) => s.key === active) ?? allowed[0];
 
     return (
@@ -93,7 +103,7 @@ const WebAdminShell = () => {
             <Layout>
                 <Layout.Header style={{ background: '#fff', borderBottom: '1px solid #f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingInline: 16 }}>
                     <Typography.Text strong>{section?.label}</Typography.Text>
-                    <Button onClick={logout}>Выйти</Button>
+                    <Button onClick={logout} loading={loggingOut} disabled={loggingOut}>Выйти</Button>
                 </Layout.Header>
                 <Layout.Content style={{ padding: screens.md ? 24 : 12 }}>
                     {section?.render()}
