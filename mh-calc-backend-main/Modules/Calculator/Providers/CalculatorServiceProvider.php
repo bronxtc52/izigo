@@ -127,6 +127,8 @@ class CalculatorServiceProvider extends ServiceProvider
                     (string) $cfg->get('calculator.ton_api_v3_base_url', ''),
                     (string) $cfg->get('calculator.ton_api_key', ''),
                     (string) $cfg->get('calculator.ton_usdt_jetton_master', ''),
+                    (int) $cfg->get('calculator.ton_poll_page_size', 100),
+                    (int) $cfg->get('calculator.ton_poll_max_pages', 200),
                 ),
             };
         });

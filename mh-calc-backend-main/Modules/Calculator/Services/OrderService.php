@@ -174,6 +174,10 @@ class OrderService
         // Промоушн лида → Member (первая покупка). Лид ставится в бинар-дерево под
         // замкнутого спонсора; member_id заказа заполняется. Спонсор зафиксирован навсегда.
         if ($order->member_id === null && $order->lead_id !== null) {
+            // TOCTOU-защита: lead-lifecycle-лок берём ПЕРЕД чтением лида — сериализуем промоушн
+            // с экспирацией (expireDue/attachOrReattach), чтобы лид не был удалён между чтением и
+            // promote. Порядок строго lead-lifecycle → activation (activate() возьмёт свой лок ниже).
+            $this->leads->acquireLeadLock();
             $lead = Lead::query()->where('id', $order->lead_id)->first();
             if ($lead !== null) {
                 $member = $this->leads->promote($lead);
