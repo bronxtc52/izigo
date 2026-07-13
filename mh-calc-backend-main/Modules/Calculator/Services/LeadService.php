@@ -3,6 +3,7 @@
 namespace Modules\Calculator\Services;
 
 use Illuminate\Database\UniqueConstraintViolationException;
+use Illuminate\Support\Facades\DB;
 use Modules\Calculator\Models\Lead;
 use Modules\Calculator\Models\Member;
 use Modules\Calculator\Models\Order;
@@ -29,8 +30,31 @@ class LeadService
         Payment::STATUS_EXPIRED,
     ];
 
+    /**
+     * Ключ pg_advisory_xact_lock жизненного цикла лида: сериализует экспирацию/открепление
+     * лида (expireDue, ветка удаления в attachOrReattach) с промоушном при оплате (promote,
+     * OrderService::markPaid). Без него TOCTOU: экспирация читает «нет платежа», а параллельная
+     * оплата в этот момент создаёт платёж / промоутит лида — удаление осиротит заказ/платёж
+     * (FK nullOnDelete) → markPaid не найдёт участника → деньги без фулфилмента.
+     *
+     * Значение ОТЛИЧНО от ACTIVATION_LOCK_KEY (0x12916001) и V2-ключей — это отдельный лок.
+     * Порядок захвата строго lead-lifecycle → activation (markPaid берёт этот лок ПЕРВЫМ, до
+     * activate()): единый порядок без цикла, иначе дедлок с пересчётом сети.
+     */
+    public const LEAD_LIFECYCLE_LOCK_KEY = 0x12916002;
+
     public function __construct(private readonly MemberService $members)
     {
+    }
+
+    /**
+     * Взять транзакционный advisory-lock жизненного цикла лида (блокирующе). Публичный: внешние
+     * транзакции (OrderService::markPaid) берут его ПЕРВЫМ действием, до activation-лока, храня
+     * единый порядок захвата. Вне транзакции вызывать нельзя (pg_advisory_xact_lock требует её).
+     */
+    public function acquireLeadLock(): void
+    {
+        DB::statement('SELECT pg_advisory_xact_lock(?)', [self::LEAD_LIFECYCLE_LOCK_KEY]);
     }
 
     /**
@@ -47,14 +71,37 @@ class LeadService
     ): ?Lead {
         $existing = Lead::query()->where('telegram_id', $telegramId)->first();
         // Истёкший лид — открепляем (свободен): следующий переход привяжет заново.
-        // НО не трогаем, если по нему висит pending-платёж (чекаут в полёте) — иначе FK
-        // nullOnDelete осиротит платёж и markPaid не найдёт кому активировать.
+        // НО не трогаем, если по нему висит незавершённый платёж (чекаут в полёте) — иначе FK
+        // nullOnDelete осиротит платёж и markPaid не найдёт кому активировать. TOCTOU-safe:
+        // проверка платежа и удаление — одним условным DELETE под lead-lifecycle-локом, чтобы
+        // параллельная оплата (создание платежа / промоушн) не проскочила в окне «проверил—удаляю».
         if ($existing !== null && $existing->isExpired()) {
-            if ($this->hasUnsettledPayment($existing->id)) {
-                return $existing;
+            $existingId = $existing->id;
+            $deleted = DB::transaction(function () use ($existingId) {
+                $this->acquireLeadLock();
+
+                // Условный DELETE: удаляем ТОЛЬКО если ещё истёкший И без незавершённого платежа.
+                // Перепроверки expires_at/NOT EXISTS — под локом и в одном стейтменте (атомарно).
+                return Lead::query()
+                    ->whereKey($existingId)
+                    ->where('expires_at', '<', now())
+                    ->whereNotExists(fn ($q) => $q->select(DB::raw(1))
+                        ->from('payments')
+                        ->whereColumn('payments.lead_id', 'leads.id')
+                        ->whereIn('status', self::UNSETTLED_PAYMENT_STATUSES))
+                    ->delete();
+            });
+
+            if ($deleted > 0) {
+                $existing = null;
+            } else {
+                // Не удалён: защищён незавершённым платежом, продлён или уже промоутнут
+                // параллельно. Перечитываем актуальное состояние (мог исчезнуть → null).
+                $existing = Lead::query()->where('telegram_id', $telegramId)->first();
+                if ($existing !== null) {
+                    return $existing; // защищён/актуален — не пере-привязываем истёкшего под платежом
+                }
             }
-            $existing->delete();
-            $existing = null;
         }
 
         $sponsor = $this->resolveSponsor($sponsorRef);
@@ -129,6 +176,12 @@ class LeadService
      */
     public function promote(Lead $lead): Member
     {
+        // Первым действием — lead-lifecycle-лок: сериализуем промоушн с экспирацией лида,
+        // чтобы параллельный expireDue не удалил лида между промоушном и переносом заказов.
+        // Идёт ВНУТРИ транзакции markPaid (advisory-xact-лок держится до commit); повторный
+        // захват из markPaid безвреден (тот же ключ). Единый порядок: lead-lifecycle → activation.
+        $this->acquireLeadLock();
+
         $member = $this->members->registerTelegram(
             $lead->telegram_id,
             $lead->name,
@@ -157,16 +210,23 @@ class LeadService
      */
     public function expireDue(): int
     {
-        $busy = Payment::query()
-            ->whereIn('status', self::UNSETTLED_PAYMENT_STATUSES)
-            ->whereNotNull('lead_id')
-            ->pluck('lead_id')
-            ->all();
+        // ОДИН атомарный условный DELETE с коррелированным NOT EXISTS по неоплаченным платежам —
+        // вместо прежнего двухшагового stale-snapshot (pluck busy → whereNotIn->delete), где между
+        // снимком и удалением параллельная оплата могла создать платёж / промоутить лида, и лид
+        // удалялся, осиротив заказ/платёж (потеря денег). NOT EXISTS вычисляется в момент DELETE,
+        // а не по устаревшему снимку. Первым действием — lead-lifecycle-лок (сериализация с promote/
+        // markPaid), всё в транзакции.
+        return DB::transaction(function () {
+            $this->acquireLeadLock();
 
-        return Lead::query()
-            ->where('expires_at', '<', now())
-            ->when($busy !== [], fn ($q) => $q->whereNotIn('id', $busy))
-            ->delete();
+            return Lead::query()
+                ->where('expires_at', '<', now())
+                ->whereNotExists(fn ($q) => $q->select(DB::raw(1))
+                    ->from('payments')
+                    ->whereColumn('payments.lead_id', 'leads.id')
+                    ->whereIn('status', self::UNSETTLED_PAYMENT_STATUSES))
+                ->delete();
+        });
     }
 
     private function resolveSponsor(?string $refCode): ?Member
