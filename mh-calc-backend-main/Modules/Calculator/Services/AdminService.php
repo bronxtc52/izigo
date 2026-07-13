@@ -9,6 +9,7 @@ use Modules\Calculator\Models\Package;
 use Modules\Calculator\Models\PlanSetting;
 use Modules\Calculator\Models\Role;
 use Modules\Calculator\Repositories\EloquentPlanRepository;
+use Modules\Calculator\Services\Pii\ExportService;
 use Modules\Calculator\Services\Pii\PiiService;
 
 /**
@@ -21,6 +22,7 @@ class AdminService
         private readonly CabinetService $cabinet,
         private readonly EloquentPlanRepository $planRepository,
         private readonly PiiService $pii,
+        private readonly ExportService $export,
     ) {
     }
 
@@ -71,6 +73,13 @@ class AdminService
         // owner-only маршрут /members/{id}/pii/reveal с аудитом, его не трогаем.
         $maskPii = !$viewer->isOwner();
 
+        // payout_details (TON-адрес) и kyc_status живут НЕ на Member (заявка вывода/KYC-запись),
+        // а собираются ExportService — тем же коллектором, что кормит /pii и /export. Берём его,
+        // чтобы источник и формат маски в карточке не разошлись с выделенными PII-эндпоинтами.
+        // Маскирование живёт в сервисе (не за feature.flag c5_pii_export): маршрут /members/{id}
+        // не гейтится флагом, поэтому не-owner видит маску всегда, owner — сырые значения.
+        $piiCollected = $this->export->collect($member->id, $maskPii);
+
         return [
             'member' => $this->rowOf($member, $ranks, $packages) + [
                 'parent_id' => $member->parent_id,
@@ -79,6 +88,8 @@ class AdminService
                 'telegram_username' => $maskPii
                     ? $this->pii->mask($member->telegram_username, PiiService::TYPE_USERNAME)
                     : $member->telegram_username,
+                'payout_details' => $piiCollected['payout_details'],
+                'kyc_status' => $piiCollected['kyc_status'],
                 'roles' => $member->roles()->pluck('name')->all(),
             ],
             'branch' => $this->cabinet->teamTree($member),
