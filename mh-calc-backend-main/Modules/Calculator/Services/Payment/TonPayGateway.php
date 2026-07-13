@@ -4,6 +4,7 @@ namespace Modules\Calculator\Services\Payment;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Боевой драйвер приёма TON Pay (non-custodial). Деньги идут НАПРЯМУЮ на наш merchant
@@ -30,26 +31,45 @@ class TonPayGateway implements PaymentGateway
     /** USDT-джеттон в сети TON — 6 знаков. Центы (1/100 USDT) → мин. единицы джеттона: ×10^4. */
     private const CENTS_TO_UNITS = 10000;
     private const HTTP_TIMEOUT = 10;
-    /** Размер страницы /jetton/transfers (limit toncenter v3). */
-    private const PAGE_SIZE = 100;
+    /** Дефолт размера страницы /jetton/transfers (limit toncenter v3), если не задан конфигом. */
+    private const DEFAULT_PAGE_SIZE = 100;
     /**
-     * Предохранитель глубины пагинации: max страниц за один фетч (PAGE_SIZE×MAX_PAGES переводов).
-     * Курсор start_utime ограничивает объём временем создания платежа, это лишь верхняя отсечка
-     * от «убегания» на аномальном всплеске. 50×100 = 5000 переводов.
+     * Дефолт МЯГКОГО предела глубины пагинации (страниц за один фетч), если не задан конфигом.
+     * Раньше был жёстким const MAX_PAGES=50 (потолок 5000 переводов): при sort=asc от старейшего
+     * pending матчащий перевод за 51-й страницей молча терялся → платёж вечно pending. Теперь
+     * пагинируем ДО короткой страницы (chunk<pageSize) — окно сканируется целиком; предел лишь
+     * страховка от «убегания» на аномальном всплеске, вынесен в config и поднят.
      */
-    private const MAX_PAGES = 50;
+    private const DEFAULT_MAX_PAGES = 200;
     /**
      * Запас (сек), вычитаемый из времени создания платежа при построении start_utime: перевод
      * может лечь в блок чуть раньше нашей отметки времени (лаг/расхождение часов) — берём с полем.
      */
     private const SINCE_MARGIN_SECONDS = 3600;
 
+    /** Достигнут ли мягкий предел пагинации в последнем fetchTransfers (окно не досканировано). */
+    private bool $lastFetchTruncated = false;
+
     public function __construct(
         private readonly string $merchantAddress,
         private readonly string $apiBaseUrl,    // toncenter v3, напр. https://toncenter.com/api/v3
         private readonly string $apiKey,
         private readonly string $jettonMaster,  // мастер-контракт USDT
+        private readonly int $pageSize = self::DEFAULT_PAGE_SIZE,
+        private readonly int $maxPages = self::DEFAULT_MAX_PAGES,
     ) {
+    }
+
+    /** Эффективный размер страницы (пол 1). */
+    private function pageSize(): int
+    {
+        return max(1, $this->pageSize);
+    }
+
+    /** Эффективный мягкий предел числа страниц (пол 1). */
+    private function maxPages(): int
+    {
+        return max(1, $this->maxPages);
     }
 
     public function createInvoice(int $amountCents, string $currency, string $purpose, string $externalRef, array $meta = []): InvoiceResult
@@ -75,7 +95,14 @@ class TonPayGateway implements PaymentGateway
             return 'error'; // опрос не удался (сеть/таймаут/5xx) — не финализируем и не экспирируем
         }
 
-        return $this->matchTransfers($transfers, $externalRef, $amountCents);
+        $status = $this->matchTransfers($transfers, $externalRef, $amountCents);
+        if ($status === 'pending' && $this->lastFetchTruncated) {
+            // Мягкий предел пагинации исчерпан, а совпадения нет — возможен незамеченный перевод
+            // за пределом окна. НЕ тихий 'pending': сигналим в лог + Sentry для ручного разбора.
+            $this->warnTruncated([$externalRef]);
+        }
+
+        return $status;
     }
 
     /**
@@ -114,6 +141,15 @@ class TonPayGateway implements PaymentGateway
             $result[$it['ref']] = $this->matchTransfers($transfers, $it['ref'], (int) $it['amount_cents']);
         }
 
+        // Предел пагинации исчерпан, а часть платежей осталась без совпадения — их перевод мог
+        // лежать за пределом досканированного окна: сигналим наблюдаемостью (не молчим).
+        if ($this->lastFetchTruncated) {
+            $unresolved = array_keys(array_filter($result, static fn ($s) => $s === 'pending'));
+            if ($unresolved !== []) {
+                $this->warnTruncated($unresolved);
+            }
+        }
+
         return $result;
     }
 
@@ -139,19 +175,27 @@ class TonPayGateway implements PaymentGateway
      *
      * С курсором идём по возрастанию времени (sort=asc): новые переводы дописываются в хвост, поэтому
      * offset-пагинация устойчива (окно не «съезжает»). Без курсора — по убыванию (свежие сверху),
-     * первые страницы. MAX_PAGES — предохранитель от бесконечного хвоста.
+     * первые страницы.
+     *
+     * Пагинируем ДО короткой страницы (chunk<pageSize) — окно сканируется ЦЕЛИКОМ, жёсткого потолка
+     * нет. maxPages — лишь мягкий страховочный предел от «убегания» на аномальном всплеске; при его
+     * достижении с полной последней страницей окно НЕ досканировано — ставим lastFetchTruncated,
+     * чтобы вызывающий просигналил наблюдаемостью, а не отдал молчаливый 'pending'.
      */
     private function fetchTransfers(?int $startUtime): ?array
     {
+        $this->lastFetchTruncated = false;
         $all = [];
+        $pageSize = $this->pageSize();
+        $maxPages = $this->maxPages();
         $sort = $startUtime === null ? 'desc' : 'asc';
-        for ($page = 0; $page < self::MAX_PAGES; $page++) {
+        for ($page = 0; $page < $maxPages; $page++) {
             $query = [
                 'owner_address' => $this->merchantAddress,
                 'jetton_master' => $this->jettonMaster,
                 'direction' => 'in',
-                'limit' => self::PAGE_SIZE,
-                'offset' => $page * self::PAGE_SIZE,
+                'limit' => $pageSize,
+                'offset' => $page * $pageSize,
                 'sort' => $sort,
             ];
             if ($startUtime !== null) {
@@ -173,12 +217,35 @@ class TonPayGateway implements PaymentGateway
             foreach ($chunk as $tx) {
                 $all[] = $tx;
             }
-            if (count($chunk) < self::PAGE_SIZE) {
-                break; // последняя страница
+            if (count($chunk) < $pageSize) {
+                return $all; // последняя (короткая) страница — окно досканировано целиком
             }
         }
 
+        // Вышли по мягкому пределу с полной последней страницей — окно, возможно, не досканировано.
+        $this->lastFetchTruncated = true;
+
         return $all;
+    }
+
+    /** Наблюдаемость: мягкий предел пагинации исчерпан, а совпадения нет — сигналим для разбора. */
+    private function warnTruncated(array $unresolvedRefs): void
+    {
+        Log::warning('tonpay: достигнут мягкий предел пагинации окна матчинга без совпадения', [
+            'max_pages' => $this->maxPages(),
+            'page_size' => $this->pageSize(),
+            'unresolved_refs' => $unresolvedRefs,
+        ]);
+        \Sentry\captureMessage(
+            sprintf(
+                'TonPay: окно матчинга исчерпало предел пагинации (%d стр × %d) без совпадения — возможен незамеченный перевод (refs: %s%s)',
+                $this->maxPages(),
+                $this->pageSize(),
+                implode(', ', array_slice($unresolvedRefs, 0, 10)),
+                count($unresolvedRefs) > 10 ? ', …' : ''
+            ),
+            \Sentry\Severity::warning()
+        );
     }
 
     /** Матч одного memo по списку переводов: paid при верной сумме, иначе pending. */

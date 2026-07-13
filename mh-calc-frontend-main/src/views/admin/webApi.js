@@ -19,6 +19,18 @@ export const clearToken = () => {
     window.localStorage.removeItem(ROLES_KEY);
 };
 
+// Выход из веб-админки (G1): отзываем текущий Sanctum-токен на бэкенде
+// (POST /admin/auth/logout, Bearer) и ВСЕГДА чистим локальную сессию в finally —
+// best-effort: даже если сеть упала или бэк вернул 500, зомби-сессию в UI не оставляем.
+// req() определён ниже — вызывается в рантайме, не при инициализации модуля.
+export const logout = async (token) => {
+    try {
+        await req('/api/v1/admin/auth/logout', token, 'POST', {});
+    } finally {
+        clearToken();
+    }
+};
+
 export const setRoles = (roles) => {
     if (typeof window !== 'undefined') window.localStorage.setItem(ROLES_KEY, JSON.stringify(roles ?? []));
 };

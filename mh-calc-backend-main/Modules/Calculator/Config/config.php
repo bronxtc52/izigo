@@ -65,6 +65,11 @@ return [
     'ton_api_v3_base_url' => env('TON_API_V3_BASE_URL', 'https://toncenter.com/api/v3'),
     // Мастер-контракт USDT-джеттона (TON), decimals=6. ПУБЛИЧНЫЙ параметр (не секрет).
     'ton_usdt_jetton_master' => env('TON_USDT_JETTON_MASTER', ''),
+    // Пагинация опроса приёма (/jetton/transfers). Окно сканируется ДО короткой страницы;
+    // ton_poll_max_pages — лишь МЯГКИЙ предел от «убегания» на аномальном всплеске (страховка),
+    // при его достижении без совпадения — Log::warning + Sentry (не молчаливый pending).
+    'ton_poll_page_size' => (int) env('TON_POLL_PAGE_SIZE', 100),
+    'ton_poll_max_pages' => (int) env('TON_POLL_MAX_PAGES', 200),
     // Секрет подписи входящего платёжного webhook (generic). Wallet Pay отключён, но
     // ключ переиспользуется FakeGateway в тестах/dev для проверки подписи тела.
     'walletpay_webhook_secret' => env('WALLETPAY_WEBHOOK_SECRET', ''),

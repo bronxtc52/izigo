@@ -144,6 +144,10 @@ const MemberCard = ({ id, creds, api = tokenApi, onUnauthorized = () => {}, piiA
                     <Descriptions.Item label="Пакет">{m.package ?? m.package_id ?? '—'}</Descriptions.Item>
                     <Descriptions.Item label="Спонсор">{m.sponsor_id ?? '—'}</Descriptions.Item>
                     <Descriptions.Item label="Реф-код">{m.ref_code}</Descriptions.Item>
+                    {/* C1: payout_details/kyc_status из getMember — маска для не-owner, raw для owner,
+                        независимо от c5-флага. Reveal сырых значений остаётся в c5-блоке ниже. */}
+                    <Descriptions.Item label="Реквизиты выплаты (TON)">{m.payout_details ?? '—'}</Descriptions.Item>
+                    <Descriptions.Item label="KYC статус">{m.kyc_status ?? '—'}</Descriptions.Item>
                     <Descriptions.Item label="Роли">
                         {(m.roles ?? []).length
                             ? m.roles.map((r) => <Tag key={r} closable onClose={(e) => { e.preventDefault(); onRevoke(r); }}>{r}</Tag>)
