@@ -1,14 +1,27 @@
 # Текущий статус: активной итерации нет
 
+> ✅ **Миграция Laravel 10→12 + probes + npm-deps — В ПРОДЕ (2026-07-20).**
+> • **L12** (PR #48 → main, деплой зелёный): `laravel/framework` ^10→^12 через 11, nwidart ^12,
+>   sanctum ^4, phpunit ^11, scribe снят. Закрыты 3 laravel-advisories (`composer audit`=0).
+>   Сьют 927 passed, движок `Modules/Calculator` V1/V2 не тронут. Бэк ревизия `--0000064` Healthy.
+>   ТЗ: `docs/specs/2026-07-13-laravel-12-migration.md`.
+> • **ACA probes применены** (`ops/izigo-aca-probes.sh` из owner az-сессии): 3 пробы на :8080
+>   (startup `/up`, liveness `/up`, readiness `/api/health`), ревизия `--0000065`; сохранились
+>   при последующем `--image`-деплое (ревизия `--0000066`). ← закрывает остаточное действие A3 из P2.
+> • **npm dependabot** (PR #49 → main, деплой зелёный): фронт `npm audit fix` (ajv/brace-expansion/
+>   js-yaml/nanoid) 8→4 moderate; бот @sentry/node 8.47→8.55.2 + @azure/identity 4.5→4.13.1 (22→19).
+>   Остаток (postcss/next, uuid/react-d3-tree, @opentelemetry/core под @sentry/node v10-мажор) отложен —
+>   только через breaking-бампы, real attack-surface ≈ 0. Бот test 8/8, фронт lint+build зелёные.
+
 > ✅ **Блок P2-hardening — В ПРОДЕ (2026-07-13, PR #47, деплой зелёный).** 6 фиксов + 2 verify через
 > `/armada`: A1 webvisor→false (закрыта утечка финансовой PII Mini App в Яндекс), A2 `.env.example`
-> бэк/фронт/бот, A3 `ops/izigo-aca-probes.sh` (⚠️ **apply вручную из az-сессии — ещё не применён**),
+> бэк/фронт/бот, A3 `ops/izigo-aca-probes.sh` (✅ **применён 2026-07-20 из owner az-сессии**),
 > C2 logout Sanctum (фронт-проводка), B1 снят потолок `MAX_PAGES` матчинга TON + наблюдаемость,
 > B2 гонка лид-экспирации (advisory-lock `0x12916002` + атомарный `NOT EXISTS` DELETE),
 > C1 маска `payout_details`+`kyc_status` для не-owner. Сьют 927 passed, миграций нет.
 > Грабля: CI делает `cp .env.example .env` → пустой `KYC_THRESHOLD_CENTS=` включал KYC-гейт
 > (config.php `!== null`) → 29 падений; фикс — ключ закомментирован (см. `4e53c23`).
-> **Остаточное действие владельца:** применить `ops/izigo-aca-probes.sh` из `az login`-сессии.
+> **Остаточное действие A3 — ЗАКРЫТО 2026-07-20** (probes применены, см. блок выше).
 
 > ✅ **Блок mh-full-plan — ЗАВЕРШЁН И БОЕВОЙ В ПРОДЕ (cutover 2026-07-12 ~16:40 UTC).**
 > Полная маркетинговая политика Marine Health в IziGo (12 статусов, счета ОС/НС/БС,
