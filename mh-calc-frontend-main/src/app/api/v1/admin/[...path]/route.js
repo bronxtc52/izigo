@@ -56,6 +56,9 @@ async function proxy(request, ctx) {
         Authorization: `Bearer ${token}`,
         'X-Requested-With': 'XMLHttpRequest',
     };
+    // IP админа для аудита бэка (PII-экспорт пишет ip) — иначе всегда IP фронт-контейнера.
+    const xff = request.headers.get('x-forwarded-for');
+    if (xff) headers['X-Forwarded-For'] = xff;
     const contentType = request.headers.get('content-type');
     if (contentType) headers['Content-Type'] = contentType;
     const accept = request.headers.get('accept');

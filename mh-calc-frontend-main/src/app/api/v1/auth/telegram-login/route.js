@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import {
-    COOKIE_NAME, seal, cookieOptions, backendBase, isAllowedAdminHost,
+    COOKIE_NAME, seal, cookieOptions, backendBase, isAllowedAdminHost, sameOriginViolation,
 } from '../../_lib/adminSession.mjs';
 
 // BFF-логин веб-админки (t1-admin-cookie-auth): принимает payload Telegram Login Widget,
@@ -13,9 +13,16 @@ export async function POST(request) {
         return NextResponse.json({ status: 'error' }, { status: 404 });
     }
 
+    // Login-CSRF / session-fixation: чужой сайт не должен уметь подсадить жертве
+    // свою admin-сессию кросс-сайтовым POST (no-cors + text/plain обходит preflight).
+    if (sameOriginViolation(request)) {
+        return NextResponse.json({ status: 'error', message: 'CSRF-проверка не пройдена' }, { status: 403 });
+    }
+
     const base = backendBase();
-    if (!base || !process.env.ADMIN_COOKIE_SECRET) {
-        // Мисконфиг контейнера (нет секрета/базы бэка) — честная 500, не тихий пропуск.
+    if (!base || !process.env.ADMIN_COOKIE_SECRET || !process.env.ADMIN_PROXY_KEY) {
+        // Мисконфиг контейнера (нет секрета/прокси-ключа/базы бэка) — честная 500, не тихий
+        // пропуск: без ADMIN_PROXY_KEY бэк ответит 403 и логин-страница покажет ложное «нет ролей».
         return NextResponse.json({ status: 'error', message: 'BFF не сконфигурирован' }, { status: 500 });
     }
 
@@ -37,6 +44,9 @@ export async function POST(request) {
                 'Content-Type': 'application/json',
                 'X-Requested-With': 'XMLHttpRequest',
                 'X-Admin-Proxy-Key': process.env.ADMIN_PROXY_KEY || '',
+                // IP админа для аудита бэка (иначе в логах — IP фронт-контейнера).
+                ...(request.headers.get('x-forwarded-for')
+                    ? { 'X-Forwarded-For': request.headers.get('x-forwarded-for') } : {}),
             },
             body: JSON.stringify(payload),
             cache: 'no-store',
