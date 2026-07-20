@@ -167,6 +167,27 @@ Telegram Login Widget → Sanctum-токен. Чек-лист выката:
    `admin_audit_log` + Sanctum `personal_access_tokens` (vendor, грузится самим Sanctum).
 5. **TTL токена** (опц.) — env `WEB_ADMIN_TOKEN_TTL_MINUTES` (дефолт 720). Можно сузить для безопасности.
 6. **Домен на ACA** — уже привязан (§10), cert green. Админка отдаётся на admin.izigo.* тем же фронтом.
+7. **BFF-cookie (t1-admin-cookie-auth)** — Sanctum-токен админки больше не живёт в
+   localStorage: вход и все admin-запросы идут через Next BFF-proxy (`/api/v1/...` на
+   admin-хосте), токен запечатан в httpOnly-cookie `izigo_admin_s`. Шаги выката
+   (env на ACA durable — задаются один раз из az-сессии владельца, CI их не трогает):
+   - Секреты в KV: `izigo--beta--ADMIN-PROXY-KEY` и `izigo--beta--ADMIN-COOKIE-SECRET`
+     (случайные строки ≥32 байт, `openssl rand -base64 32`).
+   - **Фронт** `ca-izigo-frontend`: env `ADMIN_COOKIE_SECRET`, `ADMIN_PROXY_KEY`
+     (keyvaultref/secret), `BACKEND_INTERNAL_URL=<URL бэка>`; опц. `WEB_ADMIN_TOKEN_TTL_MINUTES`
+     в синхроне с бэком.
+   - **Бэк** `ca-izigo-backend`: env `ADMIN_PROXY_KEY` (тот же секрет) + `ADMIN_BFF_ENABLED=true`
+     (амендмент A-t1: выдача admin-токена только с валидным `X-Admin-Proxy-Key`).
+   - **Одноразовый revoke** старых токенов (мгновенно закрывает XSS-окно, админы перелогинятся):
+     `php artisan calculator:revoke-web-admin-tokens` из контейнера бэка. Предупредить
+     админов о re-login в отчёте выката.
+   - **Kill-switch**: `ADMIN_BFF_ENABLED=false` на бэке → прокси-key не форсится (старый
+     прямой Bearer-путь снова работает — для отката вместе с предыдущим образом фронта).
+   - **Приёмка**: после логина в localStorage НЕТ `izigo_admin_token`; `document.cookie`
+     НЕ показывает `izigo_admin_s` (httpOnly); ответ логина БЕЗ поля `token`; прямой
+     `POST /api/v1/auth/telegram-login` на бэк без `X-Admin-Proxy-Key` → 403; пути
+     `/api/v1/*` на `izigo.adarasoft.com` → 404; смоук Mini App (initData, каталог,
+     оплата) — без регрессий (CORS бэка не менялся).
 
 > Смена бренд-домена izigo.* (миграция самого продукта на adarasoft) — отдельное решение;
 > для админки достаточно поддомена admin.* (host-routing работает на любом хосте).

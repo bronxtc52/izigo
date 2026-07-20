@@ -2,8 +2,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Card, Typography, Alert, Spin } from 'antd';
 import { useRouter } from 'next/navigation';
-import { API_SERVER_URL } from '@/common/utils/utils';
-import { setToken, setRoles } from '@/views/admin/webApi';
+import { clearToken, setRoles } from '@/views/admin/webApi';
 
 // Имя бота для Telegram Login Widget (НЕ токен). Build-arg NEXT_PUBLIC_TG_BOT_USERNAME;
 // fallback — бот IziGo (из TWA deep-link). Виджету нужно имя без @.
@@ -11,7 +10,9 @@ const BOT_USERNAME = process.env.NEXT_PUBLIC_TG_BOT_USERNAME || 'Izigopro_mlm_bo
 
 /**
  * Вход в веб-админку через Telegram Login Widget: виджет отдаёт подписанные данные →
- * POST /auth/telegram-login → Sanctum-токен. Доступ только участникам с ролями (403).
+ * same-origin POST на Next BFF (/api/v1/auth/telegram-login) → httpOnly-cookie с
+ * запечатанным Sanctum-токеном (t1: токен в JS/localStorage больше не попадает).
+ * Доступ только участникам с ролями (403).
  */
 export default function AdminLoginPage() {
     const router = useRouter();
@@ -25,7 +26,7 @@ export default function AdminLoginPage() {
             setBusy(true);
             setError('');
             try {
-                const res = await fetch(`${API_SERVER_URL}/api/v1/auth/telegram-login`, {
+                const res = await fetch('/api/v1/auth/telegram-login', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(user),
@@ -36,7 +37,9 @@ export default function AdminLoginPage() {
                     setBusy(false);
                     return;
                 }
-                setToken(data.token);
+                // Cookie уже установлена ответом BFF (httpOnly). Токена в ответе нет by design.
+                // clearToken — одноразовая зачистка legacy izigo_admin_token из localStorage.
+                clearToken();
                 setRoles(data.member?.roles ?? []);
                 router.replace('/admin');
             } catch (e) {
