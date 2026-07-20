@@ -294,6 +294,10 @@ class PaymentService
         $failed = 0;
         $pollErrors = 0;   // опрос не удался (сеть/API) — платёж не трогаем и от TTL защищаем
         $polledOkIds = []; // опрошены успешно, перевода нет — единственные кандидаты на TTL
+        // Корзины исходов опроса для единого write-path (t2, P2-tails): персист колонок
+        // наблюдаемости идёт ТОЛЬКО через recordPollOutcomes(), батчем после цикла.
+        // 'none' хранится как 'none' (не схлопывается в 'pending').
+        $outcomeIds = ['paid' => [], 'pending' => [], 'failed' => [], 'none' => [], 'error' => []];
 
         // ОДИН фетч списка переводов за тик (курсор — по самому старому pending), матч локально:
         // раньше pollStatus дёргался в цикле по каждому pending → N идентичных HTTP-запросов/мин →
@@ -312,17 +316,21 @@ class PaymentService
                 $status = $statuses[$payment->external_ref] ?? 'error';
                 if ($status === 'error') {
                     $pollErrors++;
+                    $outcomeIds['error'][] = $payment->id;
                     continue;
                 }
                 if ($status === 'paid') {
                     $this->confirmPayment($payment->id);
                     $confirmed++;
+                    $outcomeIds['paid'][] = $payment->id;
                 } elseif ($status === 'failed') {
                     $payment->status = Payment::STATUS_FAILED;
                     $payment->save();
                     $failed++;
+                    $outcomeIds['failed'][] = $payment->id;
                 } else {
                     $polledOkIds[] = $payment->id; // 'pending'/'none'
+                    $outcomeIds[$status === 'none' ? 'none' : 'pending'][] = $payment->id;
                 }
             } catch (\Throwable $e) {
                 // Poison-платёж (например, осиротевший order у confirmPayment) не должен
@@ -333,6 +341,19 @@ class PaymentService
                 ]);
                 report($e);
             }
+        }
+
+        // Персист исходов опроса — единый write-path (recordPollOutcomes). Батч-UPDATE идёт
+        // вне row-lock: гонка с confirmPayment (платёж стал paid между фетчем и апдейтом)
+        // безвредна — колонки observability-only, payments.status здесь не трогается.
+        // При allPollsFailed счётчики всё равно инкрементятся (честная история; после
+        // восстановления индексатора успешный опрос их сбросит), эскалация — ОДНИМ
+        // агрегированным событием на тик (recordPollOutcomes агрегирует список ids).
+        // Poison-платёж (исключение в цикле) не попадает ни в одну корзину — его
+        // poll-исход в этот тик не записывается.
+        $escalated = 0;
+        foreach ($outcomeIds as $outcome => $ids) {
+            $escalated += $this->recordPollOutcomes($ids, $outcome);
         }
 
         // TTL: «висящие» pending, по которым оплата так и не пришла, истекают, чтобы не
@@ -379,7 +400,83 @@ class PaymentService
             }
         }
 
-        return ['confirmed' => $confirmed, 'failed' => $failed, 'expired' => $expired, 'errors' => $pollErrors];
+        return ['confirmed' => $confirmed, 'failed' => $failed, 'expired' => $expired, 'errors' => $pollErrors, 'escalated' => $escalated];
+    }
+
+    /**
+     * ЕДИНЫЙ write-path персиста poll-исходов (t2, амендмент Гейта A): ВСЕ записи
+     * last_poll_result / last_polled_at / poll_error_streak идут только здесь — и из
+     * pollPending (батчами по корзинам), и из recheckAdmin. Не размазывать по
+     * batch-SQL/Eloquent/recheck.
+     *
+     * $outcome: 'paid'|'pending'|'failed'|'none' — успешный опрос, streak → 0;
+     *           'error' — сбой опроса, streak += 1.
+     *
+     * Эскалация: порог N = config('calculator.payment_poll_error_threshold'); платежи,
+     * чей streak ПЕРЕСЁК порог именно этим вызовом (== N после инкремента), дают ОДНО
+     * Sentry-событие на страйк (без re-fire на N+1, N+2…; повторность закрывает
+     * Sentry-алертинг по unresolved issue) + Log::warning — по образцу TTL-блока.
+     * N == 0 → эскалация выключена (без сравнений). Cap = ЭСКАЛАЦИЯ, НЕ авто-экспирация:
+     * авто-expire по N ошибок запрещён — деньги могли прийти, а опрос лишь не смог это
+     * проверить; экспирация закрыла бы подхват поздней оплаты по memo (граница P1/B4).
+     *
+     * @param list<int> $paymentIds
+     * @return int сколько платежей пересекли порог этим вызовом (эскалировано)
+     */
+    private function recordPollOutcomes(array $paymentIds, string $outcome): int
+    {
+        if ($paymentIds === []) {
+            return 0;
+        }
+
+        if ($outcome !== 'error') {
+            Payment::query()->whereIn('id', $paymentIds)->update([
+                'last_poll_result' => $outcome,
+                'last_polled_at' => now(),
+                'poll_error_streak' => 0,
+            ]);
+
+            return 0;
+        }
+
+        Payment::query()->whereIn('id', $paymentIds)->update([
+            'last_poll_result' => 'error',
+            'last_polled_at' => now(),
+            'poll_error_streak' => DB::raw('poll_error_streak + 1'),
+        ]);
+
+        $threshold = (int) config('calculator.payment_poll_error_threshold', 10);
+        if ($threshold <= 0) {
+            return 0; // эскалация выключена — счётчики пишутся, сравнений нет
+        }
+
+        // Пересекли порог именно в этом вызове: streak == N после инкремента
+        // (на прошлом тике был N-1). На N+1, N+2… событие не повторяется.
+        $crossedIds = Payment::query()
+            ->whereIn('id', $paymentIds)
+            ->where('poll_error_streak', $threshold)
+            ->pluck('id');
+        if ($crossedIds->isEmpty()) {
+            return 0;
+        }
+
+        Log::warning('tonpay-poll: эскалация — платежи с >= N ошибками опроса подряд', [
+            'threshold' => $threshold,
+            'count' => $crossedIds->count(),
+            'ids' => $crossedIds->all(),
+        ]);
+        \Sentry\captureMessage(
+            sprintf(
+                'tonpay-poll: %d платеж(ей) достигли %d ошибок опроса подряд (ids: %s%s)',
+                $crossedIds->count(),
+                $threshold,
+                $crossedIds->take(10)->implode(', '),
+                $crossedIds->count() > 10 ? ', …' : ''
+            ),
+            \Sentry\Severity::warning()
+        );
+
+        return $crossedIds->count();
     }
 
     /**
@@ -406,6 +503,11 @@ class PaymentService
         if ($status === 'paid') {
             $this->confirmPayment($payment->id);
         }
+
+        // Поль-исход — через тот же единый write-path, что и крон: успешный админ-recheck
+        // (paid/pending/failed/none) сбрасывает streak и снимает маркер «проблемный опрос»,
+        // 'error' — инкрементит (и может пересечь порог — событие то же, одно на страйк).
+        $this->recordPollOutcomes([$payment->id], $status);
 
         return ['payment_status' => $payment->fresh()->status, 'poll' => $status];
     }
