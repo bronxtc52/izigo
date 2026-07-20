@@ -57,6 +57,13 @@ return [
     // поэтому ранняя экспирация = риск «осиротевших» средств на merchant-кошельке.
     // Восстановление: заказ остаётся pending_payment, партнёр создаёт новый платёж. 0 = не истекать.
     'payment_pending_ttl_minutes' => (int) env('PAYMENT_PENDING_TTL_MINUTES', 1440),
+    // t2 (P2-tails): порог подряд-ошибок опроса (payments.poll_error_streak) для эскалации —
+    // ОДНО Sentry-событие на страйк + маркер «проблемный опрос» в админке. Poll идёт
+    // everyMinute → дефолт 10 ≈ 10 минут непрерывных ошибок. 0 = эскалация выключена.
+    // Cap = ЭСКАЛАЦИЯ, НЕ авто-экспирация: авто-expire по N ошибок запрещён — деньги могли
+    // прийти, опрос лишь не смог это проверить; экспирация закрыла бы подхват поздней
+    // оплаты по memo (признанная граница P1/B4, payments.status не расширяется).
+    'payment_poll_error_threshold' => (int) env('PAYMENT_POLL_ERROR_THRESHOLD', 10),
     // TON Pay (приём): наш merchant-адрес получателя (izigo--<env>--TON-MERCHANT-ADDRESS) и
     // ключ к TON API для опроса сети (izigo--<env>--TON-API-KEY). Приватный ключ приёма НЕ нужен.
     'ton_merchant_address' => env('TON_MERCHANT_ADDRESS', ''),

@@ -16,6 +16,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property string $status
  * @property string $external_ref
  * @property ?string $external_id
+ * @property ?string $last_poll_result исход последнего опроса: paid|pending|failed|none|error (не статус платежа!)
+ * @property ?\Illuminate\Support\Carbon $last_polled_at
+ * @property int $poll_error_streak подряд-ошибки опроса; успешный опрос сбрасывает в 0
  */
 class Payment extends Model
 {
@@ -41,6 +44,9 @@ class Payment extends Model
         'external_id',
         'raw_payload',
         'paid_at',
+        'last_poll_result',
+        'last_polled_at',
+        'poll_error_streak',
     ];
 
     protected $casts = [
@@ -49,6 +55,8 @@ class Payment extends Model
         'amount_cents' => 'integer',
         'raw_payload' => 'array',
         'paid_at' => 'datetime',
+        'last_polled_at' => 'datetime',
+        'poll_error_streak' => 'integer',
     ];
 
     public function order(): BelongsTo
