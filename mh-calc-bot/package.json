@@ -15,7 +15,7 @@
   "dependencies": {
     "@azure/identity": "4.13.1",
     "@azure/keyvault-secrets": "4.9.0",
-    "@sentry/node": "8.55.2",
+    "@sentry/node": "10.66.0",
     "grammy": "1.30.0"
   }
 }
