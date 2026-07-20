@@ -28,6 +28,19 @@ class AuthController extends Controller
 
     public function telegramLogin(Request $request): JsonResponse
     {
+        // A-t1 (BFF): при включённом ADMIN_BFF_ENABLED токен выдаётся ТОЛЬКО прокси
+        // (Next-сервер шлёт X-Admin-Proxy-Key server-side). Прямой вызов из браузера
+        // (CORS '*') валидный payload виджета обменять на токен больше не может —
+        // закрывает обход httpOnly-дизайна через XSS. Пустой настроенный ключ при
+        // включённом флаге = fail-closed (мисконфиг не открывает дверь).
+        if ((bool) config('calculator.admin_bff_enabled', false)) {
+            $expected = (string) config('calculator.admin_proxy_key', '');
+            $provided = (string) $request->header('X-Admin-Proxy-Key', '');
+            if ($expected === '' || $provided === '' || !hash_equals($expected, $provided)) {
+                return $this->error('Доступ запрещён', Response::HTTP_FORBIDDEN);
+            }
+        }
+
         $botToken = (string) config('calculator.telegram_bot_token', '');
         $maxAge = (int) config('calculator.telegram_login_max_age', 86400);
 

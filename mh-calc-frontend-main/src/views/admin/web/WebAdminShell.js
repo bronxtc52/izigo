@@ -25,7 +25,8 @@ const BASE_SECTIONS = [
     { key: 'users', label: 'Пользователи', roles: ['owner', 'finance', 'support', 'leader'], render: () => <Users /> },
     { key: 'genealogy', label: 'Генеалогия', roles: ['owner', 'finance', 'support'], render: () => <Genealogy /> },
     { key: 'plan', label: 'Маркетинг-план', roles: ['owner', 'finance', 'support'], render: () => <MarketingPlan /> },
-    { key: 'withdrawals', label: 'Выплаты', roles: ['owner', 'finance'], render: () => <AdminWithdrawals creds={webApi.getToken()} api={webApi} /> },
+    // creds не передаём: с t1 токена в JS нет, auth — httpOnly-cookie (req игнорирует слот).
+    { key: 'withdrawals', label: 'Выплаты', roles: ['owner', 'finance'], render: () => <AdminWithdrawals creds={undefined} api={webApi} /> },
     { key: 'finances', label: 'Финансы', roles: ['owner', 'finance'], render: () => <Finances /> },
     { key: 'reports', label: 'Отчёты', roles: ['owner', 'finance', 'support'], render: () => <Reports /> },
     { key: 'operations', label: 'Операции', roles: ['owner', 'finance', 'support'], render: () => <Operations /> },

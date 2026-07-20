@@ -2,9 +2,11 @@
 import React, { useEffect, useState } from 'react';
 import { ConfigProvider, Spin } from 'antd';
 import { usePathname, useRouter } from 'next/navigation';
-import { getToken } from '@/views/admin/webApi';
+import { getRoles } from '@/views/admin/webApi';
 
-// Веб-админка (admin.izigo.adarasoft.com): гейт по Sanctum-токену. Без токена → /admin/login.
+// Веб-админка (admin.izigo.adarasoft.com): httpOnly-cookie из JS не читается (by design, t1),
+// поэтому клиентский гейт — по маркеру логина (roles в localStorage, ставятся при входе).
+// Это UI-удобство, не защита: реальная аутентификация — cookie + бэк (401 → редирект в req()).
 // Страница логина проходит без гейта (иначе цикл редиректов). antd-тема — локально для админки.
 export default function AdminLayout({ children }) {
     const pathname = usePathname();
@@ -14,7 +16,7 @@ export default function AdminLayout({ children }) {
 
     useEffect(() => {
         if (isLogin) { setReady(true); return; }
-        if (!getToken()) { router.replace('/admin/login'); return; }
+        if (getRoles().length === 0) { router.replace('/admin/login'); return; }
         setReady(true);
     }, [isLogin, pathname, router]);
 

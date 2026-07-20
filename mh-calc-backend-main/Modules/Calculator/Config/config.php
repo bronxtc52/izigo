@@ -17,6 +17,14 @@ return [
     // TTL Sanctum-токена веб-админки (минуты). 0 = бессрочный. Дефолт 12ч — ограничиваем
     // время жизни bearer к денежной панели (выплаты/план). Источник прав — RBAC, не abilities.
     'web_admin_token_ttl_minutes' => (int) env('WEB_ADMIN_TOKEN_TTL_MINUTES', 720),
+    // Веб-админка через Next BFF-proxy (t1-admin-cookie-auth). При включённом флаге выдача
+    // admin-токена (POST auth/telegram-login) требует валидный заголовок X-Admin-Proxy-Key —
+    // его ставит ТОЛЬКО Next-сервер (server-side), поэтому XSS на admin-домене не может
+    // получить токен в обход httpOnly-cookie (амендмент A-t1). Kill-switch: false → старый
+    // прямой Bearer-путь работает, прокси-key не форсится (страховка отката первых дней).
+    // Значение ключа — из KV izigo--beta--ADMIN-PROXY-KEY (env, не хардкод).
+    'admin_bff_enabled' => (bool) env('ADMIN_BFF_ENABLED', false),
+    'admin_proxy_key' => env('ADMIN_PROXY_KEY', ''),
     // Бутстрап владельцев: список telegram_id через запятую. Источник — Key Vault
     // (izigo--beta--OWNER-TELEGRAM-IDS), инжектится env OWNER_TELEGRAM_IDS. Не хардкодим.
     'owner_telegram_ids' => env('OWNER_TELEGRAM_IDS', ''),
