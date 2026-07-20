@@ -8,10 +8,17 @@
 > • **ACA probes применены** (`ops/izigo-aca-probes.sh` из owner az-сессии): 3 пробы на :8080
 >   (startup `/up`, liveness `/up`, readiness `/api/health`), ревизия `--0000065`; сохранились
 >   при последующем `--image`-деплое (ревизия `--0000066`). ← закрывает остаточное действие A3 из P2.
-> • **npm dependabot** (PR #49 → main, деплой зелёный): фронт `npm audit fix` (ajv/brace-expansion/
->   js-yaml/nanoid) 8→4 moderate; бот @sentry/node 8.47→8.55.2 + @azure/identity 4.5→4.13.1 (22→19).
->   Остаток (postcss/next, uuid/react-d3-tree, @opentelemetry/core под @sentry/node v10-мажор) отложен —
->   только через breaking-бампы, real attack-surface ≈ 0. Бот test 8/8, фронт lint+build зелёные.
+> • **npm dependabot, раунд 1** (PR #49 → main): фронт `npm audit fix` (ajv/brace-expansion/
+>   js-yaml/nanoid); бот @sentry/node 8.47→8.55.2 + @azure/identity 4.5→4.13.1. GitHub-алерты 12→7.
+
+> ✅ **Dependabot мажор-бампы (остаток из 7) — В ПРОДЕ (2026-07-20). Открытых алертов 7→0.**
+> ТЗ: `docs/specs/2026-07-20-dependabot-major-bumps.md`. Тремя поверхностями:
+> • **PR #50 — бот `@sentry/node` 8.55.2→10.66.0** (major): закрыл `@opentelemetry/core`, `npm audit` 19→0.
+>   Verify: тест init-с-DSN→живой клиент (9/9); прод-лог старта `bot started … (sentry: true)` (ревизия `--0000017`).
+> • **PR #51 — фронт npm `overrides`** postcss→8.5.20, uuid→11.1.1 (без трогания next 15 / react-d3-tree):
+>   `npm audit` 0; lint+build зелёные; сайт 200, бэк-probes сохранились (`--0000062`/бэк 3 пробы).
+> • **vite ×4 (Modules/ConfigIziGo)** — dismissed `not_used`: dev-only devDep, в прод-CI не собирается, exposure=0.
+> Остаток осознанно НЕ трогали (границы ТЗ): next 15→16, замена react-d3-tree, апгрейд vite/laravel-vite-plugin.
 
 > ✅ **Блок P2-hardening — В ПРОДЕ (2026-07-13, PR #47, деплой зелёный).** 6 фиксов + 2 verify через
 > `/armada`: A1 webvisor→false (закрыта утечка финансовой PII Mini App в Яндекс), A2 `.env.example`
