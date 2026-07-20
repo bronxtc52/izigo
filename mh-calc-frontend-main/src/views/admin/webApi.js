@@ -121,6 +121,8 @@ export const fetchDashboard = (token) => req('/api/v1/admin/dashboard', token);
 export const fetchLedger = (token, params = {}) => req(`/api/v1/admin/ledger${qs(params)}`, token);
 export const fetchMemberWallet = (token, id) => req(`/api/v1/admin/members/${id}/wallet`, token);
 export const fetchPayments = (token, params = {}) => req(`/api/v1/admin/payments${qs(params)}`, token);
+// Принудительный ре-опрос платежа (t2): RBAC owner/finance — 403 обрабатывает вызывающий.
+export const recheckPayment = (token, id) => mutate(token, `/api/v1/admin/payments/${id}/recheck`, 'POST', {});
 export const fetchAutoship = (token, params = {}) => req(`/api/v1/admin/autoship${qs(params)}`, token);
 export const fetchAuditLog = (token, params = {}) => req(`/api/v1/admin/audit-log${qs(params)}`, token);
 
