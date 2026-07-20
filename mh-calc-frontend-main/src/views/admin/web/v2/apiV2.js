@@ -10,9 +10,9 @@
 // и ГЛОТАЕТ тело ответа. Редактор PolicyVersion обязан показывать текст серверной
 // валидации (422 { message }) — поэтому локальный call() читает тело и на ошибке
 // (иначе валидация была бы «просто 422» без причины). webApi.js НЕ трогаем: берём из
-// него только getToken/clearToken (публичный экспорт) и общий базовый URL.
-import { API_SERVER_URL } from '@/common/utils/utils';
-import { getToken, clearToken } from '@/views/admin/webApi';
+// него только clearToken (публичный экспорт). Транспорт — как у req(): same-origin
+// BFF-proxy, httpOnly-cookie уходит автоматически, Bearer в JS больше не существует (t1).
+import { clearToken } from '@/views/admin/webApi';
 
 const BASE = '/api/v1/admin/v2';
 
@@ -39,14 +39,12 @@ const qs = (params = {}) => {
  * Никогда не бросает — вызывающий сам решает, что показать (пустое состояние/сообщение).
  */
 const call = async (path, method = 'GET', body = null) => {
-    const bearer = getToken();
     try {
-        const res = await fetch(`${API_SERVER_URL}${BASE}${path}`, {
+        const res = await fetch(`${BASE}${path}`, {
             method,
             headers: {
                 'X-Requested-With': 'XMLHttpRequest',
                 'Content-Type': 'application/json;charset=UTF-8',
-                Authorization: `Bearer ${bearer}`,
             },
             body: body ? JSON.stringify(body) : undefined,
         });

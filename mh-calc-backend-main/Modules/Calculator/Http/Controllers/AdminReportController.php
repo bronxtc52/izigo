@@ -39,7 +39,7 @@ class AdminReportController
     public function payments(Request $request): JsonResponse
     {
         return $this->guarded(fn () => $this->reports->payments(
-            $request->only(['status', 'purpose', 'per_page']),
+            $request->only(['status', 'purpose', 'poll_problem', 'per_page']),
         ));
     }
 

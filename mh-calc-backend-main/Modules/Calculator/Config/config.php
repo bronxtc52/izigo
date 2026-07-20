@@ -17,6 +17,14 @@ return [
     // TTL Sanctum-токена веб-админки (минуты). 0 = бессрочный. Дефолт 12ч — ограничиваем
     // время жизни bearer к денежной панели (выплаты/план). Источник прав — RBAC, не abilities.
     'web_admin_token_ttl_minutes' => (int) env('WEB_ADMIN_TOKEN_TTL_MINUTES', 720),
+    // Веб-админка через Next BFF-proxy (t1-admin-cookie-auth). При включённом флаге выдача
+    // admin-токена (POST auth/telegram-login) требует валидный заголовок X-Admin-Proxy-Key —
+    // его ставит ТОЛЬКО Next-сервер (server-side), поэтому XSS на admin-домене не может
+    // получить токен в обход httpOnly-cookie (амендмент A-t1). Kill-switch: false → старый
+    // прямой Bearer-путь работает, прокси-key не форсится (страховка отката первых дней).
+    // Значение ключа — из KV izigo--beta--ADMIN-PROXY-KEY (env, не хардкод).
+    'admin_bff_enabled' => (bool) env('ADMIN_BFF_ENABLED', false),
+    'admin_proxy_key' => env('ADMIN_PROXY_KEY', ''),
     // Бутстрап владельцев: список telegram_id через запятую. Источник — Key Vault
     // (izigo--beta--OWNER-TELEGRAM-IDS), инжектится env OWNER_TELEGRAM_IDS. Не хардкодим.
     'owner_telegram_ids' => env('OWNER_TELEGRAM_IDS', ''),
@@ -57,6 +65,13 @@ return [
     // поэтому ранняя экспирация = риск «осиротевших» средств на merchant-кошельке.
     // Восстановление: заказ остаётся pending_payment, партнёр создаёт новый платёж. 0 = не истекать.
     'payment_pending_ttl_minutes' => (int) env('PAYMENT_PENDING_TTL_MINUTES', 1440),
+    // t2 (P2-tails): порог подряд-ошибок опроса (payments.poll_error_streak) для эскалации —
+    // ОДНО Sentry-событие на страйк + маркер «проблемный опрос» в админке. Poll идёт
+    // everyMinute → дефолт 10 ≈ 10 минут непрерывных ошибок. 0 = эскалация выключена.
+    // Cap = ЭСКАЛАЦИЯ, НЕ авто-экспирация: авто-expire по N ошибок запрещён — деньги могли
+    // прийти, опрос лишь не смог это проверить; экспирация закрыла бы подхват поздней
+    // оплаты по memo (признанная граница P1/B4, payments.status не расширяется).
+    'payment_poll_error_threshold' => (int) env('PAYMENT_POLL_ERROR_THRESHOLD', 10),
     // TON Pay (приём): наш merchant-адрес получателя (izigo--<env>--TON-MERCHANT-ADDRESS) и
     // ключ к TON API для опроса сети (izigo--<env>--TON-API-KEY). Приватный ключ приёма НЕ нужен.
     'ton_merchant_address' => env('TON_MERCHANT_ADDRESS', ''),

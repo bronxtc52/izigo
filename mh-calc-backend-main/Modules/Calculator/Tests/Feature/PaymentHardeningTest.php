@@ -281,6 +281,12 @@ class PaymentHardeningTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.payment_status', Payment::STATUS_EXPIRED)
             ->assertJsonPath('data.poll', 'error');
+
+        // t2 (аддитивно): сбойный recheck зафиксирован в колонках наблюдаемости.
+        $payment = Payment::find($ctx['payment_id']);
+        $this->assertSame('error', $payment->last_poll_result);
+        $this->assertSame(1, $payment->poll_error_streak);
+        $this->assertNotNull($payment->last_polled_at);
     }
 
     public function testAdminRecheckDeniedForSupport(): void

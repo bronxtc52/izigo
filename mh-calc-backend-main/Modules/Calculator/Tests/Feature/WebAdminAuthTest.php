@@ -168,6 +168,82 @@ class WebAdminAuthTest extends TestCase
         $this->assertDatabaseCount('personal_access_tokens', 0);
     }
 
+    // ── A-t1: обязательный X-Admin-Proxy-Key при включённом BFF-режиме ────────────────
+
+    public function testBffEnabledRejectsLoginWithoutProxyKey(): void
+    {
+        // XSS-обход httpOnly: валидный payload виджета БЕЗ прокси-заголовка → 403, токен не выдан.
+        config(['calculator.admin_bff_enabled' => true, 'calculator.admin_proxy_key' => 'test-proxy-key']);
+        $this->registerTg(320, name: 'Owner');
+        $this->grantRole(320, 'owner');
+
+        $this->postJson('/api/v1/auth/telegram-login', $this->widgetFor(320))->assertStatus(403);
+        $this->assertDatabaseCount('personal_access_tokens', 0);
+    }
+
+    public function testBffEnabledRejectsWrongProxyKey(): void
+    {
+        config(['calculator.admin_bff_enabled' => true, 'calculator.admin_proxy_key' => 'test-proxy-key']);
+        $this->registerTg(321, name: 'Owner');
+        $this->grantRole(321, 'owner');
+
+        $this->postJson('/api/v1/auth/telegram-login', $this->widgetFor(321), ['X-Admin-Proxy-Key' => 'wrong'])
+            ->assertStatus(403);
+        $this->assertDatabaseCount('personal_access_tokens', 0);
+    }
+
+    public function testBffEnabledEmptyConfiguredKeyFailsClosed(): void
+    {
+        // Мисконфиг (флаг включён, ключ не задан) НЕ открывает дверь: даже пустой заголовок → 403.
+        config(['calculator.admin_bff_enabled' => true, 'calculator.admin_proxy_key' => '']);
+        $this->registerTg(322, name: 'Owner');
+        $this->grantRole(322, 'owner');
+
+        $this->postJson('/api/v1/auth/telegram-login', $this->widgetFor(322), ['X-Admin-Proxy-Key' => ''])
+            ->assertStatus(403);
+        $this->assertDatabaseCount('personal_access_tokens', 0);
+    }
+
+    public function testBffEnabledValidProxyKeyIssuesToken(): void
+    {
+        config(['calculator.admin_bff_enabled' => true, 'calculator.admin_proxy_key' => 'test-proxy-key']);
+        $this->registerTg(323, name: 'Owner');
+        $this->grantRole(323, 'owner');
+
+        $res = $this->postJson('/api/v1/auth/telegram-login', $this->widgetFor(323), ['X-Admin-Proxy-Key' => 'test-proxy-key'])
+            ->assertOk();
+        $this->assertNotEmpty($res->json('token'));
+    }
+
+    public function testBffDisabledKeepsLegacyLoginPath(): void
+    {
+        // Kill-switch: ADMIN_BFF_ENABLED=false → прокси-key не форсится (старый Bearer-путь).
+        config(['calculator.admin_bff_enabled' => false, 'calculator.admin_proxy_key' => 'test-proxy-key']);
+        $this->registerTg(324, name: 'Owner');
+        $this->grantRole(324, 'owner');
+
+        $this->postJson('/api/v1/auth/telegram-login', $this->widgetFor(324))->assertOk();
+    }
+
+    public function testRevokeWebAdminTokensCommandDeletesOnlyWebAdminTokens(): void
+    {
+        // Одноразовый шаг выката: сносим ВСЕ web-admin токены, чужие имена не трогаем.
+        $this->registerTg(325, name: 'Owner');
+        $this->grantRole(325, 'owner');
+        $this->postJson('/api/v1/auth/telegram-login', $this->widgetFor(325))->assertOk();
+        $this->postJson('/api/v1/auth/telegram-login', $this->widgetFor(325))->assertOk();
+        $member = Member::where('telegram_id', 325)->firstOrFail();
+        $member->createToken('other-purpose');
+        $this->assertDatabaseCount('personal_access_tokens', 3);
+
+        $this->artisan('calculator:revoke-web-admin-tokens')
+            ->expectsOutputToContain('Отозвано web-admin токенов: 2')
+            ->assertExitCode(0);
+
+        $this->assertDatabaseCount('personal_access_tokens', 1);
+        $this->assertSame(0, \Laravel\Sanctum\PersonalAccessToken::where('name', 'web-admin')->count());
+    }
+
     public function testLogoutAllRevokesEveryToken(): void
     {
         // ?all=1 — выход со всех устройств (все токены участника).

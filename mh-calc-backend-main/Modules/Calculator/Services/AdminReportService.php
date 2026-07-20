@@ -85,7 +85,7 @@ class AdminReportService
         ];
     }
 
-    /** Платежи (приём): фильтр по статусу/назначению. */
+    /** Платежи (приём): фильтр по статусу/назначению + poll_problem (t2, наблюдаемость опроса). */
     public function payments(array $filters): array
     {
         $query = Payment::query()->orderByDesc('id');
@@ -95,6 +95,16 @@ class AdminReportService
         }
         if (!empty($filters['purpose'])) {
             $query->where('purpose', $filters['purpose']);
+        }
+
+        // t2: маркер «проблемный опрос» = poll_error_streak >= порога эскалации.
+        // Порог 0 (фича выключена) → poll_problem всегда false, фильтр не матчит ничего
+        // (консистентно с маркером; семантика зафиксирована тестом).
+        $threshold = (int) config('calculator.payment_poll_error_threshold', 10);
+        if (!empty($filters['poll_problem'])) {
+            $threshold > 0
+                ? $query->where('poll_error_streak', '>=', $threshold)
+                : $query->whereRaw('1 = 0');
         }
 
         $page = $query->paginate((int) ($filters['per_page'] ?? 50));
@@ -107,6 +117,10 @@ class AdminReportService
             'amount_cents' => $p->amount_cents,
             'status' => $p->status,
             'external_ref' => $p->external_ref,
+            'last_poll_result' => $p->last_poll_result,
+            'last_polled_at' => $p->last_polled_at?->toIso8601String(),
+            'poll_error_streak' => (int) $p->poll_error_streak,
+            'poll_problem' => $threshold > 0 && (int) $p->poll_error_streak >= $threshold,
             'created_at' => $p->created_at?->toIso8601String(),
         ]);
     }

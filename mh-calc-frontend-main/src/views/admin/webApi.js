@@ -1,21 +1,23 @@
 'use client';
-import { API_SERVER_URL } from '@/common/utils/utils';
 
-// Web-админ API (admin.izigo.adarasoft.com): авторизация Bearer Sanctum-токеном
-// (выдан после входа через Telegram Login Widget). Интерфейс функций совпадает с
-// initDataApi, поэтому переиспользуемые вьюхи (MembersList/MemberCard/AdminWithdrawals)
-// работают с api={webApi}, creds={token}. Контракт ответов как у initDataApi:
-// req() → { status, data } бэкенда либо { error: <httpStatus> } при !ok.
+// Web-админ API (admin.izigo.adarasoft.com): с t1-admin-cookie-auth авторизация идёт
+// httpOnly-cookie через Next BFF-proxy (same-origin /api/v1/admin/* → бэк). Sanctum-токен
+// в JS/localStorage БОЛЬШЕ НЕ ЖИВЁТ: cookie ставит/читает только Next-сервер. Интерфейс
+// функций совпадает с initDataApi, поэтому переиспользуемые вьюхи (MembersList/MemberCard/
+// AdminWithdrawals) работают с api={webApi}, creds={undefined}. Контракт ответов как у
+// initDataApi: req() → { status, data } бэкенда либо { error: <httpStatus> } при !ok.
 
-const TOKEN_KEY = 'izigo_admin_token';
+// Legacy-ключ до-cookie эпохи: токены действующих админов зачищаются из localStorage
+// одноразово (clearToken зовётся на логине и на первом 401 старой сессии).
+const LEGACY_TOKEN_KEY = 'izigo_admin_token';
 const ROLES_KEY = 'izigo_admin_roles';
 
-export const getToken = () =>
-    (typeof window !== 'undefined' ? window.localStorage.getItem(TOKEN_KEY) : null) || '';
-export const setToken = (t) => { if (typeof window !== 'undefined') window.localStorage.setItem(TOKEN_KEY, t); };
+// Совместимость сигнатур (creds-first вьюхи): токена в JS больше нет — всегда ''.
+// Реальная аутентификация — httpOnly-cookie, подставляется браузером автоматически.
+export const getToken = () => '';
 export const clearToken = () => {
     if (typeof window === 'undefined') return;
-    window.localStorage.removeItem(TOKEN_KEY);
+    window.localStorage.removeItem(LEGACY_TOKEN_KEY);
     window.localStorage.removeItem(ROLES_KEY);
 };
 
@@ -52,18 +54,17 @@ const handleUnauthorized = () => {
     }
 };
 
-// req(path, token, method, body): token — Bearer (первый «creds» аргумент, как initData).
+// req(path, token, method, body): база — same-origin BFF-proxy ('' вместо API_SERVER_URL),
+// httpOnly-cookie уходит автоматически, Authorization не ставим. Параметр `token` — LEGACY:
+// игнорируется, но сигнатура сохранена намеренно — 20+ вьюх и refundsApi зовут req
+// token-first (undefined/creds), менять их все ради мёртвого слота дороже, чем оставить.
 export const req = async (path, token, method = 'GET', body = null) => {
     try {
-        // Токен берём только если это непустая строка — иначе из localStorage. Защита от
-        // случайной передачи params в слот токена (иначе `Bearer [object Object]` → 401).
-        const bearer = (typeof token === 'string' && token) ? token : getToken();
-        const res = await fetch(`${API_SERVER_URL}${path}`, {
+        const res = await fetch(path, {
             method,
             headers: {
                 'X-Requested-With': 'XMLHttpRequest',
                 'Content-Type': 'application/json;charset=UTF-8',
-                Authorization: `Bearer ${bearer}`,
             },
             body: body ? JSON.stringify(body) : undefined,
         });
@@ -121,6 +122,8 @@ export const fetchDashboard = (token) => req('/api/v1/admin/dashboard', token);
 export const fetchLedger = (token, params = {}) => req(`/api/v1/admin/ledger${qs(params)}`, token);
 export const fetchMemberWallet = (token, id) => req(`/api/v1/admin/members/${id}/wallet`, token);
 export const fetchPayments = (token, params = {}) => req(`/api/v1/admin/payments${qs(params)}`, token);
+// Принудительный ре-опрос платежа (t2): RBAC owner/finance — 403 обрабатывает вызывающий.
+export const recheckPayment = (token, id) => mutate(token, `/api/v1/admin/payments/${id}/recheck`, 'POST', {});
 export const fetchAutoship = (token, params = {}) => req(`/api/v1/admin/autoship${qs(params)}`, token);
 export const fetchAuditLog = (token, params = {}) => req(`/api/v1/admin/audit-log${qs(params)}`, token);
 
@@ -197,12 +200,12 @@ export const revealMemberPii = (token, id) =>
 
 // Экспорт: качаем файл (csv) или объект (json). masked=false (полный) — только owner;
 // бэкенд принудительно маскирует не-owner, даже если masked=0. Возвращает { ok } / { error }.
+// token — LEGACY (игнорируется, см. req); CSV стримится сквозь BFF-proxy same-origin.
 export const exportMember = async (token, id, format = 'json', masked = true) => {
-    const bearer = (typeof token === 'string' && token) ? token : getToken();
     const params = qs({ format, masked: masked ? '1' : '0' });
     try {
-        const res = await fetch(`${API_SERVER_URL}/api/v1/admin/members/${id}/export${params}`, {
-            headers: { 'X-Requested-With': 'XMLHttpRequest', Authorization: `Bearer ${bearer}` },
+        const res = await fetch(`/api/v1/admin/members/${id}/export${params}`, {
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
         });
         if (res.status === 401) { handleUnauthorized(); return { error: 401 }; }
         if (!res.ok) return { error: res.status };

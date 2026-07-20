@@ -10,6 +10,7 @@ use Modules\Calculator\Console\ExpireLeadsCommand;
 use Modules\Calculator\Console\OutboxDispatchCommand;
 use Modules\Calculator\Console\PayoutsPollCommand;
 use Modules\Calculator\Console\RemoveOldEmptyStructuresCommand;
+use Modules\Calculator\Console\RevokeWebAdminTokensCommand;
 use Modules\Calculator\Console\SchedulerHeartbeatCommand;
 use Modules\Calculator\Console\TonPayPollCommand;
 use Modules\Calculator\Http\Middleware\SetCalculatorUserMiddleware;
@@ -147,7 +148,14 @@ class CalculatorServiceProvider extends ServiceProvider
             OutboxDispatchCommand::class,
             ExpireLeadsCommand::class,
             SchedulerHeartbeatCommand::class,
+            RevokeWebAdminTokensCommand::class,
         ]);
+
+        // t3: перф-бенчмарк движка — dev/test-утилита, в prod-контейнере НЕ регистрируется
+        // (амендмент A-t3); в расписание не ставится.
+        if (! $this->app->environment('production')) {
+            $this->commands([\Modules\Calculator\Console\EngineBenchCommand::class]);
+        }
     }
 
     /**

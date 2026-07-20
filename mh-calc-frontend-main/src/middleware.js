@@ -19,6 +19,14 @@ export function middleware(request) {
         return NextResponse.next({ request: { headers: requestHeaders } });
     };
 
+    // BFF-прокси админки (t1): /api/v1/* существует только для admin-хоста (и localhost).
+    // Mini App ходит на бэк напрямую по абсолютному URL — коллизии нет, но глушим
+    // поверхность: на прочих хостах эти пути отдают 404 (не редирект — это API, не страница).
+    if (pathname.startsWith('/api/v1')) {
+        if (isAdminHost || isLocal) return passThrough();
+        return new NextResponse(null, { status: 404 });
+    }
+
     if (pathname.startsWith('/admin')) {
         if (isAdminHost || isLocal) return passThrough();
         const url = request.nextUrl.clone();
@@ -38,5 +46,5 @@ export function middleware(request) {
 }
 
 export const config = {
-    matcher: ['/', '/admin/:path*', '/miniapp/:path*'],
+    matcher: ['/', '/admin/:path*', '/miniapp/:path*', '/api/v1/:path*'],
 };
