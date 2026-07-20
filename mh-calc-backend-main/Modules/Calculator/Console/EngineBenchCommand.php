@@ -137,7 +137,11 @@ class EngineBenchCommand extends Command
 
             if ($fresh) {
                 // Гарды прошли выше; единственная деструктивная операция бенча.
-                $this->callSilent('migrate:fresh', ['--force' => true]);
+                if ($this->callSilent('migrate:fresh', ['--force' => true]) !== self::SUCCESS) {
+                    $this->error('migrate:fresh упал — бенч остановлен (см. лог миграций).');
+
+                    return self::FAILURE;
+                }
             }
 
             $generator = new SyntheticTreeGenerator();
@@ -390,14 +394,20 @@ class EngineBenchCommand extends Command
     {
         $jsonPath = (string) $this->option('json');
         if ($jsonPath !== '') {
-            file_put_contents($jsonPath, json_encode($report, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) . "\n");
-            $this->info("JSON: {$jsonPath}");
+            if (file_put_contents($jsonPath, json_encode($report, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) . "\n") === false) {
+                $this->warn("JSON не записан (путь недоступен?): {$jsonPath}");
+            } else {
+                $this->info("JSON: {$jsonPath}");
+            }
         }
 
         $mdPath = (string) $this->option('md');
         if ($mdPath !== '') {
-            file_put_contents($mdPath, $this->toMarkdown($report));
-            $this->info("Markdown: {$mdPath}");
+            if (file_put_contents($mdPath, $this->toMarkdown($report)) === false) {
+                $this->warn("Markdown не записан (путь недоступен?): {$mdPath}");
+            } else {
+                $this->info("Markdown: {$mdPath}");
+            }
         }
     }
 

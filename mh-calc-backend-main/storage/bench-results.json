@@ -1,0 +1,825 @@
+{
+    "meta": {
+        "generated_at": "2026-07-20T16:54:41+00:00",
+        "db": "izigo_bench",
+        "driver": "pgsql",
+        "php": "8.3.31",
+        "laravel": "12.63.0",
+        "seed": 20260720,
+        "iterations": 3,
+        "engines": [
+            "v1",
+            "v2"
+        ],
+        "fresh": true
+    },
+    "sizes": [
+        {
+            "size": 1000,
+            "tree_checksum": "1b83cae43a9dab1954f728b5682f4913ffa41343",
+            "phases": {
+                "v1_load": {
+                    "iterations": [
+                        {
+                            "wall_ms": 9.9,
+                            "sql_count": 1,
+                            "sql_time_ms": 1.17,
+                            "peak_mb": 44.5
+                        },
+                        {
+                            "wall_ms": 9.9,
+                            "sql_count": 1,
+                            "sql_time_ms": 0.99,
+                            "peak_mb": 46.5
+                        },
+                        {
+                            "wall_ms": 10,
+                            "sql_count": 1,
+                            "sql_time_ms": 1.14,
+                            "peak_mb": 46.5
+                        }
+                    ],
+                    "mean": {
+                        "wall_ms": 9.9,
+                        "sql_count": 1,
+                        "sql_time_ms": 1.1,
+                        "peak_mb": 45.8
+                    },
+                    "min": {
+                        "wall_ms": 9.9,
+                        "sql_count": 1,
+                        "sql_time_ms": 1,
+                        "peak_mb": 44.5
+                    },
+                    "max": {
+                        "wall_ms": 10,
+                        "sql_count": 1,
+                        "sql_time_ms": 1.2,
+                        "peak_mb": 46.5
+                    }
+                },
+                "v1_engine": {
+                    "iterations": [
+                        {
+                            "wall_ms": 244.2,
+                            "sql_count": 0,
+                            "sql_time_ms": 0,
+                            "peak_mb": 44.5
+                        },
+                        {
+                            "wall_ms": 245.9,
+                            "sql_count": 0,
+                            "sql_time_ms": 0,
+                            "peak_mb": 46.5
+                        },
+                        {
+                            "wall_ms": 245.7,
+                            "sql_count": 0,
+                            "sql_time_ms": 0,
+                            "peak_mb": 46.5
+                        }
+                    ],
+                    "mean": {
+                        "wall_ms": 245.3,
+                        "sql_count": 0,
+                        "sql_time_ms": 0,
+                        "peak_mb": 45.8
+                    },
+                    "min": {
+                        "wall_ms": 244.2,
+                        "sql_count": 0,
+                        "sql_time_ms": 0,
+                        "peak_mb": 44.5
+                    },
+                    "max": {
+                        "wall_ms": 245.9,
+                        "sql_count": 0,
+                        "sql_time_ms": 0,
+                        "peak_mb": 46.5
+                    }
+                },
+                "v1_activate": {
+                    "iterations": [
+                        {
+                            "wall_ms": 4102.7,
+                            "sql_count": 9578,
+                            "sql_time_ms": 2950.62,
+                            "peak_mb": 46.5
+                        },
+                        {
+                            "wall_ms": 3846.3,
+                            "sql_count": 8294,
+                            "sql_time_ms": 2719.36,
+                            "peak_mb": 46.5
+                        },
+                        {
+                            "wall_ms": 3893.3,
+                            "sql_count": 8294,
+                            "sql_time_ms": 2779.94,
+                            "peak_mb": 46.5
+                        }
+                    ],
+                    "mean": {
+                        "wall_ms": 3947.4,
+                        "sql_count": 8722,
+                        "sql_time_ms": 2816.6,
+                        "peak_mb": 46.5
+                    },
+                    "min": {
+                        "wall_ms": 3846.3,
+                        "sql_count": 8294,
+                        "sql_time_ms": 2719.4,
+                        "peak_mb": 46.5
+                    },
+                    "max": {
+                        "wall_ms": 4102.7,
+                        "sql_count": 9578,
+                        "sql_time_ms": 2950.6,
+                        "peak_mb": 46.5
+                    }
+                },
+                "v2_mark_paid": {
+                    "iterations": [
+                        {
+                            "wall_ms": 3718.1,
+                            "sql_count": 8383,
+                            "sql_time_ms": 2638.43,
+                            "peak_mb": 48.5
+                        },
+                        {
+                            "wall_ms": 3582.6,
+                            "sql_count": 8381,
+                            "sql_time_ms": 2527.98,
+                            "peak_mb": 48.5
+                        },
+                        {
+                            "wall_ms": 3718.8,
+                            "sql_count": 8381,
+                            "sql_time_ms": 2662.8,
+                            "peak_mb": 48.5
+                        }
+                    ],
+                    "mean": {
+                        "wall_ms": 3673.2,
+                        "sql_count": 8381.7,
+                        "sql_time_ms": 2609.7,
+                        "peak_mb": 48.5
+                    },
+                    "min": {
+                        "wall_ms": 3582.6,
+                        "sql_count": 8381,
+                        "sql_time_ms": 2528,
+                        "peak_mb": 48.5
+                    },
+                    "max": {
+                        "wall_ms": 3718.8,
+                        "sql_count": 8383,
+                        "sql_time_ms": 2662.8,
+                        "peak_mb": 48.5
+                    }
+                },
+                "v2_structure_bonus": {
+                    "iterations": [
+                        {
+                            "wall_ms": 5.9,
+                            "sql_count": 13,
+                            "sql_time_ms": 4.1,
+                            "peak_mb": 48.5
+                        },
+                        {
+                            "wall_ms": 4.3,
+                            "sql_count": 13,
+                            "sql_time_ms": 3.23,
+                            "peak_mb": 48.5
+                        },
+                        {
+                            "wall_ms": 5.1,
+                            "sql_count": 13,
+                            "sql_time_ms": 3.84,
+                            "peak_mb": 48.5
+                        }
+                    ],
+                    "mean": {
+                        "wall_ms": 5.1,
+                        "sql_count": 13,
+                        "sql_time_ms": 3.7,
+                        "peak_mb": 48.5
+                    },
+                    "min": {
+                        "wall_ms": 4.3,
+                        "sql_count": 13,
+                        "sql_time_ms": 3.2,
+                        "peak_mb": 48.5
+                    },
+                    "max": {
+                        "wall_ms": 5.9,
+                        "sql_count": 13,
+                        "sql_time_ms": 4.1,
+                        "peak_mb": 48.5
+                    }
+                }
+            },
+            "v2": {
+                "status": "ok",
+                "reason": null
+            },
+            "consistency": {
+                "engine_total_cents": 5900527,
+                "earnings_total_cents": 5900527,
+                "ledger_expense_net_cents": 5900527,
+                "earnings_rows": 218,
+                "members": 1000
+            },
+            "top_sql": [
+                {
+                    "sql": "insert into \"member_bonus_lines\" (\"recipient_member_id\", \"type\", \"amount\", \"basis\", \"source_event_id\", \"calculated_at\") values (?…) returning \"id\"",
+                    "count": 42246,
+                    "time_ms": 13440.85
+                },
+                {
+                    "sql": "update \"members\" set \"rank_id\" = ?, \"updated_at\" = ? where \"id\" = ?",
+                    "count": 6000,
+                    "time_ms": 1872.67
+                },
+                {
+                    "sql": "insert into \"member_earnings\" (\"member_id\", \"total\", \"by_type\", \"updated_at\") values (?…) returning \"id\"",
+                    "count": 1308,
+                    "time_ms": 394.4
+                },
+                {
+                    "sql": "select * from \"member_wallets\" where \"member_id\" = ? limit {n} for update",
+                    "count": 466,
+                    "time_ms": 130.69
+                },
+                {
+                    "sql": "insert into \"ledger_entries\" (\"account_type\", \"amount_cents\", \"created_at\", \"direction\", \"idempotency_key\", \"member_id\", \"meta\", \"source_id\", \"source_type\", \"tx_id\") values (?…)×N",
+                    "count": 248,
+                    "time_ms": 88.46
+                },
+                {
+                    "sql": "select exists(select * from \"ledger_entries\" where \"idempotency_key\" = ?) as \"exists\"",
+                    "count": 248,
+                    "time_ms": 73.42
+                },
+                {
+                    "sql": "insert into \"member_wallets\" (\"member_id\", \"available_cents\", \"held_cents\", \"clawback_debt_cents\", \"currency\", \"updated_at\") values (?…) on conflict do nothing",
+                    "count": 218,
+                    "time_ms": 70.02
+                },
+                {
+                    "sql": "update \"member_wallets\" set \"available_cents\" = ? where \"id\" = ?",
+                    "count": 218,
+                    "time_ms": 65.84
+                },
+                {
+                    "sql": "insert into \"v2_pv_lots\" (\"owner_member_id\", \"side\", \"buyer_member_id\", \"origin_order_id\", \"origin_order_item_id\", \"pv_original\", \"pv_available\", \"pv_matched\", \"pv_reversed\", \"bv_usd_cents_original…",
+                    "count": 27,
+                    "time_ms": 15.48
+                },
+                {
+                    "sql": "SELECT {n} AS held FROM pg_locks WHERE locktype = ? AND pid = pg_backend_pid() AND granted AND classid = ? AND objid = ?",
+                    "count": 30,
+                    "time_ms": 11.45
+                }
+            ]
+        },
+        {
+            "size": 5000,
+            "tree_checksum": "91e9d9a7225860b7ad2227e7b4946d508e74cac2",
+            "phases": {
+                "v1_load": {
+                    "iterations": [
+                        {
+                            "wall_ms": 54.4,
+                            "sql_count": 1,
+                            "sql_time_ms": 3.46,
+                            "peak_mb": 66.5
+                        },
+                        {
+                            "wall_ms": 73.5,
+                            "sql_count": 1,
+                            "sql_time_ms": 6.6,
+                            "peak_mb": 70.5
+                        },
+                        {
+                            "wall_ms": 56.7,
+                            "sql_count": 1,
+                            "sql_time_ms": 5.14,
+                            "peak_mb": 70.5
+                        }
+                    ],
+                    "mean": {
+                        "wall_ms": 61.5,
+                        "sql_count": 1,
+                        "sql_time_ms": 5.1,
+                        "peak_mb": 69.2
+                    },
+                    "min": {
+                        "wall_ms": 54.4,
+                        "sql_count": 1,
+                        "sql_time_ms": 3.5,
+                        "peak_mb": 66.5
+                    },
+                    "max": {
+                        "wall_ms": 73.5,
+                        "sql_count": 1,
+                        "sql_time_ms": 6.6,
+                        "peak_mb": 70.5
+                    }
+                },
+                "v1_engine": {
+                    "iterations": [
+                        {
+                            "wall_ms": 6451.1,
+                            "sql_count": 0,
+                            "sql_time_ms": 0,
+                            "peak_mb": 66.5
+                        },
+                        {
+                            "wall_ms": 6275.2,
+                            "sql_count": 0,
+                            "sql_time_ms": 0,
+                            "peak_mb": 70.5
+                        },
+                        {
+                            "wall_ms": 6460.3,
+                            "sql_count": 0,
+                            "sql_time_ms": 0,
+                            "peak_mb": 70.5
+                        }
+                    ],
+                    "mean": {
+                        "wall_ms": 6395.5,
+                        "sql_count": 0,
+                        "sql_time_ms": 0,
+                        "peak_mb": 69.2
+                    },
+                    "min": {
+                        "wall_ms": 6275.2,
+                        "sql_count": 0,
+                        "sql_time_ms": 0,
+                        "peak_mb": 66.5
+                    },
+                    "max": {
+                        "wall_ms": 6460.3,
+                        "sql_count": 0,
+                        "sql_time_ms": 0,
+                        "peak_mb": 70.5
+                    }
+                },
+                "v1_activate": {
+                    "iterations": [
+                        {
+                            "wall_ms": 29037.3,
+                            "sql_count": 56869,
+                            "sql_time_ms": 17423.46,
+                            "peak_mb": 70.5
+                        },
+                        {
+                            "wall_ms": 27139.3,
+                            "sql_count": 50674,
+                            "sql_time_ms": 15724.47,
+                            "peak_mb": 70.5
+                        },
+                        {
+                            "wall_ms": 26776.9,
+                            "sql_count": 50674,
+                            "sql_time_ms": 15593.22,
+                            "peak_mb": 70.5
+                        }
+                    ],
+                    "mean": {
+                        "wall_ms": 27651.2,
+                        "sql_count": 52739,
+                        "sql_time_ms": 16247.1,
+                        "peak_mb": 70.5
+                    },
+                    "min": {
+                        "wall_ms": 26776.9,
+                        "sql_count": 50674,
+                        "sql_time_ms": 15593.2,
+                        "peak_mb": 70.5
+                    },
+                    "max": {
+                        "wall_ms": 29037.3,
+                        "sql_count": 56869,
+                        "sql_time_ms": 17423.5,
+                        "peak_mb": 70.5
+                    }
+                },
+                "v2_mark_paid": {
+                    "iterations": [
+                        {
+                            "wall_ms": 27001.1,
+                            "sql_count": 50772,
+                            "sql_time_ms": 15572.12,
+                            "peak_mb": 70.5
+                        },
+                        {
+                            "wall_ms": 27651.5,
+                            "sql_count": 50770,
+                            "sql_time_ms": 15885.83,
+                            "peak_mb": 70.5
+                        },
+                        {
+                            "wall_ms": 27037.6,
+                            "sql_count": 50771,
+                            "sql_time_ms": 15457.99,
+                            "peak_mb": 70.5
+                        }
+                    ],
+                    "mean": {
+                        "wall_ms": 27230.1,
+                        "sql_count": 50771,
+                        "sql_time_ms": 15638.6,
+                        "peak_mb": 70.5
+                    },
+                    "min": {
+                        "wall_ms": 27001.1,
+                        "sql_count": 50770,
+                        "sql_time_ms": 15458,
+                        "peak_mb": 70.5
+                    },
+                    "max": {
+                        "wall_ms": 27651.5,
+                        "sql_count": 50772,
+                        "sql_time_ms": 15885.8,
+                        "peak_mb": 70.5
+                    }
+                },
+                "v2_structure_bonus": {
+                    "iterations": [
+                        {
+                            "wall_ms": 7,
+                            "sql_count": 16,
+                            "sql_time_ms": 5.45,
+                            "peak_mb": 70.5
+                        },
+                        {
+                            "wall_ms": 7.1,
+                            "sql_count": 16,
+                            "sql_time_ms": 5.54,
+                            "peak_mb": 70.5
+                        },
+                        {
+                            "wall_ms": 6.4,
+                            "sql_count": 16,
+                            "sql_time_ms": 4.83,
+                            "peak_mb": 70.5
+                        }
+                    ],
+                    "mean": {
+                        "wall_ms": 6.8,
+                        "sql_count": 16,
+                        "sql_time_ms": 5.3,
+                        "peak_mb": 70.5
+                    },
+                    "min": {
+                        "wall_ms": 6.4,
+                        "sql_count": 16,
+                        "sql_time_ms": 4.8,
+                        "peak_mb": 70.5
+                    },
+                    "max": {
+                        "wall_ms": 7.1,
+                        "sql_count": 16,
+                        "sql_time_ms": 5.5,
+                        "peak_mb": 70.5
+                    }
+                }
+            },
+            "v2": {
+                "status": "ok",
+                "reason": null
+            },
+            "consistency": {
+                "engine_total_cents": 34960637,
+                "earnings_total_cents": 34960637,
+                "ledger_expense_net_cents": 34960637,
+                "earnings_rows": 1038,
+                "members": 5000
+            },
+            "top_sql": [
+                {
+                    "sql": "insert into \"member_bonus_lines\" (\"recipient_member_id\", \"type\", \"amount\", \"basis\", \"source_event_id\", \"calculated_at\") values (?…) returning \"id\"",
+                    "count": 267558,
+                    "time_ms": 82361.8
+                },
+                {
+                    "sql": "update \"members\" set \"rank_id\" = ?, \"updated_at\" = ? where \"id\" = ?",
+                    "count": 30000,
+                    "time_ms": 9286.86
+                },
+                {
+                    "sql": "insert into \"member_earnings\" (\"member_id\", \"total\", \"by_type\", \"updated_at\") values (?…) returning \"id\"",
+                    "count": 6228,
+                    "time_ms": 1769.87
+                },
+                {
+                    "sql": "select * from \"member_wallets\" where \"member_id\" = ? limit {n} for update",
+                    "count": 2116,
+                    "time_ms": 617.7
+                },
+                {
+                    "sql": "insert into \"ledger_entries\" (\"account_type\", \"amount_cents\", \"created_at\", \"direction\", \"idempotency_key\", \"member_id\", \"meta\", \"source_id\", \"source_type\", \"tx_id\") values (?…)×N",
+                    "count": 1078,
+                    "time_ms": 390.7
+                },
+                {
+                    "sql": "insert into \"member_wallets\" (\"member_id\", \"available_cents\", \"held_cents\", \"clawback_debt_cents\", \"currency\", \"updated_at\") values (?…) on conflict do nothing",
+                    "count": 1038,
+                    "time_ms": 352.18
+                },
+                {
+                    "sql": "update \"member_wallets\" set \"available_cents\" = ? where \"id\" = ?",
+                    "count": 1037,
+                    "time_ms": 327.77
+                },
+                {
+                    "sql": "select exists(select * from \"ledger_entries\" where \"idempotency_key\" = ?) as \"exists\"",
+                    "count": 1078,
+                    "time_ms": 327.3
+                },
+                {
+                    "sql": "delete from \"member_bonus_lines\"",
+                    "count": 6,
+                    "time_ms": 49.07
+                },
+                {
+                    "sql": "select \"id\", \"name\", \"sponsor_id\", \"parent_id\", \"package_id\" from \"members\" order by \"id\" asc",
+                    "count": 9,
+                    "time_ms": 42.9
+                }
+            ]
+        },
+        {
+            "size": 20000,
+            "tree_checksum": "33710b48263dd5936d35fcc25486443c473c6073",
+            "phases": {
+                "v1_load": {
+                    "iterations": [
+                        {
+                            "wall_ms": 229.6,
+                            "sql_count": 1,
+                            "sql_time_ms": 12.57,
+                            "peak_mb": 146.5
+                        },
+                        {
+                            "wall_ms": 226.3,
+                            "sql_count": 1,
+                            "sql_time_ms": 21.83,
+                            "peak_mb": 158.5
+                        },
+                        {
+                            "wall_ms": 230.3,
+                            "sql_count": 1,
+                            "sql_time_ms": 21.68,
+                            "peak_mb": 158.5
+                        }
+                    ],
+                    "mean": {
+                        "wall_ms": 228.7,
+                        "sql_count": 1,
+                        "sql_time_ms": 18.7,
+                        "peak_mb": 154.5
+                    },
+                    "min": {
+                        "wall_ms": 226.3,
+                        "sql_count": 1,
+                        "sql_time_ms": 12.6,
+                        "peak_mb": 146.5
+                    },
+                    "max": {
+                        "wall_ms": 230.3,
+                        "sql_count": 1,
+                        "sql_time_ms": 21.8,
+                        "peak_mb": 158.5
+                    }
+                },
+                "v1_engine": {
+                    "iterations": [
+                        {
+                            "wall_ms": 115646.8,
+                            "sql_count": 0,
+                            "sql_time_ms": 0,
+                            "peak_mb": 152.5
+                        },
+                        {
+                            "wall_ms": 99025.4,
+                            "sql_count": 0,
+                            "sql_time_ms": 0,
+                            "peak_mb": 162.5
+                        },
+                        {
+                            "wall_ms": 109331.7,
+                            "sql_count": 0,
+                            "sql_time_ms": 0,
+                            "peak_mb": 164.5
+                        }
+                    ],
+                    "mean": {
+                        "wall_ms": 108001.3,
+                        "sql_count": 0,
+                        "sql_time_ms": 0,
+                        "peak_mb": 159.8
+                    },
+                    "min": {
+                        "wall_ms": 99025.4,
+                        "sql_count": 0,
+                        "sql_time_ms": 0,
+                        "peak_mb": 152.5
+                    },
+                    "max": {
+                        "wall_ms": 115646.8,
+                        "sql_count": 0,
+                        "sql_time_ms": 0,
+                        "peak_mb": 164.5
+                    }
+                },
+                "v1_activate": {
+                    "iterations": [
+                        {
+                            "wall_ms": 205638.2,
+                            "sql_count": 262421,
+                            "sql_time_ms": 78481.32,
+                            "peak_mb": 162.5
+                        },
+                        {
+                            "wall_ms": 198053.2,
+                            "sql_count": 240069,
+                            "sql_time_ms": 70456.75,
+                            "peak_mb": 164.5
+                        },
+                        {
+                            "wall_ms": 211236.2,
+                            "sql_count": 240069,
+                            "sql_time_ms": 74507.54,
+                            "peak_mb": 164.5
+                        }
+                    ],
+                    "mean": {
+                        "wall_ms": 204975.9,
+                        "sql_count": 247519.7,
+                        "sql_time_ms": 74481.9,
+                        "peak_mb": 163.8
+                    },
+                    "min": {
+                        "wall_ms": 198053.2,
+                        "sql_count": 240069,
+                        "sql_time_ms": 70456.8,
+                        "peak_mb": 162.5
+                    },
+                    "max": {
+                        "wall_ms": 211236.2,
+                        "sql_count": 262421,
+                        "sql_time_ms": 78481.3,
+                        "peak_mb": 164.5
+                    }
+                },
+                "v2_mark_paid": {
+                    "iterations": [
+                        {
+                            "wall_ms": 204495.8,
+                            "sql_count": 240192,
+                            "sql_time_ms": 73664.04,
+                            "peak_mb": 164.5
+                        },
+                        {
+                            "wall_ms": 206920.1,
+                            "sql_count": 240187,
+                            "sql_time_ms": 73025.95,
+                            "peak_mb": 164.5
+                        },
+                        {
+                            "wall_ms": 208093.4,
+                            "sql_count": 240187,
+                            "sql_time_ms": 73552.72,
+                            "peak_mb": 164.5
+                        }
+                    ],
+                    "mean": {
+                        "wall_ms": 206503.1,
+                        "sql_count": 240188.7,
+                        "sql_time_ms": 73414.2,
+                        "peak_mb": 164.5
+                    },
+                    "min": {
+                        "wall_ms": 204495.8,
+                        "sql_count": 240187,
+                        "sql_time_ms": 73026,
+                        "peak_mb": 164.5
+                    },
+                    "max": {
+                        "wall_ms": 208093.4,
+                        "sql_count": 240192,
+                        "sql_time_ms": 73664,
+                        "peak_mb": 164.5
+                    }
+                },
+                "v2_structure_bonus": {
+                    "iterations": [
+                        {
+                            "wall_ms": 7.1,
+                            "sql_count": 18,
+                            "sql_time_ms": 5.3,
+                            "peak_mb": 158.5
+                        },
+                        {
+                            "wall_ms": 9.2,
+                            "sql_count": 18,
+                            "sql_time_ms": 7.06,
+                            "peak_mb": 158.5
+                        },
+                        {
+                            "wall_ms": 6.4,
+                            "sql_count": 18,
+                            "sql_time_ms": 4.82,
+                            "peak_mb": 158.5
+                        }
+                    ],
+                    "mean": {
+                        "wall_ms": 7.6,
+                        "sql_count": 18,
+                        "sql_time_ms": 5.7,
+                        "peak_mb": 158.5
+                    },
+                    "min": {
+                        "wall_ms": 6.4,
+                        "sql_count": 18,
+                        "sql_time_ms": 4.8,
+                        "peak_mb": 158.5
+                    },
+                    "max": {
+                        "wall_ms": 9.2,
+                        "sql_count": 18,
+                        "sql_time_ms": 7.1,
+                        "peak_mb": 158.5
+                    }
+                }
+            },
+            "v2": {
+                "status": "ok",
+                "reason": null
+            },
+            "consistency": {
+                "engine_total_cents": 161078818,
+                "earnings_total_cents": 161078818,
+                "ledger_expense_net_cents": 161078818,
+                "earnings_rows": 3730,
+                "members": 20000
+            },
+            "top_sql": [
+                {
+                    "sql": "insert into \"member_bonus_lines\" (\"recipient_member_id\", \"type\", \"amount\", \"basis\", \"source_event_id\", \"calculated_at\") values (?…) returning \"id\"",
+                    "count": 1297800,
+                    "time_ms": 393926.66
+                },
+                {
+                    "sql": "update \"members\" set \"rank_id\" = ?, \"updated_at\" = ? where \"id\" = ?",
+                    "count": 120000,
+                    "time_ms": 35904.93
+                },
+                {
+                    "sql": "insert into \"member_earnings\" (\"member_id\", \"total\", \"by_type\", \"updated_at\") values (?…) returning \"id\"",
+                    "count": 22380,
+                    "time_ms": 6093.51
+                },
+                {
+                    "sql": "select * from \"member_wallets\" where \"member_id\" = ? limit {n} for update",
+                    "count": 7495,
+                    "time_ms": 2014.01
+                },
+                {
+                    "sql": "insert into \"ledger_entries\" (\"account_type\", \"amount_cents\", \"created_at\", \"direction\", \"idempotency_key\", \"member_id\", \"meta\", \"source_id\", \"source_type\", \"tx_id\") values (?…)×N",
+                    "count": 3765,
+                    "time_ms": 1265.67
+                },
+                {
+                    "sql": "insert into \"member_wallets\" (\"member_id\", \"available_cents\", \"held_cents\", \"clawback_debt_cents\", \"currency\", \"updated_at\") values (?…) on conflict do nothing",
+                    "count": 3730,
+                    "time_ms": 1171.37
+                },
+                {
+                    "sql": "update \"member_wallets\" set \"available_cents\" = ? where \"id\" = ?",
+                    "count": 3726,
+                    "time_ms": 1086.21
+                },
+                {
+                    "sql": "select exists(select * from \"ledger_entries\" where \"idempotency_key\" = ?) as \"exists\"",
+                    "count": 3765,
+                    "time_ms": 1056.62
+                },
+                {
+                    "sql": "delete from \"member_bonus_lines\"",
+                    "count": 6,
+                    "time_ms": 873.28
+                },
+                {
+                    "sql": "select \"id\", \"name\", \"sponsor_id\", \"parent_id\", \"package_id\" from \"members\" order by \"id\" asc",
+                    "count": 9,
+                    "time_ms": 169
+                }
+            ]
+        }
+    ]
+}
