@@ -148,6 +148,12 @@ class CalculatorServiceProvider extends ServiceProvider
             ExpireLeadsCommand::class,
             SchedulerHeartbeatCommand::class,
         ]);
+
+        // t3: перф-бенчмарк движка — dev/test-утилита, в prod-контейнере НЕ регистрируется
+        // (амендмент A-t3); в расписание не ставится.
+        if (! $this->app->environment('production')) {
+            $this->commands([\Modules\Calculator\Console\EngineBenchCommand::class]);
+        }
     }
 
     /**
